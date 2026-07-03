@@ -92,8 +92,8 @@ export default function Home() {
   const [isCapturing, setIsCapturing] = useState(false);
   const [captureText, setCaptureText] = useState("");
   const [captures, setCaptures] = useState<Capture[]>([]);
-  const [selectedSpaceIds, setSelectedSpaceIds] = useState<string[]>(["personal"]);
   const [activeSpace, setActiveSpace] = useState("personal");
+  const [selectedSpaceIds, setSelectedSpaceIds] = useState<string[]>(["personal"]);
 
   useEffect(() => {
     const saved = localStorage.getItem("sunshine-captures");
@@ -103,13 +103,26 @@ export default function Home() {
     }
   }, []);
 
+  useEffect(() => {
+    setSelectedSpaceIds([activeSpace]);
+  }, [activeSpace]);
+
+  const activeSpaceObject = useMemo(() => {
+    return defaultSpaces.find((space) => space.id === activeSpace) || defaultSpaces[0];
+  }, [activeSpace]);
+
   const selectedSpaces = useMemo(() => {
     return defaultSpaces.filter((space) => selectedSpaceIds.includes(space.id));
   }, [selectedSpaceIds]);
 
+  const filteredCaptures = useMemo(() => {
+    return captures.filter((capture) => capture.spaceIds?.includes(activeSpace));
+  }, [captures, activeSpace]);
+
   function toggleSpace(spaceId: string) {
     if (selectedSpaceIds.includes(spaceId)) {
-      setSelectedSpaceIds(selectedSpaceIds.filter((id) => id !== spaceId));
+      const updatedSpaces = selectedSpaceIds.filter((id) => id !== spaceId);
+      setSelectedSpaceIds(updatedSpaces.length > 0 ? updatedSpaces : [activeSpace]);
       return;
     }
 
@@ -125,7 +138,7 @@ export default function Home() {
       id: Date.now(),
       text: captureText.trim(),
       createdAt: new Date().toLocaleString(),
-      spaceIds: selectedSpaceIds.length > 0 ? selectedSpaceIds : ["personal"],
+      spaceIds: selectedSpaceIds.length > 0 ? selectedSpaceIds : [activeSpace],
       ...meaning,
     };
 
@@ -135,7 +148,7 @@ export default function Home() {
     localStorage.setItem("sunshine-captures", JSON.stringify(updatedCaptures));
 
     setCaptureText("");
-    setSelectedSpaceIds(["personal"]);
+    setSelectedSpaceIds([activeSpace]);
     setIsCapturing(false);
   }
 
@@ -147,81 +160,83 @@ export default function Home() {
     <main className="min-h-screen bg-yellow-50 flex flex-col items-center p-8">
       <div className="w-full max-w-2xl">
         <section className="mt-10 mb-8">
+          <h1 className="text-5xl font-bold text-center mb-8">
+            🌞 Sunshine
+          </h1>
 
-  <h1 className="text-5xl font-bold text-center mb-8">
-    🌞 Sunshine
-  </h1>
+          <div className="flex items-center justify-between gap-6">
+            <div>
+              <h2 className="text-3xl font-semibold">
+                Good Morning, Bob
+              </h2>
 
-  <div className="flex items-center justify-between">
+              <p className="text-gray-500 mt-1">
+                Friday, July 3, 2026
+              </p>
+            </div>
 
-    <div>
-      <h2 className="text-3xl font-semibold">
-        Good Morning, Bob
-      </h2>
+            {!isCapturing && (
+              <button
+                onClick={() => setIsCapturing(true)}
+                className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-4 px-8 rounded-2xl shadow-lg text-xl whitespace-nowrap"
+              >
+                + Capture
+              </button>
+            )}
+          </div>
+        </section>
 
-      <p className="text-gray-500 mt-1">
-        Friday, July 3, 2026
-      </p>
-    </div>
+        <section className="bg-white rounded-2xl shadow p-6 text-left mb-8">
+          <p className="italic text-lg mb-6">
+            "Good morning, Sunshine."
+          </p>
 
-    {!isCapturing && (
-      <button
-        onClick={() => setIsCapturing(true)}
-        className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-4 px-8 rounded-2xl shadow-lg text-xl"
-      >
-        + Capture
-      </button>
-    )}
+          <h3 className="font-bold text-xl mb-2">🎯 Today's Focus</h3>
+          <ul className="list-disc ml-6 mb-6">
+            <li>Build Sunshine Alpha</li>
+            <li>Create Shared Spaces</li>
+            <li>Test Capture and Vault</li>
+            <li>Continue ADG Scotland Landing Page</li>
+            <li>Evaluate Atlas opportunities</li>
+          </ul>
 
-  </div>
+          <h3 className="font-bold text-xl mb-2">🌟 Yesterday's Win</h3>
+          <p className="mb-6">
+            Sunshine moved from idea mode into real working software.
+          </p>
 
-</section>
-
-  <div className="bg-white rounded-2xl shadow p-6 text-left mb-8">
-    <p className="italic text-lg mb-6">
-      "Good morning, Sunshine."
-    </p>
-
-    <h3 className="font-bold text-xl mb-2">🎯 Today's Focus</h3>
-    <ul className="list-disc ml-6 mb-6">
-      <li>Build Sunshine Alpha</li>
-      <li>Create Shared Spaces</li>
-      <li>Test Capture and Vault</li>
-      <li>Continue ADG Scotland Landing Page</li>
-      <li>Evaluate Atlas opportunities</li>
-    </ul>
-
-    <h3 className="font-bold text-xl mb-2">🌟 Yesterday's Win</h3>
-    <p className="mb-6">
-      Sunshine moved from idea mode into real working software.
-    </p>
-
-    <h3 className="font-bold text-xl mb-2">💡 AI Insight</h3>
-    <p>
-      Shared Spaces may become Sunshine's biggest differentiator:
-      not just shared files, but shared understanding.
-    </p>
-  </div>
-
-
-
-        <section className="mt-10 bg-white rounded-2xl shadow p-5">
+          <h3 className="font-bold text-xl mb-2">💡 AI Insight</h3>
+          <p>
+            Shared Spaces may become Sunshine's biggest differentiator:
+            not just shared files, but shared understanding.
+          </p>
+        </section>
+             <section className="mt-10 bg-white rounded-2xl shadow p-5">
           <h2 className="text-2xl font-semibold mb-4">Spaces</h2>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {defaultSpaces.map((space) => (
-              <div
+              <button
                 key={space.id}
-                className={`${space.color} rounded-xl p-3 text-center shadow-sm`}
+                onClick={() => setActiveSpace(space.id)}
+                className={`${space.color} rounded-xl p-3 text-center transition-all ${
+                  activeSpace === space.id
+                    ? "ring-4 ring-yellow-400 scale-105 shadow-xl"
+                    : "shadow-sm hover:shadow-md"
+                }`}
               >
                 <div className="text-2xl">{space.icon}</div>
                 <div className="font-semibold">{space.name}</div>
                 {space.isShared && (
                   <div className="text-xs mt-1 text-gray-600">Shared</div>
                 )}
-              </div>
+              </button>
             ))}
           </div>
+
+          <p className="text-sm text-gray-500 mt-4">
+            Active Space: {activeSpaceObject.icon} {activeSpaceObject.name}
+          </p>
         </section>
 
         {isCapturing && (
@@ -234,7 +249,7 @@ export default function Home() {
               value={captureText}
               onChange={(event) => setCaptureText(event.target.value)}
               className="w-full border border-gray-300 rounded-xl p-4 min-h-32 text-lg"
-              placeholder="I made progress on Sunshine today."
+              placeholder={`Capture into ${activeSpaceObject.name}...`}
               autoFocus
             />
 
@@ -283,7 +298,7 @@ export default function Home() {
                 onClick={() => {
                   setIsCapturing(false);
                   setCaptureText("");
-                  setSelectedSpaceIds(["personal"]);
+                  setSelectedSpaceIds([activeSpace]);
                 }}
                 className="bg-gray-200 hover:bg-gray-300 text-black font-bold py-3 px-6 rounded-xl"
               >
@@ -294,13 +309,15 @@ export default function Home() {
         )}
 
         <section className="mt-12 text-center w-full">
-          <h2 className="text-2xl font-semibold mb-2">Your Vault</h2>
+          <h2 className="text-2xl font-semibold mb-2">
+            {activeSpaceObject.icon} {activeSpaceObject.name} Vault
+          </h2>
 
-          {captures.length === 0 ? (
-            <p className="text-gray-600">No captures yet.</p>
+          {filteredCaptures.length === 0 ? (
+            <p className="text-gray-600">No captures in this Space yet.</p>
           ) : (
             <div className="space-y-3 mt-4">
-              {captures.map((capture) => (
+              {filteredCaptures.map((capture) => (
                 <div
                   key={capture.id}
                   className="bg-white rounded-xl shadow p-4 text-left"
@@ -348,4 +365,4 @@ export default function Home() {
       </div>
     </main>
   );
-}
+}   
