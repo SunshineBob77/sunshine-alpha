@@ -212,7 +212,18 @@ export default function Home() {
           </p>
         </section>
              <section className="mt-10 bg-white rounded-2xl shadow p-5">
-          <h2 className="text-2xl font-semibold mb-4">Spaces</h2>
+          <div className="flex items-center justify-between mb-4">
+  <h2 className="text-2xl font-semibold">Spaces</h2>
+
+  {!isCapturing && (
+    <button
+      onClick={() => setIsCapturing(true)}
+      className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-3 px-5 rounded-xl shadow"
+    >
+      + Capture in {activeSpaceObject.name}
+    </button>
+  )}
+</div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {defaultSpaces.map((space) => (
