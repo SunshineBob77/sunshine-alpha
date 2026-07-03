@@ -6,7 +6,67 @@ type Capture = {
   id: number;
   text: string;
   createdAt: string;
+  category: string;
+  project: string;
+  tags: string[];
+  mood: string;
+  sunshineSummary: string;
 };
+
+function analyzeCapture(text: string) {
+  const lowerText = text.toLowerCase();
+
+  let category = "Memory";
+  let project = "General";
+  let mood = "Neutral";
+  let tags: string[] = [];
+  let sunshineSummary = "Captured a personal note.";
+
+  if (
+    lowerText.includes("software") ||
+    lowerText.includes("code") ||
+    lowerText.includes("coding") ||
+    lowerText.includes("sunshine")
+  ) {
+    category = "Achievement";
+    project = "Sunshine";
+    mood = "Positive";
+    tags = ["software", "coding", "progress"];
+    sunshineSummary = "You made progress building Sunshine today. ☀️";
+  }
+
+  if (
+    lowerText.includes("uber") ||
+    lowerText.includes("driving") ||
+    lowerText.includes("ride")
+  ) {
+    category = "Work";
+    project = "Uber";
+    mood = "Neutral";
+    tags = ["work", "driving"];
+    sunshineSummary = "You captured something related to driving work.";
+  }
+
+  if (
+    lowerText.includes("remind") ||
+    lowerText.includes("remember") ||
+    lowerText.includes("todo")
+  ) {
+    category = "Task";
+    project = "General";
+    mood = "Neutral";
+    tags = ["task", "reminder"];
+    sunshineSummary = "This sounds like something to remember or act on.";
+  }
+
+  return {
+    category,
+    project,
+    tags,
+    mood,
+    sunshineSummary,
+  };
+}
 
 export default function Home() {
   const [isCapturing, setIsCapturing] = useState(false);
@@ -15,6 +75,7 @@ export default function Home() {
 
   useEffect(() => {
     const saved = localStorage.getItem("sunshine-captures");
+
     if (saved) {
       setCaptures(JSON.parse(saved));
     }
@@ -23,10 +84,13 @@ export default function Home() {
   function saveCapture() {
     if (!captureText.trim()) return;
 
+    const meaning = analyzeCapture(captureText);
+
     const newCapture: Capture = {
       id: Date.now(),
       text: captureText.trim(),
       createdAt: new Date().toLocaleString(),
+      ...meaning,
     };
 
     const updatedCaptures = [newCapture, ...captures];
@@ -61,7 +125,7 @@ export default function Home() {
             value={captureText}
             onChange={(event) => setCaptureText(event.target.value)}
             className="w-full border border-gray-300 rounded-xl p-4 min-h-32 text-lg"
-            placeholder="I made $75 driving today."
+            placeholder="I made some software today."
             autoFocus
           />
 
@@ -99,7 +163,26 @@ export default function Home() {
                 className="bg-white rounded-xl shadow p-4 text-left"
               >
                 <p className="text-lg">{capture.text}</p>
-                <p className="text-sm text-gray-500 mt-2">
+
+                <p className="text-sm text-yellow-700 font-semibold mt-3">
+                  {capture.sunshineSummary}
+                </p>
+
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <span className="text-xs bg-yellow-100 px-2 py-1 rounded-full">
+                    {capture.category}
+                  </span>
+
+                  <span className="text-xs bg-blue-100 px-2 py-1 rounded-full">
+                    {capture.project}
+                  </span>
+
+                  <span className="text-xs bg-green-100 px-2 py-1 rounded-full">
+                    {capture.mood}
+                  </span>
+                </div>
+
+                <p className="text-sm text-gray-500 mt-3">
                   {capture.createdAt}
                 </p>
               </div>
