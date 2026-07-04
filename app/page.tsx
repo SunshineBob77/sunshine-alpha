@@ -33,6 +33,46 @@ const defaultSpaces: Space[] = [
   { id: "shared", name: "Shared Space", icon: "👥", color: "bg-pink-100", isShared: true },
 ];
 
+const stoicQuotes = [
+  { text: "You have power over your mind - not outside events. Realize this, and you will find strength.", author: "Marcus Aurelius" },
+  { text: "Waste no more time arguing about what a good man should be. Be one.", author: "Marcus Aurelius" },
+  { text: "The happiness of your life depends upon the quality of your thoughts.", author: "Marcus Aurelius" },
+  { text: "It is not death that a man should fear, but he should fear never beginning to live.", author: "Marcus Aurelius" },
+  { text: "If it is not right, do not do it; if it is not true, do not say it.", author: "Marcus Aurelius" },
+  { text: "We suffer more often in imagination than in reality.", author: "Seneca" },
+  { text: "Difficulties strengthen the mind, as labor does the body.", author: "Seneca" },
+  { text: "Luck is what happens when preparation meets opportunity.", author: "Seneca" },
+  { text: "It is not that we have a short time to live, but that we waste a lot of it.", author: "Seneca" },
+  { text: "He who is brave is free.", author: "Seneca" },
+  { text: "First say to yourself what you would be; and then do what you have to do.", author: "Epictetus" },
+  { text: "It's not what happens to you, but how you react to it that matters.", author: "Epictetus" },
+  { text: "No man is free who is not master of himself.", author: "Epictetus" },
+  { text: "Only the educated are free.", author: "Epictetus" },
+  { text: "Wealth consists not in having great possessions, but in having few wants.", author: "Epictetus" },
+  { text: "The obstacle is the way.", author: "Marcus Aurelius" },
+  { text: "How much more grievous are the consequences of anger than the causes of it.", author: "Marcus Aurelius" },
+  { text: "The best revenge is to be unlike him who performed the injury.", author: "Marcus Aurelius" },
+  { text: "Man conquers the world by conquering himself.", author: "Zeno of Citium" },
+  { text: "Well-being is realized by small steps, but is truly no small thing.", author: "Zeno of Citium" },
+  { text: "He suffers more than necessary, who suffers before it is necessary.", author: "Seneca" },
+  { text: "Begin at once to live, and count each separate day as a separate life.", author: "Seneca" },
+  { text: "Every new beginning comes from some other beginning's end.", author: "Seneca" },
+  { text: "Circumstances don't make the man, they only reveal him to himself.", author: "Epictetus" },
+];
+
+function getDayOfYear(date: Date) {
+  const start = new Date(date.getFullYear(), 0, 0);
+  const diff = date.getTime() - start.getTime();
+  return Math.floor(diff / 86400000);
+}
+
+function getGreeting(date: Date) {
+  const hour = date.getHours();
+  if (hour < 12) return "Good Morning";
+  if (hour < 18) return "Good Afternoon";
+  return "Good Evening";
+}
+
 function analyzeCapture(text: string) {
   const lowerText = text.toLowerCase();
 
@@ -94,6 +134,7 @@ export default function Home() {
   const [captures, setCaptures] = useState<Capture[]>([]);
   const [activeSpace, setActiveSpace] = useState("personal");
   const [selectedSpaceIds, setSelectedSpaceIds] = useState<string[]>(["personal"]);
+  const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("sunshine-captures");
@@ -102,6 +143,17 @@ export default function Home() {
       setCaptures(JSON.parse(saved));
     }
   }, []);
+
+  useEffect(() => {
+    setNow(new Date());
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const quoteOfTheDay = useMemo(() => {
+    const dayOfYear = now ? getDayOfYear(now) : 0;
+    return stoicQuotes[dayOfYear % stoicQuotes.length];
+  }, [now]);
 
   useEffect(() => {
     setSelectedSpaceIds([activeSpace]);
@@ -167,11 +219,20 @@ export default function Home() {
           <div className="flex items-center justify-between gap-6">
             <div>
               <h2 className="text-3xl font-semibold">
-                Good Morning, Bob
+                {now ? getGreeting(now) : "Good Morning"}, Bob
               </h2>
 
               <p className="text-gray-500 mt-1">
-                Friday, July 3, 2026
+                {now
+                  ? now.toLocaleDateString(undefined, {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })
+                  : ""}
+                {now && " · "}
+                {now ? now.toLocaleTimeString() : ""}
               </p>
             </div>
 
@@ -188,7 +249,7 @@ export default function Home() {
 
         <section className="bg-white rounded-2xl shadow p-6 text-left mb-8">
           <p className="italic text-lg mb-6">
-            "Good morning, Sunshine."
+            "{quoteOfTheDay.text}" <span className="not-italic text-gray-500">- {quoteOfTheDay.author}</span>
           </p>
 
           <h3 className="font-bold text-xl mb-2">🎯 Today's Focus</h3>
