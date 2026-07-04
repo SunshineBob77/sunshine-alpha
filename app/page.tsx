@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import WeatherWidget from "./components/WeatherWidget";
 
 type Space = {
   id: string;
@@ -71,6 +72,27 @@ function getGreeting(date: Date) {
   if (hour < 12) return "Good Morning";
   if (hour < 18) return "Good Afternoon";
   return "Good Evening";
+}
+
+function SectionHeading({
+  icon,
+  tone,
+  children,
+}: {
+  icon: string;
+  tone: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-3 mb-3">
+      <span
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base ${tone}`}
+      >
+        {icon}
+      </span>
+      <h3 className="font-semibold text-lg text-gray-900">{children}</h3>
+    </div>
+  );
 }
 
 function analyzeCapture(text: string) {
@@ -209,20 +231,20 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-yellow-50 flex flex-col items-center p-8">
+    <main className="min-h-screen bg-gradient-to-b from-amber-50 via-orange-50/50 to-white flex flex-col items-center p-8">
       <div className="w-full max-w-2xl">
         <section className="mt-10 mb-8">
-          <h1 className="text-5xl font-bold text-center mb-8">
-            🌞 Sunshine
+          <h1 className="text-5xl font-bold text-center mb-8 tracking-tight text-gray-900">
+            <span className="mr-2">🌞</span>Sunshine
           </h1>
 
-          <div className="flex items-center justify-between gap-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 bg-white/70 backdrop-blur rounded-3xl ring-1 ring-black/5 shadow-sm p-6">
             <div>
-              <h2 className="text-3xl font-semibold">
+              <h2 className="text-3xl font-semibold text-gray-900">
                 {now ? getGreeting(now) : "Good Morning"}, Bob
               </h2>
 
-              <p className="text-gray-500 mt-1">
+              <p className="text-gray-500 mt-1 text-sm">
                 {now
                   ? now.toLocaleDateString(undefined, {
                       weekday: "long",
@@ -239,21 +261,28 @@ export default function Home() {
             {!isCapturing && (
               <button
                 onClick={() => setIsCapturing(true)}
-                className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-4 px-8 rounded-2xl shadow-lg text-xl whitespace-nowrap"
+                className="bg-gradient-to-r from-amber-400 to-orange-300 hover:from-amber-500 hover:to-orange-400 text-gray-900 font-bold py-4 px-8 rounded-2xl shadow-md shadow-amber-200/60 text-xl whitespace-nowrap transition-all"
               >
                 + Capture
               </button>
             )}
           </div>
+
+          <div className="mt-4">
+            <WeatherWidget />
+          </div>
         </section>
 
-        <section className="bg-white rounded-2xl shadow p-6 text-left mb-8">
-          <p className="italic text-lg mb-6">
-            "{quoteOfTheDay.text}" <span className="not-italic text-gray-500">- {quoteOfTheDay.author}</span>
+        <section className="bg-white rounded-3xl ring-1 ring-black/5 shadow-sm p-7 text-left mb-8">
+          <p className="italic text-lg mb-6 text-gray-800">
+            "{quoteOfTheDay.text}"{" "}
+            <span className="not-italic text-gray-500 text-base">- {quoteOfTheDay.author}</span>
           </p>
 
-          <h3 className="font-bold text-xl mb-2">🎯 Today's Focus</h3>
-          <ul className="list-disc ml-6 mb-6">
+          <SectionHeading icon="🎯" tone="bg-amber-100">
+            Today's Focus
+          </SectionHeading>
+          <ul className="list-disc ml-6 mb-7 text-gray-700 space-y-1">
             <li>Build Sunshine Alpha</li>
             <li>Create Shared Spaces</li>
             <li>Test Capture and Vault</li>
@@ -261,44 +290,49 @@ export default function Home() {
             <li>Evaluate Atlas opportunities</li>
           </ul>
 
-          <h3 className="font-bold text-xl mb-2">🌟 Yesterday's Win</h3>
-          <p className="mb-6">
+          <SectionHeading icon="🌟" tone="bg-emerald-100">
+            Yesterday's Win
+          </SectionHeading>
+          <p className="mb-7 text-gray-700">
             Sunshine moved from idea mode into real working software.
           </p>
 
-          <h3 className="font-bold text-xl mb-2">💡 AI Insight</h3>
-          <p>
+          <SectionHeading icon="💡" tone="bg-sky-100">
+            AI Insight
+          </SectionHeading>
+          <p className="text-gray-700">
             Shared Spaces may become Sunshine's biggest differentiator:
             not just shared files, but shared understanding.
           </p>
         </section>
-             <section className="mt-10 bg-white rounded-2xl shadow p-5">
-          <div className="flex items-center justify-between mb-4">
-  <h2 className="text-2xl font-semibold">Spaces</h2>
 
-  {!isCapturing && (
-    <button
-      onClick={() => setIsCapturing(true)}
-      className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-3 px-5 rounded-xl shadow"
-    >
-      + Capture in {activeSpaceObject.name}
-    </button>
-  )}
-</div>
+        <section className="mt-10 bg-white rounded-3xl ring-1 ring-black/5 shadow-sm p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <h2 className="text-2xl font-semibold text-gray-900">Spaces</h2>
+
+            {!isCapturing && (
+              <button
+                onClick={() => setIsCapturing(true)}
+                className="self-start sm:self-auto bg-gradient-to-r from-amber-400 to-orange-300 hover:from-amber-500 hover:to-orange-400 text-gray-900 font-bold py-3 px-5 rounded-xl shadow-sm transition-all"
+              >
+                + Capture in {activeSpaceObject.name}
+              </button>
+            )}
+          </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {defaultSpaces.map((space) => (
               <button
                 key={space.id}
                 onClick={() => setActiveSpace(space.id)}
-                className={`${space.color} rounded-xl p-3 text-center transition-all ${
+                className={`${space.color} rounded-2xl p-3 text-center ring-1 ring-black/5 transition-all ${
                   activeSpace === space.id
-                    ? "ring-4 ring-yellow-400 scale-105 shadow-xl"
-                    : "shadow-sm hover:shadow-md"
+                    ? "ring-2 ring-amber-400 scale-[1.03] shadow-md"
+                    : "shadow-sm hover:shadow-md hover:scale-[1.01]"
                 }`}
               >
                 <div className="text-2xl">{space.icon}</div>
-                <div className="font-semibold">{space.name}</div>
+                <div className="font-semibold text-gray-900">{space.name}</div>
                 {space.isShared && (
                   <div className="text-xs mt-1 text-gray-600">Shared</div>
                 )}
@@ -312,21 +346,21 @@ export default function Home() {
         </section>
 
         {isCapturing && (
-          <section className="mt-8 bg-white p-6 rounded-2xl shadow-lg">
-            <label className="block text-lg font-semibold mb-3">
+          <section className="mt-8 bg-white p-6 rounded-3xl ring-1 ring-black/5 shadow-lg">
+            <label className="block text-lg font-semibold mb-3 text-gray-900">
               What would you like to capture?
             </label>
 
             <textarea
               value={captureText}
               onChange={(event) => setCaptureText(event.target.value)}
-              className="w-full border border-gray-300 rounded-xl p-4 min-h-32 text-lg"
+              className="w-full border border-gray-300 rounded-xl p-4 min-h-32 text-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
               placeholder={`Capture into ${activeSpaceObject.name}...`}
               autoFocus
             />
 
             <div className="mt-5">
-              <h3 className="font-semibold mb-3">Choose Spaces</h3>
+              <h3 className="font-semibold mb-3 text-gray-900">Choose Spaces</h3>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {defaultSpaces.map((space) => {
@@ -336,14 +370,14 @@ export default function Home() {
                     <button
                       key={space.id}
                       onClick={() => toggleSpace(space.id)}
-                      className={`rounded-xl p-3 text-center border-2 ${
+                      className={`rounded-2xl p-3 text-center border-2 transition-all ${
                         isSelected
-                          ? "border-yellow-500 bg-yellow-100"
-                          : "border-gray-200 bg-gray-50"
+                          ? "border-amber-400 bg-amber-50 shadow-sm"
+                          : "border-gray-200 bg-gray-50 hover:bg-gray-100"
                       }`}
                     >
                       <div className="text-2xl">{space.icon}</div>
-                      <div className="font-semibold">{space.name}</div>
+                      <div className="font-semibold text-gray-900">{space.name}</div>
                       {space.isShared && (
                         <div className="text-xs mt-1 text-gray-600">Shared</div>
                       )}
@@ -361,7 +395,7 @@ export default function Home() {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={saveCapture}
-                className="bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-3 px-6 rounded-xl"
+                className="bg-gradient-to-r from-amber-400 to-orange-300 hover:from-amber-500 hover:to-orange-400 text-gray-900 font-bold py-3 px-6 rounded-xl shadow-sm transition-all"
               >
                 Save
               </button>
@@ -372,7 +406,7 @@ export default function Home() {
                   setCaptureText("");
                   setSelectedSpaceIds([activeSpace]);
                 }}
-                className="bg-gray-200 hover:bg-gray-300 text-black font-bold py-3 px-6 rounded-xl"
+                className="bg-gray-100 hover:bg-gray-200 text-gray-900 font-bold py-3 px-6 rounded-xl transition-all"
               >
                 Cancel
               </button>
@@ -381,22 +415,22 @@ export default function Home() {
         )}
 
         <section className="mt-12 text-center w-full">
-          <h2 className="text-2xl font-semibold mb-2">
+          <h2 className="text-2xl font-semibold mb-2 text-gray-900">
             {activeSpaceObject.icon} {activeSpaceObject.name} Vault
           </h2>
 
           {filteredCaptures.length === 0 ? (
-            <p className="text-gray-600">No captures in this Space yet.</p>
+            <p className="text-gray-500">No captures in this Space yet.</p>
           ) : (
             <div className="space-y-3 mt-4">
               {filteredCaptures.map((capture) => (
                 <div
                   key={capture.id}
-                  className="bg-white rounded-xl shadow p-4 text-left"
+                  className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-5 text-left"
                 >
-                  <p className="text-lg">{capture.text}</p>
+                  <p className="text-lg text-gray-900">{capture.text}</p>
 
-                  <p className="text-sm text-yellow-700 font-semibold mt-3">
+                  <p className="text-sm text-amber-700 font-semibold mt-3">
                     {capture.sunshineSummary}
                   </p>
 
@@ -413,7 +447,7 @@ export default function Home() {
                   </div>
 
                   <div className="flex flex-wrap gap-2 mt-3">
-                    <span className="text-xs bg-yellow-100 px-2 py-1 rounded-full">
+                    <span className="text-xs bg-amber-100 px-2 py-1 rounded-full">
                       {capture.category}
                     </span>
 
