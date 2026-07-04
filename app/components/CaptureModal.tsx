@@ -131,22 +131,29 @@ export default function CaptureModal({
         />
 
         <div className="mt-3 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={toggleRecording}
-            disabled={!voiceSupported}
-            title={voiceSupported ? undefined : "Voice input isn't supported in this browser"}
-            className={`flex items-center gap-2 py-2 px-4 rounded-xl font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
-              isRecording
-                ? "bg-red-500 text-white shadow-md ring-4 ring-red-200 animate-pulse"
-                : "bg-gray-100 text-gray-900 hover:bg-gray-200"
-            }`}
-          >
-            {isRecording ? "⏹️ Stop" : "🎤 Speak"}
-          </button>
+          {voiceSupported ? (
+            <>
+              <button
+                type="button"
+                onClick={toggleRecording}
+                className={`flex items-center gap-2 py-2 px-4 rounded-xl font-semibold transition-all ${
+                  isRecording
+                    ? "bg-red-500 text-white shadow-md ring-4 ring-red-200 animate-pulse"
+                    : "bg-gray-100 text-gray-900 hover:bg-gray-200"
+                }`}
+              >
+                {isRecording ? "⏹️ Stop" : "🎤 Speak"}
+              </button>
 
-          {isRecording && <span className="text-sm text-gray-500">Listening…</span>}
-          {voiceError && <span className="text-sm text-red-600">{voiceError}</span>}
+              {isRecording && <span className="text-sm text-gray-500">Listening…</span>}
+              {voiceError && <span className="text-sm text-red-600">{voiceError}</span>}
+            </>
+          ) : (
+            <p className="text-sm text-gray-500">
+              🎤 This browser doesn't support in-app voice capture — tap the microphone on your
+              keyboard to dictate instead.
+            </p>
+          )}
         </div>
 
         <div className="mt-5">
