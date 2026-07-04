@@ -7,10 +7,10 @@ function isSameDay(a: Date, b: Date) {
   return a.toDateString() === b.toDateString();
 }
 
-function buildTrailingWeek(today: Date) {
-  return Array.from({ length: 7 }, (_, i) => {
+function buildUpcomingTwoWeeks(today: Date) {
+  return Array.from({ length: 14 }, (_, i) => {
     const day = new Date(today);
-    day.setDate(today.getDate() - (6 - i));
+    day.setDate(today.getDate() + i);
     return day;
   });
 }
@@ -18,7 +18,7 @@ function buildTrailingWeek(today: Date) {
 export default function WeekStrip({ captures }: { captures: Capture[] }) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const today = new Date();
-  const days = buildTrailingWeek(today);
+  const days = buildUpcomingTwoWeeks(today);
 
   function capturesForDay(day: Date) {
     return captures.filter((capture) => isSameDay(new Date(capture.createdAt), day));
@@ -28,7 +28,10 @@ export default function WeekStrip({ captures }: { captures: Capture[] }) {
 
   return (
     <div className="bg-white rounded-3xl ring-1 ring-black/5 shadow-sm p-4">
-      <div className="flex justify-between gap-1">
+      <div
+        className="flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden"
+        style={{ scrollbarWidth: "none" }}
+      >
         {days.map((day) => {
           const dayCaptures = capturesForDay(day);
           const isToday = isSameDay(day, today);
@@ -39,7 +42,7 @@ export default function WeekStrip({ captures }: { captures: Capture[] }) {
             <button
               key={day.toISOString()}
               onClick={() => setSelectedDate(isSelected ? null : day)}
-              className={`flex-1 flex flex-col items-center py-2 rounded-2xl transition-all ${
+              className={`w-14 shrink-0 flex flex-col items-center py-2 rounded-2xl transition-all ${
                 isToday
                   ? "bg-amber-400 text-gray-900 shadow-md"
                   : isSelected
