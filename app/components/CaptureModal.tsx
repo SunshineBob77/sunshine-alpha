@@ -1,17 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Space } from "../lib/spaces";
 
 type CaptureModalProps = {
   open: boolean;
   captureText: string;
   onCaptureTextChange: (text: string) => void;
-  spaces: Space[];
-  activeSpaceName: string;
-  selectedSpaceIds: string[];
-  onToggleSpace: (spaceId: string) => void;
-  selectedSpacesLabel: string;
   error: string | null;
   saving: boolean;
   onSave: () => void;
@@ -22,11 +16,6 @@ export default function CaptureModal({
   open,
   captureText,
   onCaptureTextChange,
-  spaces,
-  activeSpaceName,
-  selectedSpaceIds,
-  onToggleSpace,
-  selectedSpacesLabel,
   error,
   saving,
   onSave,
@@ -126,7 +115,7 @@ export default function CaptureModal({
           value={captureText}
           onChange={(event) => onCaptureTextChange(event.target.value)}
           className="w-full border border-gray-300 rounded-xl p-4 min-h-32 text-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-          placeholder={`Capture into ${activeSpaceName}...`}
+          placeholder="What's on your mind?"
           autoFocus
         />
 
@@ -154,36 +143,6 @@ export default function CaptureModal({
               keyboard to dictate instead.
             </p>
           )}
-        </div>
-
-        <div className="mt-5">
-          <h3 className="font-semibold mb-3 text-gray-900">Choose Spaces</h3>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {spaces.map((space) => {
-              const isSelected = selectedSpaceIds.includes(space.id);
-
-              return (
-                <button
-                  key={space.id}
-                  onClick={() => onToggleSpace(space.id)}
-                  className={`rounded-2xl p-3 text-center border-2 transition-all ${
-                    isSelected
-                      ? "border-amber-400 bg-amber-50 shadow-sm"
-                      : "border-gray-200 bg-gray-50 hover:bg-gray-100"
-                  }`}
-                >
-                  <div className="text-2xl">{space.icon}</div>
-                  <div className="font-semibold text-gray-900">{space.name}</div>
-                  {space.isShared && (
-                    <div className="text-xs mt-1 text-gray-600">Shared</div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          <p className="text-sm text-gray-500 mt-3">Selected: {selectedSpacesLabel}</p>
         </div>
 
         {error && <p className="text-sm text-red-600 mt-4">{error}</p>}
