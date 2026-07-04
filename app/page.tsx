@@ -4,38 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import WeatherWidget from "./components/WeatherWidget";
 import AuthForm from "./components/AuthForm";
+import CaptureModal from "./components/CaptureModal";
 import { supabase } from "./lib/supabaseClient";
-
-type Space = {
-  id: string;
-  name: string;
-  icon: string;
-  color: string;
-  isShared: boolean;
-};
-
-type Capture = {
-  id: number;
-  text: string;
-  createdAt: string;
-  category: string;
-  project: string;
-  tags: string[];
-  mood: string;
-  sunshineSummary: string;
-  spaceIds: string[];
-};
-
-const defaultSpaces: Space[] = [
-  { id: "personal", name: "Personal", icon: "🏠", color: "bg-yellow-100", isShared: false },
-  { id: "work", name: "Work", icon: "💼", color: "bg-blue-100", isShared: false },
-  { id: "health", name: "Health", icon: "❤️", color: "bg-red-100", isShared: false },
-  { id: "family", name: "Family", icon: "👨‍👩‍👧", color: "bg-green-100", isShared: false },
-  { id: "finance", name: "Finance", icon: "💰", color: "bg-emerald-100", isShared: false },
-  { id: "ideas", name: "Ideas", icon: "💡", color: "bg-purple-100", isShared: false },
-  { id: "travel", name: "Travel", icon: "✈️", color: "bg-sky-100", isShared: false },
-  { id: "shared", name: "Shared Space", icon: "👥", color: "bg-pink-100", isShared: true },
-];
+import { defaultSpaces } from "./lib/spaces";
+import { fetchCaptures, insertCapture, type Capture } from "./lib/captures";
 
 const stoicQuotes = [
   { text: "You have power over your mind - not outside events. Realize this, and you will find strength.", author: "Marcus Aurelius" },
@@ -162,6 +134,9 @@ export default function Home() {
   const [now, setNow] = useState<Date | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [capturesLoading, setCapturesLoading] = useState(true);
+  const [captureError, setCaptureError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -180,12 +155,28 @@ export default function Home() {
     user?.user_metadata?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "there";
 
   useEffect(() => {
-    const saved = localStorage.getItem("sunshine-captures");
+    if (!user) return;
 
-    if (saved) {
-      setCaptures(JSON.parse(saved));
-    }
-  }, []);
+    let cancelled = false;
+    setCaptures([]);
+    setCapturesLoading(true);
+
+    fetchCaptures()
+      .then((data) => {
+        if (!cancelled) setCaptures(data);
+      })
+      .catch((error) => {
+        console.error(error);
+        if (!cancelled) setCaptureError("Couldn't load your captures. Try refreshing.");
+      })
+      .finally(() => {
+        if (!cancelled) setCapturesLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   useEffect(() => {
     setNow(new Date());
@@ -224,27 +215,32 @@ export default function Home() {
     setSelectedSpaceIds([...selectedSpaceIds, spaceId]);
   }
 
-  function saveCapture() {
+  async function saveCapture() {
     if (!captureText.trim()) return;
 
     const meaning = analyzeCapture(captureText);
+    const spaceIds = selectedSpaceIds.length > 0 ? selectedSpaceIds : [activeSpace];
 
-    const newCapture: Capture = {
-      id: Date.now(),
-      text: captureText.trim(),
-      createdAt: new Date().toLocaleString(),
-      spaceIds: selectedSpaceIds.length > 0 ? selectedSpaceIds : [activeSpace],
-      ...meaning,
-    };
+    setCaptureError(null);
+    setIsSaving(true);
 
-    const updatedCaptures = [newCapture, ...captures];
+    try {
+      const newCapture = await insertCapture({
+        text: captureText.trim(),
+        spaceIds,
+        ...meaning,
+      });
 
-    setCaptures(updatedCaptures);
-    localStorage.setItem("sunshine-captures", JSON.stringify(updatedCaptures));
-
-    setCaptureText("");
-    setSelectedSpaceIds([activeSpace]);
-    setIsCapturing(false);
+      setCaptures((prev) => [newCapture, ...prev]);
+      setCaptureText("");
+      setSelectedSpaceIds([activeSpace]);
+      setIsCapturing(false);
+    } catch (error) {
+      console.error(error);
+      setCaptureError("Couldn't save your capture. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   function getSpacesForCapture(capture: Capture) {
@@ -383,81 +379,34 @@ export default function Home() {
           </p>
         </section>
 
-        {isCapturing && (
-          <section className="mt-8 bg-white p-6 rounded-3xl ring-1 ring-black/5 shadow-lg">
-            <label className="block text-lg font-semibold mb-3 text-gray-900">
-              What would you like to capture?
-            </label>
-
-            <textarea
-              value={captureText}
-              onChange={(event) => setCaptureText(event.target.value)}
-              className="w-full border border-gray-300 rounded-xl p-4 min-h-32 text-lg focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-              placeholder={`Capture into ${activeSpaceObject.name}...`}
-              autoFocus
-            />
-
-            <div className="mt-5">
-              <h3 className="font-semibold mb-3 text-gray-900">Choose Spaces</h3>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {defaultSpaces.map((space) => {
-                  const isSelected = selectedSpaceIds.includes(space.id);
-
-                  return (
-                    <button
-                      key={space.id}
-                      onClick={() => toggleSpace(space.id)}
-                      className={`rounded-2xl p-3 text-center border-2 transition-all ${
-                        isSelected
-                          ? "border-amber-400 bg-amber-50 shadow-sm"
-                          : "border-gray-200 bg-gray-50 hover:bg-gray-100"
-                      }`}
-                    >
-                      <div className="text-2xl">{space.icon}</div>
-                      <div className="font-semibold text-gray-900">{space.name}</div>
-                      {space.isShared && (
-                        <div className="text-xs mt-1 text-gray-600">Shared</div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <p className="text-sm text-gray-500 mt-3">
-                Selected:{" "}
-                {selectedSpaces.map((space) => `${space.icon} ${space.name}`).join(", ")}
-              </p>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={saveCapture}
-                className="bg-gradient-to-r from-amber-400 to-orange-300 hover:from-amber-500 hover:to-orange-400 text-gray-900 font-bold py-3 px-6 rounded-xl shadow-sm transition-all"
-              >
-                Save
-              </button>
-
-              <button
-                onClick={() => {
-                  setIsCapturing(false);
-                  setCaptureText("");
-                  setSelectedSpaceIds([activeSpace]);
-                }}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-900 font-bold py-3 px-6 rounded-xl transition-all"
-              >
-                Cancel
-              </button>
-            </div>
-          </section>
-        )}
+        <CaptureModal
+          open={isCapturing}
+          captureText={captureText}
+          onCaptureTextChange={setCaptureText}
+          spaces={defaultSpaces}
+          activeSpaceName={activeSpaceObject.name}
+          selectedSpaceIds={selectedSpaceIds}
+          onToggleSpace={toggleSpace}
+          selectedSpacesLabel={selectedSpaces.map((space) => `${space.icon} ${space.name}`).join(", ")}
+          error={captureError}
+          saving={isSaving}
+          onSave={saveCapture}
+          onCancel={() => {
+            setIsCapturing(false);
+            setCaptureText("");
+            setSelectedSpaceIds([activeSpace]);
+            setCaptureError(null);
+          }}
+        />
 
         <section className="mt-12 text-center w-full">
           <h2 className="text-2xl font-semibold mb-2 text-gray-900">
             {activeSpaceObject.icon} {activeSpaceObject.name} Vault
           </h2>
 
-          {filteredCaptures.length === 0 ? (
+          {capturesLoading ? (
+            <p className="text-gray-500">Loading captures…</p>
+          ) : filteredCaptures.length === 0 ? (
             <p className="text-gray-500">No captures in this Space yet.</p>
           ) : (
             <div className="space-y-3 mt-4">
@@ -499,7 +448,7 @@ export default function Home() {
                   </div>
 
                   <p className="text-sm text-gray-500 mt-3">
-                    {capture.createdAt}
+                    {new Date(capture.createdAt).toLocaleString()}
                   </p>
                 </div>
               ))}
