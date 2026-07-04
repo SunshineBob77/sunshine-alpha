@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { User } from "@supabase/supabase-js";
 import WeatherWidget from "./components/WeatherWidget";
+import AuthForm from "./components/AuthForm";
+import { supabase } from "./lib/supabaseClient";
 
 type Space = {
   id: string;
@@ -157,6 +160,24 @@ export default function Home() {
   const [activeSpace, setActiveSpace] = useState("personal");
   const [selectedSpaceIds, setSelectedSpaceIds] = useState<string[]>(["personal"]);
   const [now, setNow] = useState<Date | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+    });
+
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.subscription.unsubscribe();
+  }, []);
+
+  const displayName =
+    user?.user_metadata?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "there";
 
   useEffect(() => {
     const saved = localStorage.getItem("sunshine-captures");
@@ -230,6 +251,16 @@ export default function Home() {
     return defaultSpaces.filter((space) => capture.spaceIds?.includes(space.id));
   }
 
+  if (authLoading) {
+    return (
+      <main className="min-h-screen bg-gradient-to-b from-amber-50 via-orange-50/50 to-white" />
+    );
+  }
+
+  if (!user) {
+    return <AuthForm />;
+  }
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-amber-50 via-orange-50/50 to-white flex flex-col items-center p-8">
       <div className="w-full max-w-2xl">
@@ -241,7 +272,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 bg-white/70 backdrop-blur rounded-3xl ring-1 ring-black/5 shadow-sm p-6">
             <div>
               <h2 className="text-3xl font-semibold text-gray-900">
-                {now ? getGreeting(now) : "Good Morning"}, Bob
+                {now ? getGreeting(now) : "Good Morning"}, {displayName}
               </h2>
 
               <p className="text-gray-500 mt-1 text-sm">
@@ -256,6 +287,13 @@ export default function Home() {
                 {now && " · "}
                 {now ? now.toLocaleTimeString() : ""}
               </p>
+
+              <button
+                onClick={() => supabase.auth.signOut()}
+                className="text-xs text-gray-400 hover:text-gray-600 mt-2 underline"
+              >
+                Log out
+              </button>
             </div>
 
             {!isCapturing && (
