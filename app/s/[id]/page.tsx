@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
-import { Caveat } from "next/font/google";
 import { notFound } from "next/navigation";
 import { fetchShare } from "@/app/lib/shares";
-
-const caveat = Caveat({ weight: ["600", "700"], subsets: ["latin"] });
+import { caveat } from "@/app/lib/fonts";
 
 type Props = {
   params: Promise<{ id: string }>;

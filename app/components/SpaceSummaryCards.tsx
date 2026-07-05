@@ -23,7 +23,7 @@ export default function SpaceSummaryCards({ captures }: { captures: Capture[] })
   return (
     <section className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       {populatedSpaces.map(({ space, captures: spaceCaptures }) => {
-        const { count, oneLiner } = summarizeSpace(spaceCaptures);
+        const { count, oneLiner } = summarizeSpace(spaceCaptures, space.id);
 
         return (
           <div

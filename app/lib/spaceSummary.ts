@@ -9,7 +9,20 @@ const oneLinerByCategory: Record<string, string> = {
   Memory: "Personal reflections and notes.",
 };
 
-export function summarizeSpace(captures: Capture[]): { count: number; oneLiner: string } {
+const fallbackBySpace: Record<string, string> = {
+  personal: "Everyday life, at a glance.",
+  health: "Tracking how you're feeling.",
+  family: "Moments with the people you love.",
+  finance: "Keeping tabs on money matters.",
+  ideas: "Sparks worth coming back to.",
+  travel: "Plans and memories from the road.",
+  shared: "Shared with your circle.",
+};
+
+export function summarizeSpace(
+  captures: Capture[],
+  spaceId?: string
+): { count: number; oneLiner: string } {
   const count = captures.length;
 
   if (count === 0) {
@@ -37,5 +50,10 @@ export function summarizeSpace(captures: Capture[]): { count: number; oneLiner: 
     }
   }
 
-  return { count, oneLiner: oneLinerByCategory[dominant] ?? oneLinerByCategory.Memory };
+  const oneLiner =
+    dominant === "Memory"
+      ? (spaceId && fallbackBySpace[spaceId]) || oneLinerByCategory.Memory
+      : oneLinerByCategory[dominant] ?? oneLinerByCategory.Memory;
+
+  return { count, oneLiner };
 }

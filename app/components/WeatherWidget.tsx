@@ -121,7 +121,7 @@ export default function WeatherWidget() {
   const tomorrow = describeWeather(weather.tomorrow.code);
 
   return (
-    <div className="flex items-stretch rounded-2xl bg-gradient-to-br from-sky-50 to-amber-50 ring-1 ring-black/5 shadow-sm px-5 py-4">
+    <div className="flex flex-col sm:flex-row items-stretch rounded-2xl bg-gradient-to-br from-sky-50 to-amber-50 ring-1 ring-black/5 shadow-sm px-5 py-4">
       <div className="flex items-center gap-4 flex-1 min-w-0">
         <div className="text-4xl leading-none">{icon}</div>
 
@@ -138,7 +138,7 @@ export default function WeatherWidget() {
         </div>
       </div>
 
-      <div className="w-px bg-black/10 mx-4" />
+      <div className="h-px w-full sm:h-auto sm:w-px bg-black/10 my-3 sm:my-0 sm:mx-4" />
 
       <div className="flex items-center gap-3 flex-1 min-w-0">
         <div className="text-3xl leading-none">{tomorrow.icon}</div>

@@ -21,8 +21,14 @@ function startOfWeek(date: Date) {
   return start;
 }
 
-function buildTwoWeeks(today: Date): [Date[], Date[]] {
-  const start = startOfWeek(today);
+function addDays(date: Date, days: number) {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
+function buildTwoWeeks(anchor: Date): [Date[], Date[]] {
+  const start = startOfWeek(anchor);
   const thisWeek: Date[] = [];
   const nextWeek: Date[] = [];
 
@@ -35,10 +41,25 @@ function buildTwoWeeks(today: Date): [Date[], Date[]] {
   return [thisWeek, nextWeek];
 }
 
+const categoryDotColor: Record<string, string> = {
+  Achievement: "bg-emerald-500",
+  Work: "bg-blue-500",
+  Task: "bg-amber-500",
+  Memory: "bg-purple-500",
+};
+
+function dotColorForDay(dayCaptures: Capture[]) {
+  const hasUrgent = dayCaptures.some((capture) => capture.tags?.includes("urgent"));
+  if (hasUrgent) return "bg-red-600";
+  if (dayCaptures.length === 0) return null;
+  return categoryDotColor[dayCaptures[0].category] ?? "bg-gray-400";
+}
+
 export default function WeekStrip({ captures }: { captures: Capture[] }) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [weekOffset, setWeekOffset] = useState(0);
   const today = new Date();
-  const [thisWeek, nextWeek] = buildTwoWeeks(today);
+  const [thisWeek, nextWeek] = buildTwoWeeks(addDays(today, weekOffset * 7));
 
   function capturesForDay(day: Date) {
     return captures.filter((capture) => isSameDay(new Date(capture.createdAt), day));
@@ -50,7 +71,7 @@ export default function WeekStrip({ captures }: { captures: Capture[] }) {
     const dayCaptures = capturesForDay(day);
     const isToday = isSameDay(day, today);
     const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
-    const hasUrgent = dayCaptures.some((capture) => capture.tags?.includes("urgent"));
+    const dotColor = dotColorForDay(dayCaptures);
 
     return (
       <button
@@ -68,21 +89,49 @@ export default function WeekStrip({ captures }: { captures: Capture[] }) {
         </span>
         <span className="text-base font-bold">{day.getDate()}</span>
 
-        <div className="flex items-center gap-0.5 mt-1 h-2">
-          {hasUrgent ? (
-            <span className="w-2 h-2 rounded-full bg-red-600" />
-          ) : dayCaptures.length === 0 ? null : (
-            Array.from({ length: Math.min(dayCaptures.length, 3) }).map((_, i) => (
-              <span key={i} className="w-1 h-1 rounded-full bg-red-500" />
-            ))
-          )}
+        <div className="flex items-center justify-center mt-1 h-2">
+          {dotColor && <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />}
         </div>
       </button>
     );
   }
 
   return (
-    <div className="bg-white rounded-3xl ring-1 ring-black/5 shadow-sm p-4">
+    <div className="bg-white rounded-3xl ring-1 ring-black/5 shadow-sm p-3 sm:p-4">
+      <div className="flex items-center justify-between flex-wrap gap-y-2 mb-3">
+        <h3 className="font-semibold text-sm sm:text-base text-gray-900">Two Weeks at a Glance</h3>
+
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setWeekOffset(0)}
+            className="text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition-colors"
+          >
+            Today
+          </button>
+          <button
+            type="button"
+            aria-label="Previous week"
+            onClick={() => setWeekOffset((offset) => offset - 1)}
+            className="flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            aria-label="Next week"
+            onClick={() => setWeekOffset((offset) => offset + 1)}
+            className="flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-7 gap-1">
         {thisWeek.map((day) => (
           <DayCell key={day.toISOString()} day={day} />
