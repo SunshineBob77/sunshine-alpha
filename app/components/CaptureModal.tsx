@@ -108,7 +108,7 @@ export default function CaptureModal({
         onClick={(event) => event.stopPropagation()}
       >
         <label className="block text-lg font-semibold mb-3 text-gray-900">
-          What would you like to capture?
+          What would you like to drop into Sunshine?
         </label>
 
         <textarea
@@ -139,7 +139,7 @@ export default function CaptureModal({
             </>
           ) : (
             <p className="text-sm text-gray-500">
-              🎤 This browser doesn't support in-app voice capture — tap the microphone on your
+              🎤 This browser doesn't support in-app voice input — tap the microphone on your
               keyboard to dictate instead.
             </p>
           )}

@@ -9,7 +9,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
   const share = await fetchShare(id);
 
   const sharerName = share?.sharerName ?? "Someone";
-  const title = share?.title ?? "shared a memory with you";
+  const title = share?.previewText ?? "shared a Drop of Sunshine";
   const clippedTitle = title.length > 100 ? `${title.slice(0, 100)}…` : title;
 
   return new ImageResponse(
@@ -55,7 +55,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
               marginBottom: 16,
             }}
           >
-            {sharerName} shared a memory with you ☀️
+            A drop of sunshine from {sharerName} ☀️
           </div>
           <div
             style={{

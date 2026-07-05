@@ -37,6 +37,7 @@ export function DashboardProvider({
   const [captureText, setCaptureText] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [showSavedToast, setShowSavedToast] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,7 +50,7 @@ export function DashboardProvider({
       })
       .catch((error) => {
         console.error(error);
-        if (!cancelled) setCapturesError("Couldn't load your captures. Try refreshing.");
+        if (!cancelled) setCapturesError("Couldn't load your Drops. Try refreshing.");
       })
       .finally(() => {
         if (!cancelled) setCapturesLoading(false);
@@ -82,9 +83,12 @@ export function DashboardProvider({
       setCaptures((prev) => [newCapture, ...prev]);
       setCaptureText("");
       setIsCapturing(false);
+
+      setShowSavedToast(true);
+      setTimeout(() => setShowSavedToast(false), 2500);
     } catch (error) {
       console.error(error);
-      setSaveError("Couldn't save your capture. Please try again.");
+      setSaveError("Couldn't save your Drop. Please try again.");
     } finally {
       setIsSaving(false);
     }
@@ -116,6 +120,12 @@ export function DashboardProvider({
           setSaveError(null);
         }}
       />
+
+      {showSavedToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-sm font-semibold px-5 py-3 rounded-2xl shadow-lg z-50">
+          Your Drop has been added to Sunshine ☀️
+        </div>
+      )}
     </DashboardContext.Provider>
   );
 }

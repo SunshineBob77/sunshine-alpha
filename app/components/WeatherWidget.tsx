@@ -12,6 +12,11 @@ type WeatherData = {
   humidity: number;
   windSpeed: number;
   code: number;
+  tomorrow: {
+    code: number;
+    high: number;
+    low: number;
+  };
 };
 
 const weatherByCode: Record<number, { label: string; icon: string }> = {
@@ -59,7 +64,7 @@ export default function WeatherWidget() {
     async function fetchWeather() {
       try {
         const response = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${WAKEFIELD_LAT}&longitude=${WAKEFIELD_LON}&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=America%2FNew_York`
+          `https://api.open-meteo.com/v1/forecast?latitude=${WAKEFIELD_LAT}&longitude=${WAKEFIELD_LON}&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=America%2FNew_York&forecast_days=2`
         );
 
         if (!response.ok) throw new Error("Weather request failed");
@@ -73,6 +78,11 @@ export default function WeatherWidget() {
           humidity: Math.round(data.current.relative_humidity_2m),
           windSpeed: Math.round(data.current.wind_speed_10m),
           code: data.current.weather_code,
+          tomorrow: {
+            code: data.daily.weather_code[1],
+            high: Math.round(data.daily.temperature_2m_max[1]),
+            low: Math.round(data.daily.temperature_2m_min[1]),
+          },
         });
         setError(false);
       } catch {
@@ -108,20 +118,39 @@ export default function WeatherWidget() {
   }
 
   const { label, icon } = describeWeather(weather.code);
+  const tomorrow = describeWeather(weather.tomorrow.code);
 
   return (
-    <div className="flex items-center gap-4 rounded-2xl bg-gradient-to-br from-sky-50 to-amber-50 ring-1 ring-black/5 shadow-sm px-5 py-4">
-      <div className="text-4xl leading-none">{icon}</div>
+    <div className="flex items-stretch rounded-2xl bg-gradient-to-br from-sky-50 to-amber-50 ring-1 ring-black/5 shadow-sm px-5 py-4">
+      <div className="flex items-center gap-4 flex-1 min-w-0">
+        <div className="text-4xl leading-none">{icon}</div>
 
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2">
-          <span className="text-2xl font-bold text-gray-900">{weather.temperature}°F</span>
-          <span className="text-sm text-gray-600 truncate">{label}</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Today</p>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-bold text-gray-900">{weather.temperature}°F</span>
+            <span className="text-sm text-gray-600 truncate">{label}</span>
+          </div>
+
+          <p className="text-xs text-gray-500 mt-0.5">
+            Feels like {weather.feelsLike}°F · Humidity {weather.humidity}%
+          </p>
         </div>
+      </div>
 
-        <p className="text-xs text-gray-500 mt-0.5">
-          Wakefield, MA · Feels like {weather.feelsLike}°F · Humidity {weather.humidity}%
-        </p>
+      <div className="w-px bg-black/10 mx-4" />
+
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div className="text-3xl leading-none">{tomorrow.icon}</div>
+
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tomorrow</p>
+          <div className="flex items-baseline gap-2">
+            <span className="text-lg font-bold text-gray-900">{weather.tomorrow.high}°</span>
+            <span className="text-sm text-gray-500">{weather.tomorrow.low}°</span>
+          </div>
+          <p className="text-xs text-gray-500 mt-0.5 truncate">{tomorrow.label}</p>
+        </div>
       </div>
     </div>
   );

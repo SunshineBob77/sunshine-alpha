@@ -38,7 +38,7 @@ export default function BottomNav() {
 
       <button
         onClick={openCapture}
-        aria-label="Capture"
+        aria-label="Drop"
         className="-mt-8 flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-orange-400 shadow-lg shadow-amber-300/60 text-white text-3xl font-bold ring-4 ring-white transition-transform hover:scale-105"
       >
         +

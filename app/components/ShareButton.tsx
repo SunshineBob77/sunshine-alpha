@@ -40,6 +40,25 @@ export default function ShareButton({ capture }: { capture: Capture }) {
       const share = await getOrCreateShare(capture, sharerName);
       const url = `${window.location.origin}/s/${share.id}`;
 
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: `A drop of sunshine from ${sharerName}`,
+            text: share.previewText,
+            url,
+          });
+          setStatus("idle");
+          return;
+        } catch (error) {
+          if ((error as DOMException)?.name === "AbortError") {
+            setStatus("idle");
+            return;
+          }
+          console.error(error);
+          // fall through to clipboard fallback below
+        }
+      }
+
       let copied = false;
       if (navigator.clipboard?.writeText) {
         try {

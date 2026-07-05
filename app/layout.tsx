@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Sunshine",
-  description: "Your daily companion for captures, spaces, and reflection.",
+  description: "Your daily companion for drops, spaces, and reflection.",
 };
 
 export default function RootLayout({

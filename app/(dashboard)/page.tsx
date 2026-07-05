@@ -28,14 +28,15 @@ export default function Home() {
     <main className="flex flex-col items-center p-8">
       <div className="w-full max-w-2xl">
         <section className="mt-10 mb-6">
-          <h1 className="text-5xl font-bold text-center mb-8 tracking-tight text-gray-900">
-            <span className="mr-2">🌞</span>Sunshine
+          <h1 className="text-xl font-bold text-center mb-6 tracking-tight text-gray-900">
+            <span className="mr-1">🌞</span>Sunshine
           </h1>
 
           <div className="bg-white/70 backdrop-blur rounded-3xl ring-1 ring-black/5 shadow-sm p-6">
-            <h2 className="text-3xl font-semibold text-gray-900">
-              {getGreeting(now)}, {displayName}
-            </h2>
+            <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+              {getGreeting(now)}
+            </p>
+            <h2 className="text-4xl font-bold text-gray-900 mt-1">{displayName}</h2>
           </div>
 
           <div className="mt-4">
@@ -64,10 +65,10 @@ export default function Home() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3 text-gray-900">Recent Captures</h2>
+              <h2 className="text-xl font-semibold mb-3 text-gray-900">Recent Drops</h2>
 
               {recentCaptures.length === 0 ? (
-                <p className="text-gray-500">Nothing captured yet.</p>
+                <p className="text-gray-500">No Drops yet.</p>
               ) : (
                 <div className="space-y-3">
                   {recentCaptures.map((capture) => (

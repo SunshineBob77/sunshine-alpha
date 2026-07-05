@@ -7,6 +7,14 @@ function isSameDay(a: Date, b: Date) {
   return a.toDateString() === b.toDateString();
 }
 
+function startOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function isFutureDay(day: Date, today: Date) {
+  return startOfDay(day).getTime() > startOfDay(today).getTime();
+}
+
 function startOfWeek(date: Date) {
   const start = new Date(date);
   start.setDate(date.getDate() - date.getDay());
@@ -98,7 +106,9 @@ export default function WeekStrip({ captures }: { captures: Capture[] }) {
           </p>
 
           {selectedCaptures.length === 0 ? (
-            <p className="text-sm text-gray-500">Nothing captured this day.</p>
+            <p className="text-sm text-gray-500">
+              {isFutureDay(selectedDate, today) ? "No plans yet." : "Nothing dropped this day."}
+            </p>
           ) : (
             <ul className="space-y-2">
               {selectedCaptures.map((capture) => (
