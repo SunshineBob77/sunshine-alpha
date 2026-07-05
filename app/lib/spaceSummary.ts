@@ -16,6 +16,7 @@ const fallbackBySpace: Record<string, string> = {
   finance: "Keeping tabs on money matters.",
   ideas: "Sparks worth coming back to.",
   travel: "Plans and memories from the road.",
+  recipes: "Something delicious to try.",
   shared: "Shared with your circle.",
 };
 

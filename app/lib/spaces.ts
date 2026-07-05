@@ -14,5 +14,6 @@ export const defaultSpaces: Space[] = [
   { id: "finance", name: "Finance", icon: "💰", color: "bg-emerald-100", isShared: false },
   { id: "ideas", name: "Ideas", icon: "💡", color: "bg-purple-100", isShared: false },
   { id: "travel", name: "Travel", icon: "✈️", color: "bg-sky-100", isShared: false },
+  { id: "recipes", name: "Recipes", icon: "🍳", color: "bg-orange-100", isShared: false },
   { id: "shared", name: "Shared Space", icon: "👥", color: "bg-pink-100", isShared: true },
 ];

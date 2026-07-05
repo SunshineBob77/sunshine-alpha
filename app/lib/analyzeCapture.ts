@@ -5,7 +5,22 @@ const spaceKeywords: [string, string[]][] = [
   ],
   ["family", ["family", "mom", "dad", "kids", "son", "daughter", "wife", "husband", "parents", "birthday", "school"]],
   ["finance", ["money", "bill", "budget", "bank", "invoice", "payment", "tax", "finance", "expense", "rent", "mortgage", "savings"]],
-  ["travel", ["flight", "trip", "vacation", "hotel", "airport", "passport", "travel", "itinerary", "packing"]],
+  [
+    "travel",
+    [
+      "flight", "trip", "vacation", "hotel", "airport", "passport", "travel", "itinerary", "packing",
+      "suite", "suites", "hilton", "marriott", "hyatt", "airbnb", "motel", "resort", "lodging",
+      "reservation", "confirmation", "check-in", "check in", "checkout", "boarding", "layover",
+      "flying", "fly to", "cruise", "road trip",
+    ],
+  ],
+  [
+    "recipes",
+    [
+      "recipe", "recipes", "cook", "cooking", "bake", "baking", "ingredient", "ingredients",
+      "cookbook", "meal prep", "dinner", "breakfast", "lunch", "curry", "roast", "simmer", "marinate",
+    ],
+  ],
   ["ideas", ["idea", "concept", "brainstorm", "invention", "someday", "vision"]],
   [
     "work",
