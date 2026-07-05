@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { fetchCaptures, insertCapture, type Capture } from "./captures";
+import { fetchCaptures, insertCapture, deleteCapture, type Capture } from "./captures";
 import { analyzeCapture } from "./analyzeCapture";
 import CaptureModal from "../components/CaptureModal";
 
@@ -13,6 +13,7 @@ type DashboardContextValue = {
   capturesError: string | null;
   isCapturing: boolean;
   openCapture: () => void;
+  removeCapture: (id: number) => Promise<void>;
 };
 
 const DashboardContext = createContext<DashboardContextValue | null>(null);
@@ -61,6 +62,26 @@ export function DashboardProvider({
     };
   }, [user.id]);
 
+  function analyzeDrop(id: number, text: string) {
+    fetch("/api/analyze-drop", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, text }),
+    })
+      .then((response) => response.json())
+      .then((data: { result?: string | null }) => {
+        if (data.result === undefined) return;
+        setCaptures((prev) =>
+          prev.map((capture) =>
+            capture.id === id ? { ...capture, aiResearchResult: data.result ?? null } : capture
+          )
+        );
+      })
+      .catch((error) => {
+        console.error("analyze-drop request failed", error);
+      });
+  }
+
   async function saveCapture() {
     if (!captureText.trim()) return;
 
@@ -86,12 +107,19 @@ export function DashboardProvider({
 
       setShowSavedToast(true);
       setTimeout(() => setShowSavedToast(false), 2500);
+
+      analyzeDrop(newCapture.id, newCapture.text);
     } catch (error) {
       console.error(error);
       setSaveError("Couldn't save your Drop. Please try again.");
     } finally {
       setIsSaving(false);
     }
+  }
+
+  async function removeCapture(id: number) {
+    await deleteCapture(id);
+    setCaptures((prev) => prev.filter((capture) => capture.id !== id));
   }
 
   return (
@@ -103,6 +131,7 @@ export function DashboardProvider({
         capturesError,
         isCapturing,
         openCapture: () => setIsCapturing(true),
+        removeCapture,
       }}
     >
       {children}

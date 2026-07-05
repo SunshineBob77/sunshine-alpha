@@ -10,6 +10,7 @@ export type Capture = {
   mood: string;
   sunshineSummary: string;
   spaceIds: string[];
+  aiResearchResult: string | null;
 };
 
 type CaptureRow = {
@@ -22,6 +23,7 @@ type CaptureRow = {
   mood: string;
   sunshine_summary: string;
   space_ids: string[];
+  ai_research_result: string | null;
 };
 
 function mapRowToCapture(row: CaptureRow): Capture {
@@ -35,6 +37,7 @@ function mapRowToCapture(row: CaptureRow): Capture {
     mood: row.mood,
     sunshineSummary: row.sunshine_summary,
     spaceIds: row.space_ids ?? [],
+    aiResearchResult: row.ai_research_result ?? null,
   };
 }
 
@@ -73,4 +76,9 @@ export async function insertCapture(input: {
 
   if (error) throw error;
   return mapRowToCapture(data as CaptureRow);
+}
+
+export async function deleteCapture(id: number): Promise<void> {
+  const { error } = await supabase.from("captures").delete().eq("id", id);
+  if (error) throw error;
 }

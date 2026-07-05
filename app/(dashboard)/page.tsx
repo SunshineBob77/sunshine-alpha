@@ -7,6 +7,7 @@ import WeekStrip from "@/app/components/WeekStrip";
 import DailyBriefingCard from "@/app/components/DailyBriefingCard";
 import SpaceSummaryCards from "@/app/components/SpaceSummaryCards";
 import ShareButton from "@/app/components/ShareButton";
+import DeleteDropButton from "@/app/components/DeleteDropButton";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import { useShareCapture } from "@/app/lib/useShareCapture";
 import { getQuoteOfTheDay } from "@/app/lib/quotes";
@@ -172,8 +173,25 @@ export default function Home() {
                         {new Date(capture.createdAt).toLocaleString()}
                       </p>
 
-                      <div className="mt-3">
+                      {capture.aiResearchResult && (
+                        <div className="mt-3 rounded-2xl bg-gray-50 p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm bg-sky-100">
+                              🔎
+                            </span>
+                            <h3 className="font-semibold text-sm text-gray-900">
+                              Sunshine found this
+                            </h3>
+                          </div>
+                          <p className="text-sm text-gray-800 break-words">
+                            {capture.aiResearchResult}
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="mt-3 flex items-center gap-2">
                         <ShareButton capture={capture} />
+                        <DeleteDropButton captureId={capture.id} />
                       </div>
                     </div>
                   ))}
