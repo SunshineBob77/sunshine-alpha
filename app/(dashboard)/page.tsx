@@ -189,9 +189,19 @@ export default function Home() {
                         </div>
                       )}
 
-                      <div className="mt-3 flex items-center gap-2">
+                      <div className="mt-3 flex items-center gap-2 flex-wrap">
                         <ShareButton capture={capture} />
                         <DeleteDropButton captureId={capture.id} />
+                        {capture.extractedAddress && (
+                          <a
+                            href={`https://maps.google.com/?q=${encodeURIComponent(capture.extractedAddress)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-full transition-all"
+                          >
+                            📍 Open in Maps
+                          </a>
+                        )}
                       </div>
                     </div>
                   ))}

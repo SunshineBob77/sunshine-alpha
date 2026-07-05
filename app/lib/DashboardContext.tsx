@@ -69,11 +69,17 @@ export function DashboardProvider({
       body: JSON.stringify({ id, text }),
     })
       .then((response) => response.json())
-      .then((data: { result?: string | null }) => {
+      .then((data: { result?: string | null; address?: string | null }) => {
         if (data.result === undefined) return;
         setCaptures((prev) =>
           prev.map((capture) =>
-            capture.id === id ? { ...capture, aiResearchResult: data.result ?? null } : capture
+            capture.id === id
+              ? {
+                  ...capture,
+                  aiResearchResult: data.result ?? null,
+                  extractedAddress: data.address ?? null,
+                }
+              : capture
           )
         );
       })

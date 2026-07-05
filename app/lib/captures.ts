@@ -11,6 +11,7 @@ export type Capture = {
   sunshineSummary: string;
   spaceIds: string[];
   aiResearchResult: string | null;
+  extractedAddress: string | null;
 };
 
 type CaptureRow = {
@@ -24,6 +25,7 @@ type CaptureRow = {
   sunshine_summary: string;
   space_ids: string[];
   ai_research_result: string | null;
+  extracted_address: string | null;
 };
 
 function mapRowToCapture(row: CaptureRow): Capture {
@@ -38,6 +40,7 @@ function mapRowToCapture(row: CaptureRow): Capture {
     sunshineSummary: row.sunshine_summary,
     spaceIds: row.space_ids ?? [],
     aiResearchResult: row.ai_research_result ?? null,
+    extractedAddress: row.extracted_address ?? null,
   };
 }
 
