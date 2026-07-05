@@ -75,7 +75,7 @@ export default function Home() {
                       key={capture.id}
                       className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-4 text-left"
                     >
-                      <p className="text-gray-900">
+                      <p className="text-gray-900 break-words">
                         {capture.text.length > 120
                           ? `${capture.text.slice(0, 120)}…`
                           : capture.text}

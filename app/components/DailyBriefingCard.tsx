@@ -109,7 +109,7 @@ export default function DailyBriefingCard({ captures }: { captures: Capture[] })
       ) : (
         <ul className="list-disc ml-6 mb-7 text-gray-700 space-y-1">
           {focusItems.map((capture) => (
-            <li key={capture.id}>{capture.text}</li>
+            <li key={capture.id} className="break-words">{capture.text}</li>
           ))}
         </ul>
       )}
@@ -122,7 +122,7 @@ export default function DailyBriefingCard({ captures }: { captures: Capture[] })
           Nothing marked as a win yet — capture something great and it'll show up here.
         </p>
       ) : (
-        <p className="text-gray-700">
+        <p className="text-gray-700 break-words">
           {win.text}{" "}
           <span className="text-sm text-gray-400">
             ({formatRelativeDay(new Date(win.createdAt), now)})

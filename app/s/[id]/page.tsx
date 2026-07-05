@@ -65,8 +65,8 @@ export default async function SharePage({ params }: Props) {
         </p>
 
         <div className="bg-amber-50 rounded-2xl p-5 text-left">
-          <p className="font-semibold text-amber-800">{share.title}</p>
-          <p className="text-gray-700 mt-2">{share.previewText}</p>
+          <p className="font-semibold text-amber-800 break-words">{share.title}</p>
+          <p className="text-gray-700 mt-2 break-words">{share.previewText}</p>
         </div>
 
         <a

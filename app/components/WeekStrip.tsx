@@ -102,7 +102,7 @@ export default function WeekStrip({ captures }: { captures: Capture[] }) {
           ) : (
             <ul className="space-y-2">
               {selectedCaptures.map((capture) => (
-                <li key={capture.id} className="text-sm text-gray-700">
+                <li key={capture.id} className="text-sm text-gray-700 break-words">
                   <span className="text-gray-400 mr-2">
                     {new Date(capture.createdAt).toLocaleTimeString([], {
                       hour: "2-digit",

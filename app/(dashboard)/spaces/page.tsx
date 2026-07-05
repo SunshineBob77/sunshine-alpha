@@ -82,7 +82,7 @@ export default function SpacesPage() {
                   key={capture.id}
                   className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-5 text-left"
                 >
-                  <p className="text-lg text-gray-900">{capture.text}</p>
+                  <p className="text-lg text-gray-900 break-words">{capture.text}</p>
 
                   <p className="text-sm text-amber-700 font-semibold mt-3">
                     {capture.sunshineSummary}
