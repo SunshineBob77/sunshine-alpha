@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { defaultSpaces } from "@/app/lib/spaces";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import type { Capture } from "@/app/lib/captures";
+import ShareButton from "@/app/components/ShareButton";
 
 export default function SpacesPage() {
   const { captures, capturesLoading, openCapture } = useCaptures();
@@ -116,6 +117,10 @@ export default function SpacesPage() {
                   <p className="text-sm text-gray-500 mt-3">
                     {new Date(capture.createdAt).toLocaleString()}
                   </p>
+
+                  <div className="mt-3">
+                    <ShareButton capture={capture} />
+                  </div>
                 </div>
               ))}
             </div>

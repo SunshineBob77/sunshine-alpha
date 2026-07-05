@@ -5,6 +5,7 @@ import WeatherWidget from "@/app/components/WeatherWidget";
 import WeekStrip from "@/app/components/WeekStrip";
 import DailyBriefingCard from "@/app/components/DailyBriefingCard";
 import SpaceSummaryCards from "@/app/components/SpaceSummaryCards";
+import ShareButton from "@/app/components/ShareButton";
 import { useCaptures } from "@/app/lib/DashboardContext";
 
 function getGreeting(date: Date) {
@@ -82,6 +83,10 @@ export default function Home() {
                       <p className="text-sm text-gray-500 mt-2">
                         {new Date(capture.createdAt).toLocaleString()}
                       </p>
+
+                      <div className="mt-3">
+                        <ShareButton capture={capture} />
+                      </div>
                     </div>
                   ))}
                 </div>
