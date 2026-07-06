@@ -6,8 +6,7 @@ import WeatherWidget from "@/app/components/WeatherWidget";
 import WeekStrip from "@/app/components/WeekStrip";
 import DailyBriefingCard from "@/app/components/DailyBriefingCard";
 import SpaceSummaryCards from "@/app/components/SpaceSummaryCards";
-import ShareButton from "@/app/components/ShareButton";
-import DeleteDropButton from "@/app/components/DeleteDropButton";
+import DropDetailModal from "@/app/components/DropDetailModal";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import { useShareCapture } from "@/app/lib/useShareCapture";
 import { getQuoteOfTheDay } from "@/app/lib/quotes";
@@ -23,6 +22,8 @@ function getGreeting(date: Date) {
 export default function Home() {
   const { user, captures, capturesLoading, capturesError, openCapture } = useCaptures();
   const [now] = useState(() => new Date());
+  const [selectedCaptureId, setSelectedCaptureId] = useState<number | null>(null);
+  const selectedCapture = captures.find((capture) => capture.id === selectedCaptureId) ?? null;
 
   const displayName =
     user.user_metadata?.full_name?.split(" ")[0] || user.email?.split("@")[0] || "there";
@@ -160,50 +161,23 @@ export default function Home() {
               ) : (
                 <div className="space-y-3">
                   {recentCaptures.map((capture) => (
-                    <div
+                    <button
                       key={capture.id}
-                      className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-4 text-left"
+                      type="button"
+                      onClick={() => setSelectedCaptureId(capture.id)}
+                      className="w-full text-left bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-4 hover:ring-black/10 transition-all"
                     >
                       <p className="text-gray-900 break-words">
                         {capture.text.length > 120
                           ? `${capture.text.slice(0, 120)}…`
                           : capture.text}
                       </p>
-                      <p className="text-sm text-gray-500 mt-2">
-                        {new Date(capture.createdAt).toLocaleString()}
-                      </p>
-
-                      {capture.aiResearchResult && (
-                        <div className="mt-3 rounded-2xl bg-gray-50 p-4">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm bg-sky-100">
-                              🔎
-                            </span>
-                            <h3 className="font-semibold text-sm text-gray-900">
-                              Sunshine found this
-                            </h3>
-                          </div>
-                          <p className="text-sm text-gray-800 break-words">
-                            {capture.aiResearchResult}
-                          </p>
-                        </div>
-                      )}
-
-                      <div className="mt-3 flex items-center gap-2 flex-wrap">
-                        <ShareButton capture={capture} />
-                        <DeleteDropButton captureId={capture.id} />
-                        {capture.extractedAddress && (
-                          <a
-                            href={`https://maps.google.com/?q=${encodeURIComponent(capture.extractedAddress)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-full transition-all"
-                          >
-                            📍 Open in Maps
-                          </a>
-                        )}
+                      <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
+                        <span>{new Date(capture.createdAt).toLocaleString()}</span>
+                        {capture.aiResearchResult && <span title="Sunshine found something">🔎</span>}
+                        {capture.extractedAddress && <span title="Has a map link">📍</span>}
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -211,6 +185,13 @@ export default function Home() {
           </>
         )}
       </div>
+
+      {selectedCapture && (
+        <DropDetailModal
+          capture={selectedCapture}
+          onClose={() => setSelectedCaptureId(null)}
+        />
+      )}
     </main>
   );
 }

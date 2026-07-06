@@ -3,7 +3,13 @@
 import { useState } from "react";
 import { useCaptures } from "@/app/lib/DashboardContext";
 
-export default function DeleteDropButton({ captureId }: { captureId: number }) {
+export default function DeleteDropButton({
+  captureId,
+  onDeleted,
+}: {
+  captureId: number;
+  onDeleted?: () => void;
+}) {
   const { removeCapture } = useCaptures();
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -15,6 +21,7 @@ export default function DeleteDropButton({ captureId }: { captureId: number }) {
 
     try {
       await removeCapture(captureId);
+      onDeleted?.();
     } catch (err) {
       console.error(err);
       setError("Couldn't delete. Try again.");

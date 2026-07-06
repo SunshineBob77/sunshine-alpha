@@ -4,11 +4,13 @@ import { useMemo, useState } from "react";
 import { defaultSpaces } from "@/app/lib/spaces";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import type { Capture } from "@/app/lib/captures";
-import ShareButton from "@/app/components/ShareButton";
+import DropDetailModal from "@/app/components/DropDetailModal";
 
 export default function SpacesPage() {
   const { captures, capturesLoading, openCapture } = useCaptures();
   const [activeSpace, setActiveSpace] = useState("personal");
+  const [selectedCaptureId, setSelectedCaptureId] = useState<number | null>(null);
+  const selectedCapture = captures.find((capture) => capture.id === selectedCaptureId) ?? null;
 
   const activeSpaceObject = useMemo(() => {
     return defaultSpaces.find((space) => space.id === activeSpace) || defaultSpaces[0];
@@ -78,11 +80,17 @@ export default function SpacesPage() {
           ) : (
             <div className="space-y-3 mt-4">
               {filteredCaptures.map((capture) => (
-                <div
+                <button
                   key={capture.id}
-                  className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-5 text-left"
+                  type="button"
+                  onClick={() => setSelectedCaptureId(capture.id)}
+                  className="w-full text-left bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-5 hover:ring-black/10 transition-all"
                 >
-                  <p className="text-lg text-gray-900 break-words">{capture.text}</p>
+                  <p className="text-lg text-gray-900 break-words">
+                    {capture.text.length > 160
+                      ? `${capture.text.slice(0, 160)}…`
+                      : capture.text}
+                  </p>
 
                   <p className="text-sm text-amber-700 font-semibold mt-3">
                     {capture.sunshineSummary}
@@ -100,33 +108,22 @@ export default function SpacesPage() {
                     ))}
                   </div>
 
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    <span className="text-xs bg-amber-100 px-2 py-1 rounded-full">
-                      {capture.category}
-                    </span>
-
-                    <span className="text-xs bg-blue-100 px-2 py-1 rounded-full">
-                      {capture.project}
-                    </span>
-
-                    <span className="text-xs bg-green-100 px-2 py-1 rounded-full">
-                      {capture.mood}
-                    </span>
-                  </div>
-
                   <p className="text-sm text-gray-500 mt-3">
                     {new Date(capture.createdAt).toLocaleString()}
                   </p>
-
-                  <div className="mt-3">
-                    <ShareButton capture={capture} />
-                  </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
         </section>
       </div>
+
+      {selectedCapture && (
+        <DropDetailModal
+          capture={selectedCapture}
+          onClose={() => setSelectedCaptureId(null)}
+        />
+      )}
     </main>
   );
 }
