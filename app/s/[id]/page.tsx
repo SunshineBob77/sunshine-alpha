@@ -142,6 +142,25 @@ export default async function SharePage({ params }: Props) {
         </div>
       </div>
 
+      <div className="px-6 pb-6">
+        <div className="rounded-2xl bg-gradient-to-br from-[#FFFBEF] to-[#FEF3D7] ring-1 ring-[#F2C868]/40 p-5 text-center">
+          <p className="text-sm font-semibold text-[#92400E] mb-1">🌞 What is Sunshine?</p>
+          <p className="text-sm text-[#5B5647] leading-relaxed">
+            Sunshine is a personal companion for capturing anything on your mind — a note, an
+            idea, a task, a place to remember — and quietly organizing it for you.{" "}
+            {share.sharerName.split(" ")[0]} uses it to drop things in without having to sort
+            them, and Sunshine does the rest: finding answers, pulling out addresses, and keeping
+            everything easy to find later.
+          </p>
+          <a
+            href="/"
+            className="inline-flex items-center justify-center gap-2 mt-4 bg-[#1B2340] hover:bg-[#141a30] text-white text-sm font-semibold px-5 py-3 rounded-full transition-colors"
+          >
+            Sign up free — it takes a minute
+          </a>
+        </div>
+      </div>
+
       <div className="flex items-center justify-between gap-3 px-6 py-5 border-t border-[#F0EDE4]">
         <div className="flex items-center gap-2.5 text-[13px] leading-tight text-[#7A7568]">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#B5B0A2" strokeWidth="2" className="shrink-0">
