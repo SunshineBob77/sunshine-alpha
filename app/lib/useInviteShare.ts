@@ -18,7 +18,7 @@ export function useInviteShare() {
     setStatus("sharing");
     setManualLink(null);
 
-    const url = `${window.location.origin}/about`;
+    const url = `${window.location.origin}/s/invite?name=${encodeURIComponent(sharerName)}`;
 
     try {
       if (navigator.share) {
