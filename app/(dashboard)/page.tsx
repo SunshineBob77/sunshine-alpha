@@ -146,7 +146,7 @@ export default function Home() {
         ) : (
           <>
             <section className="mb-6">
-              <DailyBriefingCard captures={captures} />
+              <DailyBriefingCard captures={captures} onSelectCapture={setSelectedCaptureId} />
             </section>
 
             <section className="mb-6">

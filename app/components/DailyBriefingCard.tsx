@@ -24,6 +24,7 @@ function BriefingCard({
   headline,
   detail,
   detailTone = "text-gray-400",
+  onClick,
 }: {
   icon: string;
   tone: string;
@@ -31,9 +32,10 @@ function BriefingCard({
   headline: string;
   detail: string;
   detailTone?: string;
+  onClick?: () => void;
 }) {
-  return (
-    <div className="rounded-2xl bg-gray-50 p-4">
+  const content = (
+    <>
       <div className="flex items-center gap-2 mb-2">
         <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm ${tone}`}>
           {icon}
@@ -42,11 +44,31 @@ function BriefingCard({
       </div>
       <p className="text-sm text-gray-800 break-words line-clamp-2">{headline}</p>
       <p className={`text-xs mt-1 ${detailTone}`}>{detail}</p>
-    </div>
+    </>
   );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full text-left rounded-2xl bg-gray-50 p-4 hover:bg-gray-100 transition-colors"
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return <div className="rounded-2xl bg-gray-50 p-4">{content}</div>;
 }
 
-export default function DailyBriefingCard({ captures }: { captures: Capture[] }) {
+export default function DailyBriefingCard({
+  captures,
+  onSelectCapture,
+}: {
+  captures: Capture[];
+  onSelectCapture: (id: number) => void;
+}) {
   const now = new Date();
   const yesterday = new Date(now);
   yesterday.setDate(now.getDate() - 1);
@@ -80,6 +102,7 @@ export default function DailyBriefingCard({ captures }: { captures: Capture[] })
             : `${focusItems.length} task${focusItems.length === 1 ? "" : "s"} on deck`
         }
         detailTone="text-amber-600"
+        onClick={focusItem ? () => onSelectCapture(focusItem.id) : undefined}
       />
 
       <BriefingCard
@@ -88,6 +111,7 @@ export default function DailyBriefingCard({ captures }: { captures: Capture[] })
         label={winLabel}
         headline={win?.text ?? "Nothing marked as a win yet."}
         detail={win ? formatRelativeDay(new Date(win.createdAt), now) : ""}
+        onClick={win ? () => onSelectCapture(win.id) : undefined}
       />
     </section>
   );
