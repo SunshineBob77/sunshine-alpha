@@ -82,79 +82,6 @@ function SpacePicker({ capture }: { capture: Capture }) {
   );
 }
 
-function EditableText({ capture }: { capture: Capture }) {
-  const { updateText } = useCaptures();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(capture.text);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  if (editing) {
-    return (
-      <div>
-        <textarea
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          autoFocus
-          className="w-full border border-gray-300 rounded-xl p-3 text-lg min-h-32 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-        />
-        <div className="flex items-center gap-2 mt-2">
-          <button
-            type="button"
-            onClick={async () => {
-              if (!draft.trim()) return;
-              setSaving(true);
-              setError(null);
-              try {
-                await updateText(capture.id, draft.trim());
-                setEditing(false);
-              } catch (err) {
-                console.error(err);
-                setError("Couldn't save. Try again.");
-              } finally {
-                setSaving(false);
-              }
-            }}
-            disabled={saving}
-            className="text-xs font-semibold bg-amber-400 hover:bg-amber-500 text-gray-900 px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setDraft(capture.text);
-              setEditing(false);
-              setError(null);
-            }}
-            disabled={saving}
-            className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
-          >
-            Cancel
-          </button>
-        </div>
-        {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <p className="text-lg text-gray-900 break-words whitespace-pre-wrap">{capture.text}</p>
-      <button
-        type="button"
-        onClick={() => {
-          setDraft(capture.text);
-          setEditing(true);
-        }}
-        className="text-xs font-semibold text-gray-500 hover:text-gray-700 mt-1"
-      >
-        ✏️ Edit
-      </button>
-    </div>
-  );
-}
-
 export default function DropDetailModal({
   capture,
   onClose,
@@ -162,6 +89,27 @@ export default function DropDetailModal({
   capture: Capture;
   onClose: () => void;
 }) {
+  const { updateText } = useCaptures();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(capture.text);
+  const [savingText, setSavingText] = useState(false);
+  const [textError, setTextError] = useState<string | null>(null);
+
+  async function handleSaveText() {
+    if (!draft.trim()) return;
+    setSavingText(true);
+    setTextError(null);
+    try {
+      await updateText(capture.id, draft.trim());
+      setEditing(false);
+    } catch (err) {
+      console.error(err);
+      setTextError("Couldn't save. Try again.");
+    } finally {
+      setSavingText(false);
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -179,6 +127,18 @@ export default function DropDetailModal({
             <ShareButton capture={capture} />
             <button
               type="button"
+              onClick={() => {
+                setDraft(capture.text);
+                setTextError(null);
+                setEditing((prev) => !prev);
+              }}
+              aria-label="Edit Drop text"
+              className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-2.5 py-1.5 rounded-full transition-all"
+            >
+              ✏️ Edit
+            </button>
+            <button
+              type="button"
               onClick={onClose}
               aria-label="Close"
               className="text-gray-400 hover:text-gray-600 text-xl leading-none"
@@ -190,7 +150,41 @@ export default function DropDetailModal({
 
         <SpacePicker capture={capture} />
 
-        <EditableText capture={capture} />
+        {editing ? (
+          <div>
+            <textarea
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              autoFocus
+              className="w-full border border-gray-300 rounded-xl p-3 text-lg min-h-32 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+            />
+            <div className="flex items-center gap-2 mt-2">
+              <button
+                type="button"
+                onClick={handleSaveText}
+                disabled={savingText}
+                className="text-xs font-semibold bg-amber-400 hover:bg-amber-500 text-gray-900 px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
+              >
+                {savingText ? "Saving…" : "Save"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDraft(capture.text);
+                  setEditing(false);
+                  setTextError(null);
+                }}
+                disabled={savingText}
+                className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            </div>
+            {textError && <p className="text-xs text-red-600 mt-1">{textError}</p>}
+          </div>
+        ) : (
+          <p className="text-lg text-gray-900 break-words whitespace-pre-wrap">{capture.text}</p>
+        )}
 
         <p className="text-sm text-gray-500 mt-3">
           {new Date(capture.createdAt).toLocaleString()}
