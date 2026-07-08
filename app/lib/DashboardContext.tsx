@@ -2,7 +2,13 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { fetchCaptures, insertCapture, deleteCapture, type Capture } from "./captures";
+import {
+  fetchCaptures,
+  insertCapture,
+  deleteCapture,
+  updateCaptureSpaces,
+  type Capture,
+} from "./captures";
 import { analyzeCapture } from "./analyzeCapture";
 import CaptureModal from "../components/CaptureModal";
 
@@ -14,6 +20,7 @@ type DashboardContextValue = {
   isCapturing: boolean;
   openCapture: () => void;
   removeCapture: (id: number) => Promise<void>;
+  updateSpaces: (id: number, spaceIds: string[]) => Promise<void>;
 };
 
 const DashboardContext = createContext<DashboardContextValue | null>(null);
@@ -128,6 +135,13 @@ export function DashboardProvider({
     setCaptures((prev) => prev.filter((capture) => capture.id !== id));
   }
 
+  async function updateSpaces(id: number, spaceIds: string[]) {
+    await updateCaptureSpaces(id, spaceIds);
+    setCaptures((prev) =>
+      prev.map((capture) => (capture.id === id ? { ...capture, spaceIds } : capture))
+    );
+  }
+
   return (
     <DashboardContext.Provider
       value={{
@@ -138,6 +152,7 @@ export function DashboardProvider({
         isCapturing,
         openCapture: () => setIsCapturing(true),
         removeCapture,
+        updateSpaces,
       }}
     >
       {children}

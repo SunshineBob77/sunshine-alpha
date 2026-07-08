@@ -85,3 +85,12 @@ export async function deleteCapture(id: number): Promise<void> {
   const { error } = await supabase.from("captures").delete().eq("id", id);
   if (error) throw error;
 }
+
+export async function updateCaptureSpaces(id: number, spaceIds: string[]): Promise<void> {
+  const { error } = await supabase
+    .from("captures")
+    .update({ space_ids: spaceIds })
+    .eq("id", id);
+
+  if (error) throw error;
+}

@@ -1,9 +1,86 @@
 "use client";
 
+import { useState } from "react";
 import ShareButton from "./ShareButton";
 import DeleteDropButton from "./DeleteDropButton";
 import { defaultSpaces } from "@/app/lib/spaces";
+import { useCaptures } from "@/app/lib/DashboardContext";
 import type { Capture } from "@/app/lib/captures";
+
+function SpacePicker({ capture }: { capture: Capture }) {
+  const { updateSpaces } = useCaptures();
+  const [open, setOpen] = useState(false);
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const activeSpaces = defaultSpaces.filter((space) => capture.spaceIds?.includes(space.id));
+
+  async function toggleSpace(spaceId: string) {
+    const current = capture.spaceIds ?? [];
+    const next = current.includes(spaceId)
+      ? current.filter((id) => id !== spaceId)
+      : [...current, spaceId];
+
+    setPendingId(spaceId);
+    setError(null);
+
+    try {
+      await updateSpaces(capture.id, next);
+    } catch (err) {
+      console.error(err);
+      setError("Couldn't update. Try again.");
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  return (
+    <div className="mb-3">
+      <div className="flex flex-wrap items-center gap-2">
+        {activeSpaces.map((space) => (
+          <span key={space.id} className={`text-xs px-2 py-1 rounded-full ${space.color}`}>
+            {space.icon} {space.name}
+            {space.isShared ? " · Shared" : ""}
+          </span>
+        ))}
+
+        <button
+          type="button"
+          onClick={() => setOpen((prev) => !prev)}
+          className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-2.5 py-1 rounded-full transition-all"
+        >
+          {open ? "Done" : activeSpaces.length > 0 ? "Edit Spaces" : "+ Add to Space"}
+        </button>
+      </div>
+
+      {open && (
+        <div className="mt-2 flex flex-wrap gap-2 p-3 bg-gray-50 rounded-2xl">
+          {defaultSpaces.map((space) => {
+            const active = capture.spaceIds?.includes(space.id);
+            return (
+              <button
+                key={space.id}
+                type="button"
+                onClick={() => toggleSpace(space.id)}
+                disabled={pendingId === space.id}
+                className={`text-xs px-2.5 py-1.5 rounded-full ring-1 transition-all disabled:opacity-50 ${
+                  active
+                    ? `${space.color} ring-black/10 font-semibold`
+                    : "bg-white text-gray-500 ring-gray-200 hover:ring-gray-300"
+                }`}
+              >
+                {active ? "✓ " : ""}
+                {space.icon} {space.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
+    </div>
+  );
+}
 
 export default function DropDetailModal({
   capture,
@@ -12,8 +89,6 @@ export default function DropDetailModal({
   capture: Capture;
   onClose: () => void;
 }) {
-  const spaces = defaultSpaces.filter((space) => capture.spaceIds?.includes(space.id));
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -37,19 +112,7 @@ export default function DropDetailModal({
           </button>
         </div>
 
-        {spaces.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3">
-            {spaces.map((space) => (
-              <span
-                key={space.id}
-                className={`text-xs px-2 py-1 rounded-full ${space.color}`}
-              >
-                {space.icon} {space.name}
-                {space.isShared ? " · Shared" : ""}
-              </span>
-            ))}
-          </div>
-        )}
+        <SpacePicker capture={capture} />
 
         <p className="text-lg text-gray-900 break-words whitespace-pre-wrap">{capture.text}</p>
 
