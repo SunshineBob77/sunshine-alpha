@@ -46,7 +46,6 @@ export function useShareCapture(capture: Capture | null) {
         try {
           await navigator.share({
             title: `A drop of sunshine from ${sharerName}`,
-            text: share.previewText,
             url,
           });
           setStatus("idle");

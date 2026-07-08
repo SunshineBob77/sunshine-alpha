@@ -5,6 +5,7 @@ import { defaultSpaces } from "@/app/lib/spaces";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import type { Capture } from "@/app/lib/captures";
 import DropDetailModal from "@/app/components/DropDetailModal";
+import ShareButton from "@/app/components/ShareButton";
 
 export default function SpacesPage() {
   const { captures, capturesLoading, openCapture } = useCaptures();
@@ -80,38 +81,48 @@ export default function SpacesPage() {
           ) : (
             <div className="space-y-3 mt-4">
               {filteredCaptures.map((capture) => (
-                <button
+                <div
                   key={capture.id}
-                  type="button"
-                  onClick={() => setSelectedCaptureId(capture.id)}
-                  className="w-full text-left bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-5 hover:ring-black/10 transition-all"
+                  className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-5 hover:ring-black/10 transition-all"
                 >
-                  <p className="text-lg text-gray-900 break-words">
-                    {capture.text.length > 160
-                      ? `${capture.text.slice(0, 160)}…`
-                      : capture.text}
-                  </p>
+                  <div className="flex items-start justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCaptureId(capture.id)}
+                      className="flex-1 min-w-0 text-left"
+                    >
+                      <p className="text-lg text-gray-900 break-words">
+                        {capture.text.length > 160
+                          ? `${capture.text.slice(0, 160)}…`
+                          : capture.text}
+                      </p>
 
-                  <p className="text-sm text-amber-700 font-semibold mt-3">
-                    {capture.sunshineSummary}
-                  </p>
+                      <p className="text-sm text-amber-700 font-semibold mt-3">
+                        {capture.sunshineSummary}
+                      </p>
 
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    {getSpacesForCapture(capture).map((space) => (
-                      <span
-                        key={space.id}
-                        className={`text-xs px-2 py-1 rounded-full ${space.color}`}
-                      >
-                        {space.icon} {space.name}
-                        {space.isShared ? " · Shared" : ""}
-                      </span>
-                    ))}
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        {getSpacesForCapture(capture).map((space) => (
+                          <span
+                            key={space.id}
+                            className={`text-xs px-2 py-1 rounded-full ${space.color}`}
+                          >
+                            {space.icon} {space.name}
+                            {space.isShared ? " · Shared" : ""}
+                          </span>
+                        ))}
+                      </div>
+
+                      <p className="text-sm text-gray-500 mt-3">
+                        {new Date(capture.createdAt).toLocaleString()}
+                      </p>
+                    </button>
+
+                    <div className="shrink-0">
+                      <ShareButton capture={capture} />
+                    </div>
                   </div>
-
-                  <p className="text-sm text-gray-500 mt-3">
-                    {new Date(capture.createdAt).toLocaleString()}
-                  </p>
-                </button>
+                </div>
               ))}
             </div>
           )}

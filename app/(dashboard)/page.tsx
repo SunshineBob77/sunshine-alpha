@@ -7,6 +7,7 @@ import WeekStrip from "@/app/components/WeekStrip";
 import DailyBriefingCard from "@/app/components/DailyBriefingCard";
 import SpaceSummaryCards from "@/app/components/SpaceSummaryCards";
 import DropDetailModal from "@/app/components/DropDetailModal";
+import ShareButton from "@/app/components/ShareButton";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import { useShareCapture } from "@/app/lib/useShareCapture";
 import { getQuoteOfTheDay } from "@/app/lib/quotes";
@@ -161,23 +162,33 @@ export default function Home() {
               ) : (
                 <div className="space-y-3">
                   {recentCaptures.map((capture) => (
-                    <button
+                    <div
                       key={capture.id}
-                      type="button"
-                      onClick={() => setSelectedCaptureId(capture.id)}
-                      className="w-full text-left bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-4 hover:ring-black/10 transition-all"
+                      className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-4 hover:ring-black/10 transition-all"
                     >
-                      <p className="text-gray-900 break-words">
-                        {capture.text.length > 120
-                          ? `${capture.text.slice(0, 120)}…`
-                          : capture.text}
-                      </p>
-                      <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
-                        <span>{new Date(capture.createdAt).toLocaleString()}</span>
-                        {capture.aiResearchResult && <span title="Sunshine found something">🔎</span>}
-                        {capture.extractedAddress && <span title="Has a map link">📍</span>}
+                      <div className="flex items-start justify-between gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCaptureId(capture.id)}
+                          className="flex-1 min-w-0 text-left"
+                        >
+                          <p className="text-gray-900 break-words">
+                            {capture.text.length > 120
+                              ? `${capture.text.slice(0, 120)}…`
+                              : capture.text}
+                          </p>
+                          <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
+                            <span>{new Date(capture.createdAt).toLocaleString()}</span>
+                            {capture.aiResearchResult && <span title="Sunshine found something">🔎</span>}
+                            {capture.extractedAddress && <span title="Has a map link">📍</span>}
+                          </div>
+                        </button>
+
+                        <div className="shrink-0">
+                          <ShareButton capture={capture} />
+                        </div>
                       </div>
-                    </button>
+                    </div>
                   ))}
                 </div>
               )}
