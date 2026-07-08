@@ -153,7 +153,7 @@ export default async function SharePage({ params }: Props) {
             everything easy to find later.
           </p>
           <a
-            href="/"
+            href="/?mode=signup"
             className="inline-flex items-center justify-center gap-2 mt-4 bg-[#1B2340] hover:bg-[#141a30] text-white text-sm font-semibold px-5 py-3 rounded-full transition-colors"
           >
             Sign up free — it takes a minute
