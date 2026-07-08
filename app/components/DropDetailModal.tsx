@@ -2,6 +2,7 @@
 
 import ShareButton from "./ShareButton";
 import DeleteDropButton from "./DeleteDropButton";
+import { defaultSpaces } from "@/app/lib/spaces";
 import type { Capture } from "@/app/lib/captures";
 
 export default function DropDetailModal({
@@ -11,6 +12,8 @@ export default function DropDetailModal({
   capture: Capture;
   onClose: () => void;
 }) {
+  const spaces = defaultSpaces.filter((space) => capture.spaceIds?.includes(space.id));
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -33,6 +36,20 @@ export default function DropDetailModal({
             ✕
           </button>
         </div>
+
+        {spaces.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-3">
+            {spaces.map((space) => (
+              <span
+                key={space.id}
+                className={`text-xs px-2 py-1 rounded-full ${space.color}`}
+              >
+                {space.icon} {space.name}
+                {space.isShared ? " · Shared" : ""}
+              </span>
+            ))}
+          </div>
+        )}
 
         <p className="text-lg text-gray-900 break-words whitespace-pre-wrap">{capture.text}</p>
 
