@@ -10,7 +10,7 @@ import DropDetailModal from "@/app/components/DropDetailModal";
 import DropContent from "@/app/components/DropContent";
 import ShareButton from "@/app/components/ShareButton";
 import { useCaptures } from "@/app/lib/DashboardContext";
-import { useShareCapture } from "@/app/lib/useShareCapture";
+import { useInviteShare } from "@/app/lib/useInviteShare";
 import { getQuoteOfTheDay } from "@/app/lib/quotes";
 import { caveat } from "@/app/lib/fonts";
 
@@ -32,8 +32,7 @@ export default function Home() {
   const avatarUrl = user.user_metadata?.avatar_url as string | undefined;
 
   const recentCaptures = captures.slice(0, 3);
-  const mostRecentCapture = captures[0] ?? null;
-  const { status: shareStatus, handleShare } = useShareCapture(mostRecentCapture);
+  const { status: inviteStatus, handleInvite } = useInviteShare();
 
   const quote = getQuoteOfTheDay(now);
 
@@ -114,18 +113,24 @@ export default function Home() {
 
               <button
                 type="button"
-                onClick={handleShare}
-                disabled={!mostRecentCapture || shareStatus === "sharing"}
+                onClick={handleInvite}
+                disabled={inviteStatus === "sharing"}
                 className="flex flex-col items-center gap-1 text-xs font-semibold text-gray-700 disabled:opacity-40"
               >
                 <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100 text-gray-700 shadow-sm">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7" />
-                    <path d="M16 6l-4-4-4 4" />
-                    <path d="M12 2v13" />
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M19 8v6M22 11h-6" />
                   </svg>
                 </span>
-                {shareStatus === "sharing" ? "…" : shareStatus === "copied" ? "Copied!" : "Share"}
+                {inviteStatus === "sharing"
+                  ? "…"
+                  : inviteStatus === "copied"
+                    ? "Copied!"
+                    : inviteStatus === "error"
+                      ? "Couldn't share"
+                      : "Invite"}
               </button>
             </div>
           </div>

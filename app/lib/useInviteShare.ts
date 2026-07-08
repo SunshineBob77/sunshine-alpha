@@ -1,35 +1,30 @@
 "use client";
 
 import { useState } from "react";
-import { getOrCreateShare } from "./shares";
 import { useCaptures } from "./DashboardContext";
 import { copyToClipboard } from "./clipboard";
-import type { Capture } from "./captures";
 
 export type ShareStatus = "idle" | "sharing" | "copied" | "error";
 
-export function useShareCapture(capture: Capture | null) {
+export function useInviteShare() {
   const { user } = useCaptures();
   const [status, setStatus] = useState<ShareStatus>("idle");
   const [manualLink, setManualLink] = useState<string | null>(null);
 
   const sharerName =
-    user.user_metadata?.full_name || user.email?.split("@")[0] || "there";
+    user.user_metadata?.full_name?.split(" ")[0] || user.email?.split("@")[0] || "there";
 
-  async function handleShare() {
-    if (!capture) return;
-
+  async function handleInvite() {
     setStatus("sharing");
     setManualLink(null);
 
-    try {
-      const share = await getOrCreateShare(capture, sharerName);
-      const url = `${window.location.origin}/s/${share.id}`;
+    const url = window.location.origin;
 
+    try {
       if (navigator.share) {
         try {
           await navigator.share({
-            title: `A drop of sunshine from ${sharerName}`,
+            title: `${sharerName} is inviting you to Sunshine`,
             url,
           });
           setStatus("idle");
@@ -71,5 +66,5 @@ export function useShareCapture(capture: Capture | null) {
     }
   }
 
-  return { status, manualLink, handleShare };
+  return { status, manualLink, handleInvite };
 }
