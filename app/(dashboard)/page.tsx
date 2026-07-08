@@ -117,12 +117,19 @@ export default function Home() {
                 disabled={inviteStatus === "sharing"}
                 className="flex flex-col items-center gap-1 text-xs font-semibold text-gray-700 disabled:opacity-40"
               >
-                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100 text-gray-700 shadow-sm">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <path d="M19 8v6M22 11h-6" />
+                <span className="relative flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-rose-400 to-amber-400 text-white shadow-sm">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="5" fill="white" />
+                    <path
+                      d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"
+                      stroke="white"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                    />
                   </svg>
+                  <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-white text-rose-500 text-[10px] font-bold shadow-sm">
+                    +
+                  </span>
                 </span>
                 {inviteStatus === "sharing"
                   ? "…"
@@ -130,7 +137,7 @@ export default function Home() {
                     ? "Copied!"
                     : inviteStatus === "error"
                       ? "Couldn't share"
-                      : "Invite"}
+                      : "Invite a friend"}
               </button>
             </div>
           </div>

@@ -1,4 +1,5 @@
 import type { Capture } from "@/app/lib/captures";
+import DropContent from "./DropContent";
 
 function isSameDay(a: Date, b: Date) {
   return a.toDateString() === b.toDateString();
@@ -42,7 +43,9 @@ function BriefingCard({
         </span>
         <h3 className="font-semibold text-sm text-gray-900">{label}</h3>
       </div>
-      <p className="text-sm text-gray-800 break-words line-clamp-2">{headline}</p>
+      <div className="text-sm text-gray-800 break-words max-h-10 overflow-hidden">
+        <DropContent content={headline} />
+      </div>
       <p className={`text-xs mt-1 ${detailTone}`}>{detail}</p>
     </>
   );
@@ -95,7 +98,9 @@ export default function DailyBriefingCard({
         icon="🎯"
         tone="bg-amber-100"
         label="Today's Focus"
-        headline={focusItem?.text ?? "No tasks captured yet — tap Drop to add one."}
+        headline={
+          focusItem ? focusItem.formattedText ?? focusItem.text : "No tasks captured yet — tap Drop to add one."
+        }
         detail={
           focusItems.length === 0
             ? ""
@@ -109,7 +114,7 @@ export default function DailyBriefingCard({
         icon="🌟"
         tone="bg-emerald-100"
         label={winLabel}
-        headline={win?.text ?? "Nothing marked as a win yet."}
+        headline={win ? win.formattedText ?? win.text : "Nothing marked as a win yet."}
         detail={win ? formatRelativeDay(new Date(win.createdAt), now) : ""}
         onClick={win ? () => onSelectCapture(win.id) : undefined}
       />
