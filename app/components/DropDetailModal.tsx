@@ -102,14 +102,17 @@ export default function DropDetailModal({
           <span className="text-xs font-semibold bg-amber-100 text-amber-800 px-3 py-1.5 rounded-full">
             {capture.category}
           </span>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="text-gray-400 hover:text-gray-600 text-xl leading-none"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <ShareButton capture={capture} />
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         <SpacePicker capture={capture} />
@@ -133,7 +136,6 @@ export default function DropDetailModal({
         )}
 
         <div className="mt-4 flex items-center gap-2 flex-wrap">
-          <ShareButton capture={capture} />
           <DeleteDropButton captureId={capture.id} onDeleted={onClose} />
           {capture.extractedAddress && (
             <a
