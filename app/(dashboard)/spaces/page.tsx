@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { defaultSpaces } from "@/app/lib/spaces";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import type { Capture } from "@/app/lib/captures";
@@ -9,7 +10,13 @@ import ShareButton from "@/app/components/ShareButton";
 
 export default function SpacesPage() {
   const { captures, capturesLoading, openCapture } = useCaptures();
-  const [activeSpace, setActiveSpace] = useState("personal");
+  const searchParams = useSearchParams();
+  const requestedSpace = searchParams.get("space");
+  const [activeSpace, setActiveSpace] = useState(
+    requestedSpace && defaultSpaces.some((space) => space.id === requestedSpace)
+      ? requestedSpace
+      : "personal"
+  );
   const [selectedCaptureId, setSelectedCaptureId] = useState<number | null>(null);
   const selectedCapture = captures.find((capture) => capture.id === selectedCaptureId) ?? null;
 

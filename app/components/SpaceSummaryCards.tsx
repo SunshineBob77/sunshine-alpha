@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Capture } from "@/app/lib/captures";
 import { defaultSpaces } from "@/app/lib/spaces";
 import { summarizeSpace } from "@/app/lib/spaceSummary";
@@ -26,9 +27,10 @@ export default function SpaceSummaryCards({ captures }: { captures: Capture[] })
         const { count, oneLiner } = summarizeSpace(spaceCaptures, space.id);
 
         return (
-          <div
+          <Link
             key={space.id}
-            className={`${space.color} rounded-2xl ring-1 ring-black/5 shadow-sm p-4`}
+            href={`/spaces?space=${space.id}`}
+            className={`${space.color} rounded-2xl ring-1 ring-black/5 shadow-sm p-4 block hover:ring-black/10 hover:shadow-md transition-all`}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -40,7 +42,7 @@ export default function SpaceSummaryCards({ captures }: { captures: Capture[] })
               </span>
             </div>
             <p className="text-sm text-gray-700 mt-2">{oneLiner}</p>
-          </div>
+          </Link>
         );
       })}
     </section>
