@@ -7,6 +7,7 @@ import {
   insertCapture,
   deleteCapture,
   updateCaptureSpaces,
+  updateCaptureText,
   type Capture,
 } from "./captures";
 import { analyzeCapture } from "./analyzeCapture";
@@ -21,6 +22,7 @@ type DashboardContextValue = {
   openCapture: () => void;
   removeCapture: (id: number) => Promise<void>;
   updateSpaces: (id: number, spaceIds: string[]) => Promise<void>;
+  updateText: (id: number, text: string) => Promise<void>;
 };
 
 const DashboardContext = createContext<DashboardContextValue | null>(null);
@@ -142,6 +144,13 @@ export function DashboardProvider({
     );
   }
 
+  async function updateText(id: number, text: string) {
+    await updateCaptureText(id, text);
+    setCaptures((prev) =>
+      prev.map((capture) => (capture.id === id ? { ...capture, text } : capture))
+    );
+  }
+
   return (
     <DashboardContext.Provider
       value={{
@@ -153,6 +162,7 @@ export function DashboardProvider({
         openCapture: () => setIsCapturing(true),
         removeCapture,
         updateSpaces,
+        updateText,
       }}
     >
       {children}

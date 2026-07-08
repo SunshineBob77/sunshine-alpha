@@ -94,3 +94,8 @@ export async function updateCaptureSpaces(id: number, spaceIds: string[]): Promi
 
   if (error) throw error;
 }
+
+export async function updateCaptureText(id: number, text: string): Promise<void> {
+  const { error } = await supabase.from("captures").update({ text }).eq("id", id);
+  if (error) throw error;
+}
