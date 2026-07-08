@@ -2,10 +2,25 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { fetchShare } from "@/app/lib/shares";
 import { caveat } from "@/app/lib/fonts";
+import DropContent from "@/app/components/DropContent";
 
 type Props = {
   params: Promise<{ id: string }>;
 };
+
+function stripMarkdown(markdown: string): string {
+  return markdown
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/[*_~]{1,3}([^*_~]+)[*_~]{1,3}/g, "$1")
+    .replace(/^\s*[-*+]\s+/gm, "")
+    .replace(/^\s*\d+\.\s+/gm, "")
+    .replace(/\|/g, " ")
+    .replace(/\n+/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
@@ -14,10 +29,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!share) notFound();
 
   const title = `A drop of sunshine from ${share.sharerName}`;
+  const plainPreview = stripMarkdown(share.previewText);
   const description =
-    share.previewText.length > 160
-      ? `${share.previewText.slice(0, 160)}…`
-      : share.previewText;
+    plainPreview.length > 160 ? `${plainPreview.slice(0, 160)}…` : plainPreview;
 
   return {
     title,
@@ -136,9 +150,9 @@ export default async function SharePage({ params }: Props) {
             {tag.label}
           </span>
 
-          <p className="text-base leading-relaxed text-[#2A281F] break-words">
-            {share.previewText}
-          </p>
+          <div className="text-base leading-relaxed text-[#2A281F]">
+            <DropContent content={share.previewText} />
+          </div>
         </div>
       </div>
 

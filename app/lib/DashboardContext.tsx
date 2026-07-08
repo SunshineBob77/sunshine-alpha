@@ -78,7 +78,7 @@ export function DashboardProvider({
       body: JSON.stringify({ id, text }),
     })
       .then((response) => response.json())
-      .then((data: { result?: string | null; address?: string | null }) => {
+      .then((data: { result?: string | null; address?: string | null; formatted?: string | null }) => {
         if (data.result === undefined) return;
         setCaptures((prev) =>
           prev.map((capture) =>
@@ -87,6 +87,7 @@ export function DashboardProvider({
                   ...capture,
                   aiResearchResult: data.result ?? null,
                   extractedAddress: data.address ?? null,
+                  formattedText: data.formatted ?? null,
                 }
               : capture
           )
@@ -149,6 +150,7 @@ export function DashboardProvider({
     setCaptures((prev) =>
       prev.map((capture) => (capture.id === id ? { ...capture, text } : capture))
     );
+    analyzeDrop(id, text);
   }
 
   return (

@@ -6,6 +6,7 @@ import { defaultSpaces } from "@/app/lib/spaces";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import type { Capture } from "@/app/lib/captures";
 import DropDetailModal from "@/app/components/DropDetailModal";
+import DropContent from "@/app/components/DropContent";
 import ShareButton from "@/app/components/ShareButton";
 
 export default function SpacesPage() {
@@ -98,11 +99,9 @@ export default function SpacesPage() {
                       onClick={() => setSelectedCaptureId(capture.id)}
                       className="flex-1 min-w-0 text-left"
                     >
-                      <p className="text-lg text-gray-900 break-words">
-                        {capture.text.length > 160
-                          ? `${capture.text.slice(0, 160)}…`
-                          : capture.text}
-                      </p>
+                      <div className="max-h-32 overflow-hidden text-lg text-gray-900">
+                        <DropContent content={capture.formattedText ?? capture.text} />
+                      </div>
 
                       <p className="text-sm text-amber-700 font-semibold mt-3">
                         {capture.sunshineSummary}

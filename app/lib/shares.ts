@@ -49,7 +49,7 @@ export async function getOrCreateShare(capture: Capture, sharerName: string): Pr
       capture_id: capture.id,
       sharer_name: sharerName,
       title: capture.sunshineSummary,
-      preview_text: capture.text.slice(0, 280),
+      preview_text: capture.formattedText ?? capture.text,
       category: capture.category,
     })
     .select(SHARE_COLUMNS)

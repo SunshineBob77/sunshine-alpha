@@ -3,6 +3,7 @@
 import { useState } from "react";
 import ShareButton from "./ShareButton";
 import DeleteDropButton from "./DeleteDropButton";
+import DropContent from "./DropContent";
 import { defaultSpaces } from "@/app/lib/spaces";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import type { Capture } from "@/app/lib/captures";
@@ -183,7 +184,9 @@ export default function DropDetailModal({
             {textError && <p className="text-xs text-red-600 mt-1">{textError}</p>}
           </div>
         ) : (
-          <p className="text-lg text-gray-900 break-words whitespace-pre-wrap">{capture.text}</p>
+          <div className="text-lg text-gray-900">
+            <DropContent content={capture.formattedText ?? capture.text} />
+          </div>
         )}
 
         <p className="text-sm text-gray-500 mt-3">

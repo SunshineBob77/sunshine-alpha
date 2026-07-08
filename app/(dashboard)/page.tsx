@@ -7,6 +7,7 @@ import WeekStrip from "@/app/components/WeekStrip";
 import DailyBriefingCard from "@/app/components/DailyBriefingCard";
 import SpaceSummaryCards from "@/app/components/SpaceSummaryCards";
 import DropDetailModal from "@/app/components/DropDetailModal";
+import DropContent from "@/app/components/DropContent";
 import ShareButton from "@/app/components/ShareButton";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import { useShareCapture } from "@/app/lib/useShareCapture";
@@ -172,11 +173,9 @@ export default function Home() {
                           onClick={() => setSelectedCaptureId(capture.id)}
                           className="flex-1 min-w-0 text-left"
                         >
-                          <p className="text-gray-900 break-words">
-                            {capture.text.length > 120
-                              ? `${capture.text.slice(0, 120)}…`
-                              : capture.text}
-                          </p>
+                          <div className="max-h-24 overflow-hidden text-gray-900">
+                            <DropContent content={capture.formattedText ?? capture.text} />
+                          </div>
                           <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
                             <span>{new Date(capture.createdAt).toLocaleString()}</span>
                             {capture.aiResearchResult && <span title="Sunshine found something">🔎</span>}
