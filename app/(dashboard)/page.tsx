@@ -1,7 +1,6 @@
 "use client";
 
 import { useLayoutEffect, useRef, useState } from "react";
-import Link from "next/link";
 import WeatherWidget from "@/app/components/WeatherWidget";
 import DropDetailModal from "@/app/components/DropDetailModal";
 import LifelineFeed from "@/app/components/LifelineFeed";
@@ -30,7 +29,6 @@ export default function Home() {
 
   const displayName =
     user.user_metadata?.full_name?.split(" ")[0] || user.email?.split("@")[0] || "there";
-  const avatarUrl = user.user_metadata?.avatar_url as string | undefined;
 
   const { status: inviteStatus, handleInvite } = useInviteShare();
   const [activeFilter, setActiveFilter] = useState("all");
@@ -39,7 +37,7 @@ export default function Home() {
   const headerRef = useRef<HTMLElement>(null);
   // Generous initial estimate so content isn't clipped before the ResizeObserver
   // below measures the real height on mount (useLayoutEffect corrects it pre-paint).
-  const [headerHeight, setHeaderHeight] = useState(280);
+  const [headerHeight, setHeaderHeight] = useState(240);
 
   useLayoutEffect(() => {
     const el = headerRef.current;
@@ -57,29 +55,13 @@ export default function Home() {
     <>
       <header
         ref={headerRef}
-        className="fixed top-0 inset-x-0 z-30 bg-amber-50/95 backdrop-blur-md border-b border-black/5 px-4 sm:px-8 py-4"
+        className="fixed top-0 inset-x-0 z-30 bg-amber-50/95 backdrop-blur-md border-b border-black/5 px-4 sm:px-8 py-3"
       >
         <div className="w-full max-w-2xl mx-auto">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <Link href="/me" aria-label="Your profile" className="shrink-0">
-                {avatarUrl ? (
-                  <img
-                    src={avatarUrl}
-                    alt=""
-                    className="h-11 w-11 rounded-full object-cover ring-1 ring-black/5"
-                  />
-                ) : (
-                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-amber-100 text-amber-800 font-semibold ring-1 ring-black/5">
-                    {displayName.charAt(0).toUpperCase()}
-                  </span>
-                )}
-              </Link>
-
-              <p className="min-w-0 text-lg sm:text-xl font-bold text-gray-900 truncate">
-                {getGreeting(now)}, {displayName} ☀️
-              </p>
-            </div>
+            <p className="min-w-0 text-lg sm:text-xl font-bold text-gray-900 truncate">
+              {getGreeting(now)}, {displayName} ☀️
+            </p>
 
             <div className="flex items-end gap-3 shrink-0">
               <button
@@ -125,18 +107,18 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="mt-4">
+          <div className="mt-2">
             <WeatherWidget variant="forecast" />
           </div>
 
-          <div className="mt-4 text-center">
+          <div className="mt-2 text-center">
             <p className="italic text-gray-700 text-sm">
               “{quote.text}”{" "}
               <span className="not-italic text-gray-400 text-xs">— {quote.author}</span>
             </p>
           </div>
 
-          <div className="mt-4 flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="mt-2 flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {filterOptions.map((option) => (
               <button
                 key={option.id}
