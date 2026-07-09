@@ -26,10 +26,14 @@ export default function SpaceSummaryCards({ captures }: { captures: Capture[] })
         <Link
           key={space.id}
           href={`/spaces?space=${space.id}`}
-          className={`${space.color} rounded-2xl p-3 text-center ring-1 ring-black/5 shadow-sm hover:shadow-md hover:scale-[1.01] transition-all block`}
+          className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-4 text-center hover:ring-black/10 transition-all block"
         >
-          <div className="text-2xl">{space.icon}</div>
-          <div className="font-semibold text-gray-900">{space.name}</div>
+          <span
+            className={`inline-flex h-10 w-10 items-center justify-center rounded-full text-lg ${space.color}`}
+          >
+            {space.icon}
+          </span>
+          <div className="font-semibold text-gray-900 mt-2">{space.name}</div>
           <div className="text-xs mt-1 text-gray-600">
             {count} {count === 1 ? "item" : "items"}
           </div>

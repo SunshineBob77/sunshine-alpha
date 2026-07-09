@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import WeatherWidget from "@/app/components/WeatherWidget";
 import WeekStrip from "@/app/components/WeekStrip";
@@ -34,10 +34,30 @@ export default function Home() {
 
   const quote = getQuoteOfTheDay(now);
 
+  const headerRef = useRef<HTMLElement>(null);
+  // Generous initial estimate so content isn't clipped before the ResizeObserver
+  // below measures the real height on mount (useLayoutEffect corrects it pre-paint).
+  const [headerHeight, setHeaderHeight] = useState(420);
+
+  useLayoutEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+
+    const updateHeight = () => setHeaderHeight(el.offsetHeight);
+    updateHeight();
+
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <main className="flex flex-col items-center p-4 sm:p-8">
-      <div className="w-full max-w-2xl">
-        <section className="mt-4 sm:mt-8 mb-6">
+    <>
+      <header
+        ref={headerRef}
+        className="fixed top-0 inset-x-0 z-30 bg-amber-50/95 backdrop-blur-md border-b border-black/5 px-4 sm:px-8 pt-4 sm:pt-8 pb-4"
+      >
+        <div className="w-full max-w-2xl mx-auto">
           <div className="flex items-center justify-between gap-2 mb-6">
             <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
               <span className="text-3xl sm:text-4xl leading-none shrink-0">🌞</span>
@@ -143,42 +163,49 @@ export default function Home() {
           <div className="mt-4">
             <WeatherWidget />
           </div>
-        </section>
+        </div>
+      </header>
 
-        <section className="mb-6">
-          <WeekStrip captures={captures} />
-        </section>
+      <main
+        className="flex flex-col items-center p-4 sm:p-8"
+        style={{ paddingTop: headerHeight + 16 }}
+      >
+        <div className="w-full max-w-2xl">
+          <section className="mb-6">
+            <WeekStrip captures={captures} />
+          </section>
 
-        {capturesError && (
-          <p className="text-sm text-red-600 mb-6 text-center">{capturesError}</p>
+          {capturesError && (
+            <p className="text-sm text-red-600 mb-6 text-center">{capturesError}</p>
+          )}
+
+          {capturesLoading ? (
+            <p className="text-gray-500 text-center">Loading your day…</p>
+          ) : (
+            <>
+              <section className="mb-6">
+                <DailyBriefingCard captures={captures} onSelectCapture={setSelectedCaptureId} />
+              </section>
+
+              <section className="mb-6">
+                <SpaceSummaryCards captures={captures} />
+              </section>
+
+              <section>
+                <h2 className="text-xl font-semibold mb-3 text-gray-900">Lifeline</h2>
+                <LifelineFeed captures={captures} onSelectCapture={setSelectedCaptureId} />
+              </section>
+            </>
+          )}
+        </div>
+
+        {selectedCapture && (
+          <DropDetailModal
+            capture={selectedCapture}
+            onClose={() => setSelectedCaptureId(null)}
+          />
         )}
-
-        {capturesLoading ? (
-          <p className="text-gray-500 text-center">Loading your day…</p>
-        ) : (
-          <>
-            <section className="mb-6">
-              <DailyBriefingCard captures={captures} onSelectCapture={setSelectedCaptureId} />
-            </section>
-
-            <section className="mb-6">
-              <SpaceSummaryCards captures={captures} />
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3 text-gray-900">Lifeline</h2>
-              <LifelineFeed captures={captures} onSelectCapture={setSelectedCaptureId} />
-            </section>
-          </>
-        )}
-      </div>
-
-      {selectedCapture && (
-        <DropDetailModal
-          capture={selectedCapture}
-          onClose={() => setSelectedCaptureId(null)}
-        />
-      )}
-    </main>
+      </main>
+    </>
   );
 }
