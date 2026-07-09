@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import LifelineDropCard from "./LifelineDropCard";
-import { getCategoryTone } from "@/app/lib/categoryTone";
 import { defaultSpaces } from "@/app/lib/spaces";
 import type { Capture } from "@/app/lib/captures";
 
@@ -49,31 +48,10 @@ export default function LifelineFeed({
           {activeFilter === "all" ? "No Drops yet." : "No Drops in this Space yet."}
         </p>
       ) : (
-        <div className="relative mt-5">
-          <div
-            className="absolute left-5 top-2 bottom-2 w-0.5 bg-gray-200"
-            aria-hidden="true"
-          />
-
-          <div className="space-y-4">
-            {filteredCaptures.map((capture) => {
-              const tone = getCategoryTone(capture.category);
-
-              return (
-                <div key={capture.id} className="relative flex gap-3">
-                  <span
-                    className={`relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg ${tone.bg}`}
-                  >
-                    {tone.icon}
-                  </span>
-
-                  <div className="min-w-0 flex-1">
-                    <LifelineDropCard capture={capture} onSelect={onSelectCapture} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+        <div className="space-y-4 mt-5">
+          {filteredCaptures.map((capture) => (
+            <LifelineDropCard key={capture.id} capture={capture} onSelect={onSelectCapture} />
+          ))}
         </div>
       )}
     </div>

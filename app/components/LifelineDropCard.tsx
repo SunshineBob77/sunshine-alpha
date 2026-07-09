@@ -4,6 +4,7 @@ import { useState } from "react";
 import DropContent from "./DropContent";
 import ShareButton from "./ShareButton";
 import DeleteDropButton from "./DeleteDropButton";
+import { getCategoryTone } from "@/app/lib/categoryTone";
 import type { Capture } from "@/app/lib/captures";
 
 export default function LifelineDropCard({
@@ -24,15 +25,28 @@ export default function LifelineDropCard({
 
   const isUrgent = capture.tags?.includes("urgent") ?? false;
   const visibleTags = (capture.tags ?? []).filter((tag) => tag !== "urgent");
+  const tone = getCategoryTone(capture.category);
 
   return (
-    <div className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-4 hover:ring-black/10 transition-all">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="font-semibold text-gray-900 truncate">{capture.sunshineSummary}</p>
-          <p className="text-xs text-gray-500 mt-0.5">
-            {capture.category} · {new Date(capture.createdAt).toLocaleString()}
-          </p>
+    <div
+      className={`bg-white rounded-2xl border-l-4 ${tone.border} ring-1 ring-black/5 shadow-sm p-5 hover:ring-black/10 transition-all`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3 min-w-0">
+          <span
+            className={`flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-full text-xl ${tone.bg}`}
+          >
+            {tone.icon}
+          </span>
+
+          <div className="min-w-0">
+            <p className="font-semibold text-base sm:text-lg text-gray-900 truncate">
+              {capture.sunshineSummary}
+            </p>
+            <p className="text-sm text-gray-500 mt-0.5">
+              {capture.category} · {new Date(capture.createdAt).toLocaleString()}
+            </p>
+          </div>
         </div>
 
         <span
@@ -48,7 +62,7 @@ export default function LifelineDropCard({
         onClick={() => onSelect(capture.id)}
         className="mt-3 block w-full text-left"
       >
-        <div className="max-h-24 overflow-hidden text-sm text-gray-800">
+        <div className="max-h-28 overflow-hidden text-base text-gray-800">
           <DropContent content={capture.formattedText ?? capture.text} />
         </div>
       </button>
@@ -66,7 +80,7 @@ export default function LifelineDropCard({
         </div>
       )}
 
-      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+      <div className="flex items-center gap-2 mt-4 pt-3 border-t border-gray-100">
         {kind === "suggestion" ? (
           <>
             <button
