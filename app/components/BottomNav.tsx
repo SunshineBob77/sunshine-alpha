@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCaptures } from "@/app/lib/DashboardContext";
 
-const leftItems = [{ href: "/", label: "Home", icon: "🏠" }, { href: "/spaces", label: "Spaces", icon: "🗂️" }];
+const leftItems = [{ href: "/", label: "Lifeline", icon: "🏠" }, { href: "/spaces", label: "Spaces", icon: "🗂️" }];
 const rightItems = [{ href: "/ask", label: "Ask Sunshine", icon: "💬" }, { href: "/me", label: "Me", icon: "🙂" }];
 
 export default function BottomNav() {

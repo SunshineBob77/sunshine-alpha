@@ -7,8 +7,7 @@ import WeekStrip from "@/app/components/WeekStrip";
 import DailyBriefingCard from "@/app/components/DailyBriefingCard";
 import SpaceSummaryCards from "@/app/components/SpaceSummaryCards";
 import DropDetailModal from "@/app/components/DropDetailModal";
-import DropContent from "@/app/components/DropContent";
-import ShareButton from "@/app/components/ShareButton";
+import LifelineFeed from "@/app/components/LifelineFeed";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import { useInviteShare } from "@/app/lib/useInviteShare";
 import { getQuoteOfTheDay } from "@/app/lib/quotes";
@@ -31,7 +30,6 @@ export default function Home() {
     user.user_metadata?.full_name?.split(" ")[0] || user.email?.split("@")[0] || "there";
   const avatarUrl = user.user_metadata?.avatar_url as string | undefined;
 
-  const recentCaptures = captures.slice(0, 3);
   const { status: inviteStatus, handleInvite } = useInviteShare();
 
   const quote = getQuoteOfTheDay(now);
@@ -168,41 +166,8 @@ export default function Home() {
             </section>
 
             <section>
-              <h2 className="text-xl font-semibold mb-3 text-gray-900">Recent Drops</h2>
-
-              {recentCaptures.length === 0 ? (
-                <p className="text-gray-500">No Drops yet.</p>
-              ) : (
-                <div className="space-y-3">
-                  {recentCaptures.map((capture) => (
-                    <div
-                      key={capture.id}
-                      className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-4 hover:ring-black/10 transition-all"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedCaptureId(capture.id)}
-                          className="flex-1 min-w-0 text-left"
-                        >
-                          <div className="max-h-24 overflow-hidden text-gray-900">
-                            <DropContent content={capture.formattedText ?? capture.text} />
-                          </div>
-                          <div className="flex items-center gap-2 mt-2 text-sm text-gray-500">
-                            <span>{new Date(capture.createdAt).toLocaleString()}</span>
-                            {capture.aiResearchResult && <span title="Sunshine found something">🔎</span>}
-                            {capture.extractedAddress && <span title="Has a map link">📍</span>}
-                          </div>
-                        </button>
-
-                        <div className="shrink-0">
-                          <ShareButton capture={capture} />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <h2 className="text-xl font-semibold mb-3 text-gray-900">Lifeline</h2>
+              <LifelineFeed captures={captures} onSelectCapture={setSelectedCaptureId} />
             </section>
           </>
         )}
