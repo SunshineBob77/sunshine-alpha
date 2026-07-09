@@ -21,7 +21,6 @@ export default function LifelineDropCard({
   onDismiss?: () => void;
 }) {
   const [pinned, setPinned] = useState(false);
-  const [showMore, setShowMore] = useState(false);
 
   const isUrgent = capture.tags?.includes("urgent") ?? false;
   const visibleTags = (capture.tags ?? []).filter((tag) => tag !== "urgent");
@@ -29,7 +28,7 @@ export default function LifelineDropCard({
 
   return (
     <div
-      className={`bg-white rounded-2xl border-l-4 ${tone.border} ring-1 ring-black/5 shadow-sm p-5 hover:ring-black/10 transition-all`}
+      className={`bg-white rounded-2xl border-[5px] ${tone.border} shadow-sm p-5 hover:shadow-md transition-all`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0">
@@ -80,7 +79,7 @@ export default function LifelineDropCard({
         </div>
       )}
 
-      <div className="flex items-center gap-2 mt-4 pt-3 border-t border-gray-100">
+      <div className="flex items-center gap-2 mt-4 pt-3 border-t border-gray-100 flex-wrap">
         {kind === "suggestion" ? (
           <>
             <button
@@ -123,25 +122,7 @@ export default function LifelineDropCard({
               📌 {pinned ? "Pinned" : "Pin"}
             </button>
 
-            <div className="relative ml-auto">
-              <button
-                type="button"
-                onClick={() => setShowMore((prev) => !prev)}
-                aria-label="More actions"
-                className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1.5 rounded-full transition-all"
-              >
-                ⋯
-              </button>
-
-              {showMore && (
-                <div className="absolute right-0 mt-2 z-10 bg-white rounded-xl ring-1 ring-black/10 shadow-lg p-2">
-                  <DeleteDropButton
-                    captureId={capture.id}
-                    onDeleted={() => setShowMore(false)}
-                  />
-                </div>
-              )}
-            </div>
+            <DeleteDropButton captureId={capture.id} />
           </>
         )}
       </div>

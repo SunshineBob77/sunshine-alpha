@@ -12,6 +12,11 @@ type WeatherData = {
   humidity: number;
   windSpeed: number;
   code: number;
+  today: {
+    code: number;
+    high: number;
+    low: number;
+  };
   tomorrow: {
     code: number;
     high: number;
@@ -54,7 +59,11 @@ function describeWeather(code: number) {
   return weatherByCode[code] ?? { label: "Unknown", icon: "🌡️" };
 }
 
-export default function WeatherWidget({ compact = false }: { compact?: boolean }) {
+export default function WeatherWidget({
+  variant = "full",
+}: {
+  variant?: "full" | "forecast";
+}) {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [error, setError] = useState(false);
 
@@ -78,6 +87,11 @@ export default function WeatherWidget({ compact = false }: { compact?: boolean }
           humidity: Math.round(data.current.relative_humidity_2m),
           windSpeed: Math.round(data.current.wind_speed_10m),
           code: data.current.weather_code,
+          today: {
+            code: data.daily.weather_code[0],
+            high: Math.round(data.daily.temperature_2m_max[0]),
+            low: Math.round(data.daily.temperature_2m_min[0]),
+          },
           tomorrow: {
             code: data.daily.weather_code[1],
             high: Math.round(data.daily.temperature_2m_max[1]),
@@ -99,24 +113,46 @@ export default function WeatherWidget({ compact = false }: { compact?: boolean }
     };
   }, []);
 
-  if (compact) {
+  if (variant === "forecast") {
     if (error) {
-      return <span className="text-sm text-gray-400 whitespace-nowrap">🌡️ --°</span>;
+      return <span className="text-sm text-gray-400">Weather unavailable</span>;
     }
 
     if (!weather) {
-      return (
-        <span className="text-sm text-gray-400 whitespace-nowrap animate-pulse">🌡️ --°</span>
-      );
+      return <span className="text-sm text-gray-400 animate-pulse">Loading weather…</span>;
     }
 
-    const { icon: compactIcon } = describeWeather(weather.code);
+    const todayInfo = describeWeather(weather.today.code);
+    const tomorrowInfo = describeWeather(weather.tomorrow.code);
 
     return (
-      <span className="flex items-center gap-1 text-sm font-semibold text-gray-700 whitespace-nowrap">
-        <span className="text-base leading-none">{compactIcon}</span>
-        {weather.temperature}°
-      </span>
+      <div className="flex items-center gap-5 sm:gap-6">
+        <div className="flex items-center gap-2">
+          <span className="text-3xl leading-none">{todayInfo.icon}</span>
+          <div className="leading-tight">
+            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+              Today
+            </p>
+            <p className="text-base font-bold text-gray-900">
+              {weather.today.high}°{" "}
+              <span className="font-normal text-gray-500">{weather.today.low}°</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-3xl leading-none">{tomorrowInfo.icon}</span>
+          <div className="leading-tight">
+            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+              Tomorrow
+            </p>
+            <p className="text-base font-bold text-gray-900">
+              {weather.tomorrow.high}°{" "}
+              <span className="font-normal text-gray-500">{weather.tomorrow.low}°</span>
+            </p>
+          </div>
+        </div>
+      </div>
     );
   }
 
