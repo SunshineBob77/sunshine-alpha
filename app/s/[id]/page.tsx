@@ -4,6 +4,7 @@ import { fetchShare } from "@/app/lib/shares";
 import { caveat } from "@/app/lib/fonts";
 import DropContent from "@/app/components/DropContent";
 import InviteSection from "@/app/components/InviteSection";
+import { getCategoryTone } from "@/app/lib/categoryTone";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -66,52 +67,6 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
       description,
     },
   };
-}
-
-const categoryTags: Record<
-  string,
-  { label: string; bg: string; text: string; icon: React.ReactNode }
-> = {
-  Achievement: {
-    label: "Achievement",
-    bg: "#E8F3E6",
-    text: "#3D7A3F",
-    icon: (
-      <path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z" />
-    ),
-  },
-  Work: {
-    label: "Work",
-    bg: "#E3ECFB",
-    text: "#2F5FA8",
-    icon: (
-      <>
-        <rect x="2" y="7" width="20" height="14" rx="2" />
-        <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
-      </>
-    ),
-  },
-  Task: {
-    label: "Task",
-    bg: "#FEF3D7",
-    text: "#A8760A",
-    icon: (
-      <>
-        <circle cx="12" cy="12" r="9" />
-        <path d="M9 12l2 2 4-4" />
-      </>
-    ),
-  },
-  Memory: {
-    label: "Memory",
-    bg: "#F1E9F7",
-    text: "#7A4E96",
-    icon: <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />,
-  },
-};
-
-function getCategoryTag(category: string | null) {
-  return categoryTags[category ?? ""] ?? categoryTags.Memory;
 }
 
 function BrandMark() {
@@ -206,7 +161,7 @@ export default async function SharePage({ params, searchParams }: Props) {
 
   if (!share) notFound();
 
-  const tag = getCategoryTag(share.category);
+  const tone = getCategoryTone(share.category ?? "");
 
   return (
     <div className="bg-white rounded-[20px] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.06)] overflow-hidden">
@@ -223,16 +178,23 @@ export default async function SharePage({ params, searchParams }: Props) {
       </div>
 
       <div className="px-6 pb-5">
-        <div className="bg-[#FAF9F5] rounded-2xl p-[18px]">
-          <span
-            className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide px-3 py-1.5 rounded-full mb-3"
-            style={{ backgroundColor: tag.bg, color: tag.text }}
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              {tag.icon}
-            </svg>
-            {tag.label}
-          </span>
+        <div className={`bg-[#FAF9F5] rounded-2xl border-[5px] ${tone.border} p-5`}>
+          <div className="flex items-start gap-3 mb-3">
+            <span
+              className={`flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-full text-xl ${tone.bg}`}
+            >
+              {tone.icon}
+            </span>
+
+            <div className="min-w-0">
+              <p className="font-semibold text-base sm:text-lg text-[#2A281F] truncate">
+                {share.title}
+              </p>
+              <p className="text-sm text-[#7A7568] mt-0.5">
+                {share.category ?? "Memory"} · {new Date(share.createdAt).toLocaleString()}
+              </p>
+            </div>
+          </div>
 
           <div className="text-base leading-relaxed text-[#2A281F]">
             <DropContent content={share.previewText} />
