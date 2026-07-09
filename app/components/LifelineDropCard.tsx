@@ -4,8 +4,15 @@ import { useState } from "react";
 import DropContent from "./DropContent";
 import ShareButton from "./ShareButton";
 import DeleteDropButton from "./DeleteDropButton";
-import { getCategoryTone } from "@/app/lib/categoryTone";
+import { defaultSpaces } from "@/app/lib/spaces";
 import type { Capture } from "@/app/lib/captures";
+
+const unassignedSpaceTone = { icon: "📦", color: "bg-gray-100", border: "border-gray-300" };
+
+function getPrimarySpaceTone(spaceIds: string[] | undefined) {
+  const space = defaultSpaces.find((candidate) => candidate.id === spaceIds?.[0]);
+  return space ?? unassignedSpaceTone;
+}
 
 export default function LifelineDropCard({
   capture,
@@ -24,36 +31,33 @@ export default function LifelineDropCard({
 
   const isUrgent = capture.tags?.includes("urgent") ?? false;
   const visibleTags = (capture.tags ?? []).filter((tag) => tag !== "urgent");
-  const tone = getCategoryTone(capture.category);
+  const spaceTone = getPrimarySpaceTone(capture.spaceIds);
 
   return (
     <div
-      className={`bg-white rounded-2xl border-[5px] ${tone.border} shadow-sm p-5 hover:shadow-md transition-all`}
+      className={`bg-white rounded-2xl border-[5px] ${spaceTone.border} shadow-sm p-5 hover:shadow-md transition-all`}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3 min-w-0">
-          <span
-            className={`flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-full text-xl ${tone.bg}`}
-          >
-            {tone.icon}
-          </span>
-
-          <div className="min-w-0">
-            <p className="font-semibold text-base sm:text-lg text-gray-900 truncate">
-              {capture.sunshineSummary}
-            </p>
-            <p className="text-sm text-gray-500 mt-0.5">
-              {capture.category} · {new Date(capture.createdAt).toLocaleString()}
-            </p>
-          </div>
+        <div className="min-w-0">
+          <p className="font-semibold text-base sm:text-lg text-gray-900 truncate">
+            {capture.sunshineSummary}
+          </p>
+          <p className="text-sm text-gray-500 mt-0.5">
+            {capture.category} · {new Date(capture.createdAt).toLocaleString()}
+          </p>
         </div>
 
         <span
-          className={`h-2.5 w-2.5 rounded-full shrink-0 mt-1.5 ${
-            isUrgent ? "bg-red-500" : "bg-gray-300"
-          }`}
-          title={isUrgent ? "Urgent" : "Normal"}
-        />
+          className={`relative flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-full text-xl ${spaceTone.color}`}
+        >
+          {spaceTone.icon}
+          <span
+            className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-white ${
+              isUrgent ? "bg-red-500" : "bg-gray-300"
+            }`}
+            title={isUrgent ? "Urgent" : "Normal"}
+          />
+        </span>
       </div>
 
       <button
