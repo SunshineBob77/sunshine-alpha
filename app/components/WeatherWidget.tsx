@@ -54,7 +54,7 @@ function describeWeather(code: number) {
   return weatherByCode[code] ?? { label: "Unknown", icon: "🌡️" };
 }
 
-export default function WeatherWidget() {
+export default function WeatherWidget({ compact = false }: { compact?: boolean }) {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [error, setError] = useState(false);
 
@@ -98,6 +98,27 @@ export default function WeatherWidget() {
       clearInterval(timer);
     };
   }, []);
+
+  if (compact) {
+    if (error) {
+      return <span className="text-sm text-gray-400 whitespace-nowrap">🌡️ --°</span>;
+    }
+
+    if (!weather) {
+      return (
+        <span className="text-sm text-gray-400 whitespace-nowrap animate-pulse">🌡️ --°</span>
+      );
+    }
+
+    const { icon: compactIcon } = describeWeather(weather.code);
+
+    return (
+      <span className="flex items-center gap-1 text-sm font-semibold text-gray-700 whitespace-nowrap">
+        <span className="text-base leading-none">{compactIcon}</span>
+        {weather.temperature}°
+      </span>
+    );
+  }
 
   if (error) {
     return (
