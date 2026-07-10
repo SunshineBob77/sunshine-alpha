@@ -13,18 +13,10 @@ export default function Icon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: "#F97316",
+          fontSize: 28,
         }}
       >
-        <div
-          style={{
-            width: "60%",
-            height: "60%",
-            borderRadius: "50%",
-            backgroundColor: "#FDE047",
-            display: "flex",
-          }}
-        />
+        ☀️
       </div>
     ),
     { ...size }
