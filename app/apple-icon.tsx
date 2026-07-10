@@ -13,18 +13,11 @@ export default function AppleIcon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: "#F97316",
+          backgroundImage: "linear-gradient(135deg, #7DD3FC 0%, #38BDF8 100%)",
+          fontSize: 110,
         }}
       >
-        <div
-          style={{
-            width: "60%",
-            height: "60%",
-            borderRadius: "50%",
-            backgroundColor: "#FDE047",
-            display: "flex",
-          }}
-        />
+        ☀️
       </div>
     ),
     { ...size }
