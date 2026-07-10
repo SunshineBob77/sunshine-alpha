@@ -6,11 +6,12 @@ import { defaultSpaces } from "@/app/lib/spaces";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import type { Capture } from "@/app/lib/captures";
 import DropDetailModal from "@/app/components/DropDetailModal";
-import DropContent from "@/app/components/DropContent";
-import ShareButton from "@/app/components/ShareButton";
+import LifelineDropCard from "@/app/components/LifelineDropCard";
+
+const SETTLE_MS = 3000;
 
 export default function SpacesPage() {
-  const { captures, capturesLoading, openCapture } = useCaptures();
+  const { captures, capturesLoading, openCapture, updateStatus } = useCaptures();
   const searchParams = useSearchParams();
   const requestedSpace = searchParams.get("space");
   const [activeSpace, setActiveSpace] = useState(
@@ -20,22 +21,34 @@ export default function SpacesPage() {
   );
   const [selectedCaptureId, setSelectedCaptureId] = useState<number | null>(null);
   const selectedCapture = captures.find((capture) => capture.id === selectedCaptureId) ?? null;
+  const [pendingRemovalIds, setPendingRemovalIds] = useState<Set<number>>(new Set());
 
   const activeSpaceObject = useMemo(() => {
     return defaultSpaces.find((space) => space.id === activeSpace) || defaultSpaces[0];
   }, [activeSpace]);
 
   const filteredCaptures = useMemo(() => {
-    if (activeSpace === "completed") {
-      return captures.filter((capture) => capture.status === "completed");
-    }
-    return captures.filter(
-      (capture) => capture.status !== "completed" && capture.spaceIds?.includes(activeSpace)
-    );
-  }, [captures, activeSpace]);
+    return captures.filter((capture) => {
+      if (pendingRemovalIds.has(capture.id)) return true;
 
-  function getSpacesForCapture(capture: Capture) {
-    return defaultSpaces.filter((space) => capture.spaceIds?.includes(space.id));
+      if (activeSpace === "completed") return capture.status === "completed";
+      return capture.status !== "completed" && capture.spaceIds?.includes(activeSpace);
+    });
+  }, [captures, activeSpace, pendingRemovalIds]);
+
+  async function handleToggleStatus(id: number, currentStatus: Capture["status"]) {
+    const nextStatus = currentStatus === "completed" ? "active" : "completed";
+
+    setPendingRemovalIds((prev) => new Set(prev).add(id));
+    setTimeout(() => {
+      setPendingRemovalIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }, SETTLE_MS);
+
+    await updateStatus(id, nextStatus);
   }
 
   return (
@@ -100,48 +113,14 @@ export default function SpacesPage() {
           ) : filteredCaptures.length === 0 ? (
             <p className="text-gray-500">No captures in this Space yet.</p>
           ) : (
-            <div className="space-y-3 mt-4">
+            <div className="space-y-4 mt-4">
               {filteredCaptures.map((capture) => (
-                <div
+                <LifelineDropCard
                   key={capture.id}
-                  className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-5 hover:ring-black/10 transition-all"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedCaptureId(capture.id)}
-                      className="flex-1 min-w-0 text-left"
-                    >
-                      <div className="max-h-32 overflow-hidden text-lg text-gray-900">
-                        <DropContent content={capture.formattedText ?? capture.text} />
-                      </div>
-
-                      <p className="text-sm text-amber-700 font-semibold mt-3">
-                        {capture.sunshineSummary}
-                      </p>
-
-                      <div className="flex flex-wrap gap-2 mt-3">
-                        {getSpacesForCapture(capture).map((space) => (
-                          <span
-                            key={space.id}
-                            className={`text-xs px-2 py-1 rounded-full ${space.color}`}
-                          >
-                            {space.icon} {space.name}
-                            {space.isShared ? " · Shared" : ""}
-                          </span>
-                        ))}
-                      </div>
-
-                      <p className="text-sm text-gray-500 mt-3">
-                        {new Date(capture.createdAt).toLocaleString()}
-                      </p>
-                    </button>
-
-                    <div className="shrink-0">
-                      <ShareButton capture={capture} />
-                    </div>
-                  </div>
-                </div>
+                  capture={capture}
+                  onSelect={setSelectedCaptureId}
+                  onToggleStatus={() => handleToggleStatus(capture.id, capture.status)}
+                />
               ))}
             </div>
           )}
