@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { fetchShare } from "@/app/lib/shares";
 import { caveat } from "@/app/lib/fonts";
+import { stripMarkdown, truncatePreview } from "@/app/lib/textPreview";
 import DropCard from "@/app/components/DropCard";
 import InviteSection from "@/app/components/InviteSection";
 
@@ -9,20 +10,6 @@ type Props = {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ name?: string }>;
 };
-
-function stripMarkdown(markdown: string): string {
-  return markdown
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/^#{1,6}\s+/gm, "")
-    .replace(/[*_~]{1,3}([^*_~]+)[*_~]{1,3}/g, "$1")
-    .replace(/^\s*[-*+]\s+/gm, "")
-    .replace(/^\s*\d+\.\s+/gm, "")
-    .replace(/\|/g, " ")
-    .replace(/\n+/g, " ")
-    .replace(/\s{2,}/g, " ")
-    .trim();
-}
 
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { id } = await params;
@@ -45,10 +32,9 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
   if (!share) notFound();
 
-  const title = `A drop of sunshine from ${share.sharerName}`;
+  const title = share.title;
   const plainPreview = stripMarkdown(share.previewText);
-  const description =
-    plainPreview.length > 160 ? `${plainPreview.slice(0, 160)}…` : plainPreview;
+  const description = truncatePreview(`Shared by ${share.sharerName} — ${plainPreview}`, 120);
 
   return {
     title,
@@ -162,15 +148,12 @@ export default async function SharePage({ params, searchParams }: Props) {
 
   return (
     <div className="bg-white rounded-[20px] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.06)] overflow-hidden">
-      <div className="px-8 pt-9 pb-6 text-center">
-        <BrandMark />
-
-        <p className="text-sm text-[#7A7568]">A drop of sunshine from</p>
-        <p
-          className={`${caveat.className} text-4xl font-bold text-[#E5A417] mt-0.5 inline-block relative`}
-        >
-          {share.sharerName.split(" ")[0]}
-          <span className="absolute left-0.5 right-0.5 -bottom-0.5 h-0.5 bg-[#F2C868] rounded-full" />
+      <div className="px-8 pt-8 pb-2 text-center">
+        <div className="w-10 h-10 mx-auto mb-3 rounded-full bg-[#FEF3D7] flex items-center justify-center text-lg">
+          ☀️
+        </div>
+        <p className="text-sm text-[#7A7568]">
+          Shared by <span className="font-semibold text-[#92400E]">{share.sharerName.split(" ")[0]}</span>
         </p>
       </div>
 
@@ -183,6 +166,35 @@ export default async function SharePage({ params, searchParams }: Props) {
           clipped={false}
         />
       </div>
+
+      {(share.aiResearchResult || share.extractedAddress) && (
+        <div className="px-6 pb-5 flex flex-col gap-3">
+          {share.aiResearchResult && (
+            <div className="rounded-2xl bg-[#FFFBEF] ring-1 ring-[#F0EDE4] p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm bg-[#FEF3D7]">
+                  🔎
+                </span>
+                <h3 className="font-semibold text-sm text-[#2A281F]">Sunshine found this</h3>
+              </div>
+              <p className="text-sm text-[#5B5647] leading-relaxed break-words">
+                {share.aiResearchResult}
+              </p>
+            </div>
+          )}
+
+          {share.extractedAddress && (
+            <a
+              href={`https://maps.google.com/?q=${encodeURIComponent(share.extractedAddress)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 self-start text-xs font-semibold bg-[#FFFBEF] hover:bg-[#FEF3D7] text-[#92400E] ring-1 ring-[#F0EDE4] px-3 py-1.5 rounded-full transition-all"
+            >
+              📍 Open in Maps
+            </a>
+          )}
+        </div>
+      )}
 
       <div className="px-6 pb-6">
         <InviteSection name={share.sharerName.split(" ")[0]} />
