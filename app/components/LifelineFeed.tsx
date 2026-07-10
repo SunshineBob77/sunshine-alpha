@@ -1,8 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import LifelineDropCard from "./LifelineDropCard";
+import { useCaptures } from "@/app/lib/DashboardContext";
 import type { Capture } from "@/app/lib/captures";
+
+const COMPLETE_ANIMATION_MS = 1200;
 
 export default function LifelineFeed({
   captures,
@@ -13,10 +16,34 @@ export default function LifelineFeed({
   activeFilter: string;
   onSelectCapture: (id: number) => void;
 }) {
+  const { updateStatus } = useCaptures();
+  const [pendingRemovalIds, setPendingRemovalIds] = useState<Set<number>>(new Set());
+
   const filteredCaptures = useMemo(() => {
-    if (activeFilter === "all") return captures;
-    return captures.filter((capture) => capture.spaceIds?.includes(activeFilter));
-  }, [captures, activeFilter]);
+    return captures.filter((capture) => {
+      const matchesSpace = activeFilter === "all" || capture.spaceIds?.includes(activeFilter);
+      if (!matchesSpace) return false;
+      if (capture.status !== "completed") return true;
+      return pendingRemovalIds.has(capture.id);
+    });
+  }, [captures, activeFilter, pendingRemovalIds]);
+
+  async function handleToggleStatus(id: number, currentStatus: Capture["status"]) {
+    const nextStatus = currentStatus === "completed" ? "active" : "completed";
+
+    if (nextStatus === "completed") {
+      setPendingRemovalIds((prev) => new Set(prev).add(id));
+      setTimeout(() => {
+        setPendingRemovalIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }, COMPLETE_ANIMATION_MS);
+    }
+
+    await updateStatus(id, nextStatus);
+  }
 
   if (filteredCaptures.length === 0) {
     return (
@@ -29,7 +56,12 @@ export default function LifelineFeed({
   return (
     <div className="space-y-4">
       {filteredCaptures.map((capture) => (
-        <LifelineDropCard key={capture.id} capture={capture} onSelect={onSelectCapture} />
+        <LifelineDropCard
+          key={capture.id}
+          capture={capture}
+          onSelect={onSelectCapture}
+          onToggleStatus={() => handleToggleStatus(capture.id, capture.status)}
+        />
       ))}
     </div>
   );

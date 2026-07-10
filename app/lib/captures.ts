@@ -14,6 +14,8 @@ export type Capture = {
   extractedAddress: string | null;
   formattedText: string | null;
   title: string | null;
+  status: "active" | "completed" | "deleted";
+  isActionable: boolean;
 };
 
 type CaptureRow = {
@@ -30,6 +32,8 @@ type CaptureRow = {
   extracted_address: string | null;
   formatted_text: string | null;
   title: string | null;
+  status: "active" | "completed" | "deleted";
+  is_actionable: boolean;
 };
 
 function mapRowToCapture(row: CaptureRow): Capture {
@@ -47,6 +51,8 @@ function mapRowToCapture(row: CaptureRow): Capture {
     extractedAddress: row.extracted_address ?? null,
     formattedText: row.formatted_text ?? null,
     title: row.title ?? null,
+    status: row.status ?? "active",
+    isActionable: row.is_actionable ?? false,
   };
 }
 
@@ -103,5 +109,13 @@ export async function updateCaptureSpaces(id: number, spaceIds: string[]): Promi
 
 export async function updateCaptureText(id: number, text: string): Promise<void> {
   const { error } = await supabase.from("captures").update({ text }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function updateCaptureStatus(
+  id: number,
+  status: "active" | "completed"
+): Promise<void> {
+  const { error } = await supabase.from("captures").update({ status }).eq("id", id);
   if (error) throw error;
 }

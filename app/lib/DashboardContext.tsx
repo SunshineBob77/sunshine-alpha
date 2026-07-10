@@ -8,6 +8,7 @@ import {
   deleteCapture,
   updateCaptureSpaces,
   updateCaptureText,
+  updateCaptureStatus,
   type Capture,
 } from "./captures";
 import { analyzeCapture } from "./analyzeCapture";
@@ -23,6 +24,7 @@ type DashboardContextValue = {
   removeCapture: (id: number) => Promise<void>;
   updateSpaces: (id: number, spaceIds: string[]) => Promise<void>;
   updateText: (id: number, text: string) => Promise<void>;
+  updateStatus: (id: number, status: "active" | "completed") => Promise<void>;
 };
 
 const DashboardContext = createContext<DashboardContextValue | null>(null);
@@ -84,6 +86,7 @@ export function DashboardProvider({
           address?: string | null;
           formatted?: string | null;
           title?: string | null;
+          isActionable?: boolean;
         }) => {
           if (data.result === undefined) return;
           setCaptures((prev) =>
@@ -95,6 +98,7 @@ export function DashboardProvider({
                     extractedAddress: data.address ?? null,
                     formattedText: data.formatted ?? null,
                     title: data.title ?? null,
+                    isActionable: data.isActionable ?? false,
                   }
                 : capture
             )
@@ -161,6 +165,13 @@ export function DashboardProvider({
     analyzeDrop(id, text);
   }
 
+  async function updateStatus(id: number, status: "active" | "completed") {
+    await updateCaptureStatus(id, status);
+    setCaptures((prev) =>
+      prev.map((capture) => (capture.id === id ? { ...capture, status } : capture))
+    );
+  }
+
   return (
     <DashboardContext.Provider
       value={{
@@ -173,6 +184,7 @@ export function DashboardProvider({
         removeCapture,
         updateSpaces,
         updateText,
+        updateStatus,
       }}
     >
       {children}

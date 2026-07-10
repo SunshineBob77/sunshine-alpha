@@ -11,12 +11,14 @@ export default function LifelineDropCard({
   kind = "drop",
   onAccept,
   onDismiss,
+  onToggleStatus,
 }: {
   capture: Capture;
   onSelect: (id: number) => void;
   kind?: "drop" | "suggestion";
   onAccept?: () => void;
   onDismiss?: () => void;
+  onToggleStatus?: () => void;
 }) {
   const isUrgent = capture.tags?.includes("urgent") ?? false;
 
@@ -27,6 +29,9 @@ export default function LifelineDropCard({
       content={capture.formattedText ?? capture.text}
       createdAt={capture.createdAt}
       isUrgent={isUrgent}
+      isActionable={capture.isActionable}
+      status={capture.status}
+      onToggleStatus={kind === "drop" ? onToggleStatus : undefined}
       onTitleTap={() => onSelect(capture.id)}
       actions={
         kind === "suggestion" ? (
