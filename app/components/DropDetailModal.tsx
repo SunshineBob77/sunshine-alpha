@@ -4,7 +4,7 @@ import { useState } from "react";
 import ShareButton from "./ShareButton";
 import DeleteDropButton from "./DeleteDropButton";
 import DropContent from "./DropContent";
-import { defaultSpaces } from "@/app/lib/spaces";
+import { assignableSpaces } from "@/app/lib/spaces";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import type { Capture } from "@/app/lib/captures";
 
@@ -14,7 +14,7 @@ function SpacePicker({ capture }: { capture: Capture }) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const activeSpaces = defaultSpaces.filter((space) => capture.spaceIds?.includes(space.id));
+  const activeSpaces = assignableSpaces.filter((space) => capture.spaceIds?.includes(space.id));
 
   async function toggleSpace(spaceId: string) {
     const current = capture.spaceIds ?? [];
@@ -56,7 +56,7 @@ function SpacePicker({ capture }: { capture: Capture }) {
 
       {open && (
         <div className="mt-2 flex flex-wrap gap-2 p-3 bg-gray-50 rounded-2xl">
-          {defaultSpaces.map((space) => {
+          {assignableSpaces.map((space) => {
             const active = capture.spaceIds?.includes(space.id);
             return (
               <button

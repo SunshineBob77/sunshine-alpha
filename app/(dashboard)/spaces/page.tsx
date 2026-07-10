@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { defaultSpaces } from "@/app/lib/spaces";
+import { assignableSpaces } from "@/app/lib/spaces";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import type { Capture } from "@/app/lib/captures";
 import DropDetailModal from "@/app/components/DropDetailModal";
@@ -14,7 +14,7 @@ export default function SpacesPage() {
   const searchParams = useSearchParams();
   const requestedSpace = searchParams.get("space");
   const [activeSpace, setActiveSpace] = useState(
-    requestedSpace && defaultSpaces.some((space) => space.id === requestedSpace)
+    requestedSpace && assignableSpaces.some((space) => space.id === requestedSpace)
       ? requestedSpace
       : "personal"
   );
@@ -22,7 +22,7 @@ export default function SpacesPage() {
   const selectedCapture = captures.find((capture) => capture.id === selectedCaptureId) ?? null;
 
   const activeSpaceObject = useMemo(() => {
-    return defaultSpaces.find((space) => space.id === activeSpace) || defaultSpaces[0];
+    return assignableSpaces.find((space) => space.id === activeSpace) || assignableSpaces[0];
   }, [activeSpace]);
 
   const filteredCaptures = useMemo(() => {
@@ -30,7 +30,7 @@ export default function SpacesPage() {
   }, [captures, activeSpace]);
 
   function getSpacesForCapture(capture: Capture) {
-    return defaultSpaces.filter((space) => capture.spaceIds?.includes(space.id));
+    return assignableSpaces.filter((space) => capture.spaceIds?.includes(space.id));
   }
 
   return (
@@ -53,7 +53,7 @@ export default function SpacesPage() {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {defaultSpaces.map((space) => (
+            {assignableSpaces.map((space) => (
               <button
                 key={space.id}
                 onClick={() => setActiveSpace(space.id)}

@@ -5,6 +5,9 @@ export type Space = {
   color: string;
   border: string;
   isShared: boolean;
+  // System spaces are auto-populated (membership computed, not manually assigned)
+  // and are never shown in space-assignment UI (e.g. the SpacePicker).
+  isSystem?: boolean;
 };
 
 export const defaultSpaces: Space[] = [
@@ -17,4 +20,7 @@ export const defaultSpaces: Space[] = [
   { id: "travel", name: "Travel", icon: "✈️", color: "bg-sky-100", border: "border-sky-400", isShared: false },
   { id: "recipes", name: "Recipes", icon: "🍳", color: "bg-orange-100", border: "border-orange-400", isShared: false },
   { id: "shared", name: "Shared Space", icon: "👥", color: "bg-pink-100", border: "border-pink-400", isShared: true },
+  { id: "completed", name: "Completed", icon: "✅", color: "bg-orange-100", border: "border-orange-400", isShared: false, isSystem: true },
 ];
+
+export const assignableSpaces = defaultSpaces.filter((space) => !space.isSystem);
