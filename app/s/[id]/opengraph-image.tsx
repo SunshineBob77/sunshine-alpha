@@ -96,7 +96,7 @@ function InviteImage() {
 }
 
 function DropImage({ title, sharerName }: { title: string; sharerName: string }) {
-  const clippedTitle = truncatePreview(title, 90);
+  const clippedTitle = truncatePreview(title, 80);
 
   return (
     <CardShell>
@@ -114,7 +114,7 @@ function DropImage({ title, sharerName }: { title: string; sharerName: string })
       >
         <div
           style={{
-            fontSize: 44,
+            fontSize: 40,
             color: "#111827",
             fontWeight: 700,
             textAlign: "center",
@@ -123,10 +123,10 @@ function DropImage({ title, sharerName }: { title: string; sharerName: string })
             marginBottom: 20,
           }}
         >
-          {clippedTitle}
+          {sharerName} sent you a drop of sunshine
         </div>
         <div style={{ fontSize: 26, color: "#92400e", fontWeight: 600, display: "flex" }}>
-          Shared by {sharerName} ☀️
+          {clippedTitle}
         </div>
       </div>
     </CardShell>

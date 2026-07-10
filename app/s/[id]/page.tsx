@@ -32,9 +32,9 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
   if (!share) notFound();
 
-  const title = share.title;
+  const title = `${share.sharerName} sent you a drop of sunshine ☀️`;
   const plainPreview = stripMarkdown(share.previewText);
-  const description = truncatePreview(`Shared by ${share.sharerName} — ${plainPreview}`, 120);
+  const description = truncatePreview(`${share.title} — ${plainPreview}`, 120);
 
   return {
     title,
