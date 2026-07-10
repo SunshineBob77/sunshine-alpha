@@ -78,7 +78,7 @@ export default function DropCard({
   return (
     <div
       className={`bg-white rounded-2xl border-[5px] ${tone.border} shadow-sm transition-all duration-500 ease-in-out overflow-hidden ${
-        collapsing ? "max-h-0 opacity-0 !p-0 !border-0" : "max-h-[2000px] opacity-100 p-5"
+        collapsing ? "max-h-0 opacity-0 !p-0 !border-0" : "max-h-[20000px] opacity-100 p-5"
       }`}
     >
       <div className="flex items-start justify-between gap-3 mb-2">
