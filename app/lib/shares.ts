@@ -8,10 +8,11 @@ export type Share = {
   title: string;
   previewText: string;
   category: string | null;
+  spaceId: string | null;
   createdAt: string;
 };
 
-const SHARE_COLUMNS = "id, sharer_name, title, preview_text, category, created_at";
+const SHARE_COLUMNS = "id, sharer_name, title, preview_text, category, space_id, created_at";
 
 type ShareRow = {
   id: string;
@@ -19,6 +20,7 @@ type ShareRow = {
   title: string;
   preview_text: string;
   category: string | null;
+  space_id: string | null;
   created_at: string;
 };
 
@@ -29,6 +31,7 @@ function mapRowToShare(row: ShareRow): Share {
     title: row.title,
     previewText: row.preview_text,
     category: row.category,
+    spaceId: row.space_id,
     createdAt: row.created_at,
   };
 }
@@ -48,9 +51,10 @@ export async function getOrCreateShare(capture: Capture, sharerName: string): Pr
     .insert({
       capture_id: capture.id,
       sharer_name: sharerName,
-      title: capture.sunshineSummary,
+      title: capture.title ?? capture.sunshineSummary,
       preview_text: capture.formattedText ?? capture.text,
       category: capture.category,
+      space_id: capture.spaceIds?.[0] ?? null,
     })
     .select(SHARE_COLUMNS)
     .single();

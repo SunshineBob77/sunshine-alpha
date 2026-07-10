@@ -13,6 +13,7 @@ export type Capture = {
   aiResearchResult: string | null;
   extractedAddress: string | null;
   formattedText: string | null;
+  title: string | null;
 };
 
 type CaptureRow = {
@@ -28,6 +29,7 @@ type CaptureRow = {
   ai_research_result: string | null;
   extracted_address: string | null;
   formatted_text: string | null;
+  title: string | null;
 };
 
 function mapRowToCapture(row: CaptureRow): Capture {
@@ -44,6 +46,7 @@ function mapRowToCapture(row: CaptureRow): Capture {
     aiResearchResult: row.ai_research_result ?? null,
     extractedAddress: row.extracted_address ?? null,
     formattedText: row.formatted_text ?? null,
+    title: row.title ?? null,
   };
 }
 

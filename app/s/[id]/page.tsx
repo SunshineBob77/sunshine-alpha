@@ -2,9 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { fetchShare } from "@/app/lib/shares";
 import { caveat } from "@/app/lib/fonts";
-import DropContent from "@/app/components/DropContent";
+import DropCard from "@/app/components/DropCard";
 import InviteSection from "@/app/components/InviteSection";
-import { getCategoryTone } from "@/app/lib/categoryTone";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -161,8 +160,6 @@ export default async function SharePage({ params, searchParams }: Props) {
 
   if (!share) notFound();
 
-  const tone = getCategoryTone(share.category ?? "");
-
   return (
     <div className="bg-white rounded-[20px] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.06)] overflow-hidden">
       <div className="px-8 pt-9 pb-6 text-center">
@@ -178,28 +175,13 @@ export default async function SharePage({ params, searchParams }: Props) {
       </div>
 
       <div className="px-6 pb-5">
-        <div className={`bg-[#FAF9F5] rounded-2xl border-[5px] ${tone.border} p-5`}>
-          <div className="flex items-start gap-3 mb-3">
-            <span
-              className={`flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-full text-xl ${tone.bg}`}
-            >
-              {tone.icon}
-            </span>
-
-            <div className="min-w-0">
-              <p className="font-semibold text-base sm:text-lg text-[#2A281F] truncate">
-                {share.title}
-              </p>
-              <p className="text-sm text-[#7A7568] mt-0.5">
-                {share.category ?? "Memory"} · {new Date(share.createdAt).toLocaleString()}
-              </p>
-            </div>
-          </div>
-
-          <div className="text-base leading-relaxed text-[#2A281F]">
-            <DropContent content={share.previewText} />
-          </div>
-        </div>
+        <DropCard
+          title={share.title}
+          spaceId={share.spaceId}
+          content={share.previewText}
+          createdAt={share.createdAt}
+          clipped={false}
+        />
       </div>
 
       <div className="px-6 pb-6">

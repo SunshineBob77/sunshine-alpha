@@ -78,21 +78,29 @@ export function DashboardProvider({
       body: JSON.stringify({ id, text }),
     })
       .then((response) => response.json())
-      .then((data: { result?: string | null; address?: string | null; formatted?: string | null }) => {
-        if (data.result === undefined) return;
-        setCaptures((prev) =>
-          prev.map((capture) =>
-            capture.id === id
-              ? {
-                  ...capture,
-                  aiResearchResult: data.result ?? null,
-                  extractedAddress: data.address ?? null,
-                  formattedText: data.formatted ?? null,
-                }
-              : capture
-          )
-        );
-      })
+      .then(
+        (data: {
+          result?: string | null;
+          address?: string | null;
+          formatted?: string | null;
+          title?: string | null;
+        }) => {
+          if (data.result === undefined) return;
+          setCaptures((prev) =>
+            prev.map((capture) =>
+              capture.id === id
+                ? {
+                    ...capture,
+                    aiResearchResult: data.result ?? null,
+                    extractedAddress: data.address ?? null,
+                    formattedText: data.formatted ?? null,
+                    title: data.title ?? null,
+                  }
+                : capture
+            )
+          );
+        }
+      )
       .catch((error) => {
         console.error("analyze-drop request failed", error);
       });

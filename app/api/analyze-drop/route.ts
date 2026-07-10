@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/app/lib/supabaseAdmin";
 
 const anthropic = new Anthropic();
 
-const SYSTEM_PROMPT = `You are analyzing a short personal note (a "Drop"). Do four independent things:
+const SYSTEM_PROMPT = `You are analyzing a short personal note (a "Drop"). Do five independent things:
 
 1. Determine if this note is a research request (asking to find, look up, recommend, or research something — e.g. recipes, products, information). If yes, search the web and return a concise, useful answer in 2-4 sentences. If no, use the value null.
 2. Determine if this note contains a physical address (e.g. a hotel, restaurant, or event location). If yes, extract it exactly as written. If no, use the value null.
@@ -21,6 +21,7 @@ const SYSTEM_PROMPT = `You are analyzing a short personal note (a "Drop"). Do fo
    - total_duration_minutes: number or null — ONLY set this if the total is explicitly stated outright, OR if rounds and round_length_minutes both describe the single same uniform structure and multiplying them cleanly gives the total. If the note describes multiple different round structures with different or unstated lengths, leave this null rather than guessing or estimating.
    - notes: string — free text capturing who they trained with, drills done, secondary activities/rounds that didn't cleanly fit the structured fields above, and anything else worth remembering. Do not leave out information just because it didn't fit a field above — put it here instead.
    Respond with just the JSON object on one line, or the literal word null.
+5. Extract a short, specific title for this note — a few words capturing WHAT it's actually about (e.g. "Annual OOB Car Show 2026", "Boxing session with Joe", "Dentist appointment reminder"). This must be specific to the note's actual content, never a generic description like "Personal note" or "A reminder". This field must never be null.
 
 Do not narrate what you're about to do or describe your search process — no preamble like "I'll search for..." or "Let me find...".
 
@@ -28,7 +29,8 @@ Respond with exactly this format and nothing else before or after it:
 RESEARCH: <answer or null>
 ADDRESS: <address or null>
 FORMATTED: <reformatted note>
-WORKOUT: <JSON object or null>`;
+WORKOUT: <JSON object or null>
+TITLE: <short specific title>`;
 
 const PREAMBLE_PATTERN = /^[^.!?\n]*\b(I'll search|I will search|Let me|I'll look|I will look)\b[^.!?\n]*[.!?]+\s*/i;
 
@@ -77,19 +79,22 @@ function parseAnalysis(rawText: string): {
   address: string | null;
   formatted: string | null;
   workout: WorkoutExtraction | null;
+  title: string | null;
 } {
   const researchMatch = rawText.match(/RESEARCH:\s*([\s\S]*?)\s*ADDRESS:/i);
   const addressMatch = rawText.match(/ADDRESS:\s*([\s\S]*?)\s*FORMATTED:/i);
   const formattedMatch = rawText.match(/FORMATTED:\s*([\s\S]*?)\s*WORKOUT:/i);
-  const workoutMatch = rawText.match(/WORKOUT:\s*([\s\S]*)$/i);
+  const workoutMatch = rawText.match(/WORKOUT:\s*([\s\S]*?)\s*TITLE:/i);
+  const titleMatch = rawText.match(/TITLE:\s*([\s\S]*)$/i);
 
-  if (!researchMatch || !addressMatch || !formattedMatch || !workoutMatch) {
+  if (!researchMatch || !addressMatch || !formattedMatch || !workoutMatch || !titleMatch) {
     // Model didn't follow the format — fall back to treating the whole response as the research answer.
     return {
       research: nullableValue(stripPreamble(rawText)),
       address: null,
       formatted: null,
       workout: null,
+      title: null,
     };
   }
 
@@ -98,6 +103,7 @@ function parseAnalysis(rawText: string): {
     address: nullableValue(addressMatch[1]),
     formatted: nullableValue(formattedMatch[1]),
     workout: parseWorkout(workoutMatch[1]),
+    title: nullableValue(titleMatch[1]),
   };
 }
 
@@ -131,7 +137,7 @@ export async function POST(request: Request) {
       .join("")
       .trim();
 
-    const { research, address, formatted, workout } = parseAnalysis(rawText);
+    const { research, address, formatted, workout, title } = parseAnalysis(rawText);
 
     const { error } = await supabaseAdmin
       .from("captures")
@@ -139,6 +145,7 @@ export async function POST(request: Request) {
         ai_research_result: research,
         extracted_address: address,
         formatted_text: formatted,
+        title,
       })
       .eq("id", id);
 
@@ -170,7 +177,7 @@ export async function POST(request: Request) {
       if (deleteError) throw deleteError;
     }
 
-    return NextResponse.json({ result: research, address, formatted, workout });
+    return NextResponse.json({ result: research, address, formatted, workout, title });
   } catch (error) {
     console.error("analyze-drop failed", error);
     return NextResponse.json({ error: "Analysis failed" }, { status: 500 });
