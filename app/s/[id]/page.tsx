@@ -146,61 +146,61 @@ export default async function SharePage({ params, searchParams }: Props) {
 
   if (!share) notFound();
 
+  const firstName = share.sharerName.split(" ")[0];
+
   return (
     <div className="bg-white rounded-[20px] shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.06)] overflow-hidden">
-      <div className="px-8 pt-8 pb-2 text-center">
-        <div className="w-10 h-10 mx-auto mb-3 rounded-full bg-[#FEF3D7] flex items-center justify-center text-lg">
-          ☀️
-        </div>
-        <p className="text-sm text-[#7A7568]">
-          Shared by <span className="font-semibold text-[#92400E]">{share.sharerName.split(" ")[0]}</span>
+      {/* Intro line - sets context, then gets out of the way of the hero */}
+      <div className="px-8 pt-7 pb-3 text-center">
+        <p className="text-[15px] text-[#92400E] font-semibold">
+          ☀️ {firstName} shared a drop of sunshine with you
         </p>
       </div>
 
-      <div className="px-6 pb-5">
+      {/* Hero: the Drop itself is the biggest, first real thing on the page */}
+      <div className="px-5 pb-8">
         <DropCard
           title={share.title}
           spaceId={share.spaceId}
           content={share.previewText}
           createdAt={share.createdAt}
           clipped={false}
+          size="hero"
         />
       </div>
 
-      {(share.aiResearchResult || share.extractedAddress) && (
-        <div className="px-6 pb-5 flex flex-col gap-3">
-          {share.aiResearchResult && (
-            <div className="rounded-2xl bg-[#FFFBEF] ring-1 ring-[#F0EDE4] p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm bg-[#FEF3D7]">
-                  🔎
-                </span>
-                <h3 className="font-semibold text-sm text-[#2A281F]">Sunshine found this</h3>
-              </div>
-              <p className="text-sm text-[#5B5647] leading-relaxed break-words">
-                {share.aiResearchResult}
-              </p>
-            </div>
-          )}
-
-          {share.extractedAddress && (
-            <a
-              href={`https://maps.google.com/?q=${encodeURIComponent(share.extractedAddress)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 self-start text-xs font-semibold bg-[#FFFBEF] hover:bg-[#FEF3D7] text-[#92400E] ring-1 ring-[#F0EDE4] px-3 py-1.5 rounded-full transition-all"
-            >
-              📍 Open in Maps
-            </a>
-          )}
+      {/* Everything below flows as one continuous narrative - no nested
+          card boxes, just spacing and a couple of soft dividers. */}
+      <div className="px-8 pb-9 max-w-md mx-auto">
+        <div className="text-center pb-7">
+          <p className="text-sm font-semibold text-[#92400E] mb-1.5">☀️ Shared using Sunshine</p>
+          <p className="text-[15px] text-[#5B5647] leading-relaxed">
+            Sunshine helps people capture ideas, plans, reminders, receipts, photos, and
+            conversations — and quietly keeps them organized so they&apos;re easy to find later.
+          </p>
         </div>
-      )}
 
-      <div className="px-6 pb-6">
-        <InviteSection name={share.sharerName.split(" ")[0]} />
+        <div className="border-t border-[#F0EDE4] pt-7 pb-7">
+          <blockquote className="text-[15px] italic text-[#5B5647] leading-relaxed border-l-2 border-[#F2C868] pl-3 mb-4">
+            &ldquo;I&apos;ve been using Sunshine to keep track of the things I don&apos;t want to
+            forget. Thought you might like seeing how it works.&rdquo;
+          </blockquote>
+          <p className="text-[15px] text-[#2A281F] leading-relaxed">
+            Sunshine is your AI memory — capture anything, and it quietly organizes it so you can
+            find it again.
+          </p>
+        </div>
+
+        <div className="border-t border-[#F0EDE4] pt-7 text-center">
+          <a
+            href="/?mode=signup"
+            className="inline-flex items-center justify-center gap-2 bg-[#1B2340] hover:bg-[#141a30] text-white text-sm font-semibold px-6 py-3.5 rounded-full transition-colors w-full"
+          >
+            Try Sunshine Free
+          </a>
+          <p className="text-xs text-[#8A8571] mt-2">Takes less than a minute.</p>
+        </div>
       </div>
-
-      <ShareFooter />
     </div>
   );
 }

@@ -23,6 +23,7 @@ export default function DropCard({
   isActionable = false,
   status = "active",
   onToggleStatus,
+  size = "default",
 }: {
   title: string;
   spaceId: string | null | undefined;
@@ -35,8 +36,10 @@ export default function DropCard({
   isActionable?: boolean;
   status?: "active" | "completed" | "deleted";
   onToggleStatus?: () => void;
+  size?: "default" | "hero";
 }) {
   const tone = getSpaceTone(spaceId);
+  const isHero = size === "hero";
   const contentRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [isOverflowing, setIsOverflowing] = useState(false);
@@ -66,22 +69,32 @@ export default function DropCard({
   return (
     <div
       className={`bg-white rounded-2xl border-[5px] ${tone.border} shadow-sm transition-all duration-500 ease-in-out overflow-hidden ${
-        collapsing ? "max-h-0 opacity-0 !p-0 !border-0" : "max-h-[20000px] opacity-100 p-5"
+        collapsing
+          ? "max-h-0 opacity-0 !p-0 !border-0"
+          : `max-h-[20000px] opacity-100 ${isHero ? "p-8" : "p-5"}`
       }`}
     >
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="min-w-0 flex-1">
           {onTitleTap ? (
             <button type="button" onClick={onTitleTap} className="block w-full text-left">
-              <p className="font-bold text-lg text-gray-900">{title}</p>
+              <p
+                className={`font-bold text-gray-900 ${isHero ? "text-2xl" : "text-lg"}`}
+              >
+                {title}
+              </p>
             </button>
           ) : (
-            <p className="font-bold text-lg text-gray-900">{title}</p>
+            <p className={`font-bold text-gray-900 ${isHero ? "text-2xl" : "text-lg"}`}>
+              {title}
+            </p>
           )}
         </div>
 
         <span
-          className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs"
+          className={`relative flex shrink-0 items-center justify-center rounded-full ${
+            isHero ? "h-9 w-9 text-base" : "h-6 w-6 text-xs"
+          }`}
           title={tone.name}
         >
           <span
@@ -100,7 +113,7 @@ export default function DropCard({
 
       <div
         ref={contentRef}
-        className="mt-2 text-base text-gray-800 overflow-hidden"
+        className={`mt-2 text-gray-800 overflow-hidden ${isHero ? "text-xl" : "text-base"}`}
         style={isClippedNow ? { maxHeight: MAX_COLLAPSED_HEIGHT } : undefined}
       >
         <DropContent content={content} />
