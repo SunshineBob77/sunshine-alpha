@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { assignableSpaces } from "@/app/lib/spaces";
+import { defaultSpaces } from "@/app/lib/spaces";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import type { Capture } from "@/app/lib/captures";
 import DropDetailModal from "@/app/components/DropDetailModal";
@@ -14,7 +14,7 @@ export default function SpacesPage() {
   const searchParams = useSearchParams();
   const requestedSpace = searchParams.get("space");
   const [activeSpace, setActiveSpace] = useState(
-    requestedSpace && assignableSpaces.some((space) => space.id === requestedSpace)
+    requestedSpace && defaultSpaces.some((space) => space.id === requestedSpace)
       ? requestedSpace
       : "personal"
   );
@@ -22,15 +22,20 @@ export default function SpacesPage() {
   const selectedCapture = captures.find((capture) => capture.id === selectedCaptureId) ?? null;
 
   const activeSpaceObject = useMemo(() => {
-    return assignableSpaces.find((space) => space.id === activeSpace) || assignableSpaces[0];
+    return defaultSpaces.find((space) => space.id === activeSpace) || defaultSpaces[0];
   }, [activeSpace]);
 
   const filteredCaptures = useMemo(() => {
-    return captures.filter((capture) => capture.spaceIds?.includes(activeSpace));
+    if (activeSpace === "completed") {
+      return captures.filter((capture) => capture.status === "completed");
+    }
+    return captures.filter(
+      (capture) => capture.status !== "completed" && capture.spaceIds?.includes(activeSpace)
+    );
   }, [captures, activeSpace]);
 
   function getSpacesForCapture(capture: Capture) {
-    return assignableSpaces.filter((space) => capture.spaceIds?.includes(space.id));
+    return defaultSpaces.filter((space) => capture.spaceIds?.includes(space.id));
   }
 
   return (
@@ -53,16 +58,24 @@ export default function SpacesPage() {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {assignableSpaces.map((space) => (
+            {defaultSpaces.map((space) => (
               <button
                 key={space.id}
                 onClick={() => setActiveSpace(space.id)}
-                className={`${space.color} rounded-2xl p-3 text-center ring-1 ring-black/5 transition-all ${
+                className={`relative ${space.color} rounded-2xl p-3 text-center ring-1 ring-black/5 transition-all ${
                   activeSpace === space.id
                     ? "ring-2 ring-amber-400 scale-[1.03] shadow-md"
                     : "shadow-sm hover:shadow-md hover:scale-[1.01]"
                 }`}
               >
+                {space.isSystem && (
+                  <span
+                    className="absolute top-1.5 right-1.5 text-[10px] leading-none"
+                    title="System Space - not renamable or deletable"
+                  >
+                    🔒
+                  </span>
+                )}
                 <div className="text-2xl">{space.icon}</div>
                 <div className="font-semibold text-gray-900">{space.name}</div>
                 {space.isShared && (
