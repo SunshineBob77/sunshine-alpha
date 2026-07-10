@@ -2,20 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import DropContent from "./DropContent";
-import { defaultSpaces } from "@/app/lib/spaces";
+import { getSpaceTone } from "@/app/lib/spaceTone";
 import { formatRelativeTime } from "@/app/lib/relativeTime";
-
-const unassignedSpaceTone = {
-  name: "Unsorted",
-  icon: "📦",
-  color: "bg-gray-100",
-  border: "border-gray-300",
-};
-
-function getSpaceTone(spaceId: string | null | undefined) {
-  const space = defaultSpaces.find((candidate) => candidate.id === spaceId);
-  return space ?? unassignedSpaceTone;
-}
 
 const MAX_COLLAPSED_HEIGHT = 160;
 // Card stays fully visible in its filled "Completed" state before it starts

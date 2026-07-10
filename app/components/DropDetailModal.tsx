@@ -5,6 +5,7 @@ import ShareButton from "./ShareButton";
 import DeleteDropButton from "./DeleteDropButton";
 import DropContent from "./DropContent";
 import { assignableSpaces } from "@/app/lib/spaces";
+import { getSpaceTone } from "@/app/lib/spaceTone";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import type { Capture } from "@/app/lib/captures";
 
@@ -96,6 +97,9 @@ export default function DropDetailModal({
   const [savingText, setSavingText] = useState(false);
   const [textError, setTextError] = useState<string | null>(null);
 
+  const tone = getSpaceTone(capture.spaceIds?.[0]);
+  const isUrgent = capture.tags?.includes("urgent") ?? false;
+
   async function handleSaveText() {
     if (!draft.trim()) return;
     setSavingText(true);
@@ -117,13 +121,32 @@ export default function DropDetailModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white p-6 rounded-3xl ring-1 ring-black/5 shadow-lg"
+        className={`w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white p-6 rounded-3xl border-[5px] ${tone.border} shadow-lg`}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3 mb-4">
-          <span className="text-xs font-semibold bg-amber-100 text-amber-800 px-3 py-1.5 rounded-full">
-            {capture.category}
-          </span>
+          <div className="flex items-start gap-2 min-w-0 flex-1">
+            <p className="font-bold text-lg text-gray-900 min-w-0">
+              {capture.title ?? capture.sunshineSummary}
+            </p>
+            <span
+              className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs mt-0.5"
+              title={tone.name}
+            >
+              <span
+                className={`flex h-full w-full items-center justify-center rounded-full ${tone.color}`}
+              >
+                {tone.icon}
+              </span>
+              {isUrgent && (
+                <span
+                  className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-500 ring-1 ring-white"
+                  title="Urgent"
+                />
+              )}
+            </span>
+          </div>
+
           <div className="flex items-center gap-2 shrink-0">
             <ShareButton capture={capture} />
             <button
