@@ -81,23 +81,34 @@ export default function DropCard({
         collapsing ? "max-h-0 opacity-0 !p-0 !border-0" : "max-h-[2000px] opacity-100 p-5"
       }`}
     >
-      <div className="flex items-center gap-2 mb-2">
-        <span
-          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm ${tone.color}`}
-        >
-          {tone.icon}
-        </span>
-        <span className="text-xs font-semibold text-gray-600">{tone.name}</span>
-        {isUrgent && <span className="h-2 w-2 rounded-full bg-red-500 ml-auto" title="Urgent" />}
-      </div>
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="min-w-0 flex-1">
+          {onTitleTap ? (
+            <button type="button" onClick={onTitleTap} className="block w-full text-left">
+              <p className="font-bold text-lg text-gray-900">{title}</p>
+            </button>
+          ) : (
+            <p className="font-bold text-lg text-gray-900">{title}</p>
+          )}
+        </div>
 
-      {onTitleTap ? (
-        <button type="button" onClick={onTitleTap} className="block w-full text-left">
-          <p className="font-bold text-lg text-gray-900">{title}</p>
-        </button>
-      ) : (
-        <p className="font-bold text-lg text-gray-900">{title}</p>
-      )}
+        <span
+          className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs"
+          title={tone.name}
+        >
+          <span
+            className={`flex h-full w-full items-center justify-center rounded-full ${tone.color}`}
+          >
+            {tone.icon}
+          </span>
+          {isUrgent && (
+            <span
+              className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-500 ring-1 ring-white"
+              title="Urgent"
+            />
+          )}
+        </span>
+      </div>
 
       <div
         ref={contentRef}
