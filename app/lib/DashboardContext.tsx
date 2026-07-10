@@ -12,6 +12,7 @@ import {
   type Capture,
 } from "./captures";
 import { analyzeCapture } from "./analyzeCapture";
+import { recognizeEntities } from "./recognizeEntities";
 import CaptureModal from "../components/CaptureModal";
 
 type DashboardContextValue = {
@@ -118,6 +119,7 @@ export function DashboardProvider({
     if (!captureText.trim()) return;
 
     const meaning = analyzeCapture(captureText);
+    const entities = recognizeEntities(captureText.trim());
 
     setSaveError(null);
     setIsSaving(true);
@@ -131,6 +133,7 @@ export function DashboardProvider({
         tags: meaning.tags,
         mood: meaning.mood,
         sunshineSummary: meaning.sunshineSummary,
+        entities,
       });
 
       setCaptures((prev) => [newCapture, ...prev]);

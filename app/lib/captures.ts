@@ -1,4 +1,5 @@
 import { supabase } from "./supabaseClient";
+import type { RecognizedEntities } from "./recognizeEntities";
 
 export type Capture = {
   id: number;
@@ -17,6 +18,7 @@ export type Capture = {
   status: "active" | "completed" | "deleted";
   isActionable: boolean;
   spaceManuallySet: boolean;
+  entities: RecognizedEntities | null;
 };
 
 type CaptureRow = {
@@ -36,6 +38,7 @@ type CaptureRow = {
   status: "active" | "completed" | "deleted";
   is_actionable: boolean;
   space_manually_set: boolean;
+  entities: RecognizedEntities | null;
 };
 
 function mapRowToCapture(row: CaptureRow): Capture {
@@ -56,6 +59,7 @@ function mapRowToCapture(row: CaptureRow): Capture {
     status: row.status ?? "active",
     isActionable: row.is_actionable ?? false,
     spaceManuallySet: row.space_manually_set ?? false,
+    entities: row.entities ?? null,
   };
 }
 
@@ -77,6 +81,7 @@ export async function insertCapture(input: {
   mood: string;
   sunshineSummary: string;
   spaceIds: string[];
+  entities: RecognizedEntities;
 }): Promise<Capture> {
   const { data, error } = await supabase
     .from("captures")
@@ -88,6 +93,7 @@ export async function insertCapture(input: {
       mood: input.mood,
       sunshine_summary: input.sunshineSummary,
       space_ids: input.spaceIds,
+      entities: input.entities,
     })
     .select()
     .single();
