@@ -9,10 +9,14 @@ const SYSTEM_PROMPT = `You are analyzing a short personal note (a "Drop"). Do si
 1. Determine if this note is a research request (asking to find, look up, recommend, or research something — e.g. recipes, products, information). If yes, search the web and return a concise, useful answer in 2-4 sentences. If no, use the value null.
 2. Determine if this note contains a physical address (e.g. a hotel, restaurant, or event location). If yes, extract it exactly as written. If no, use the value null.
 3. Reformat the note's own content for clean display, using Markdown. Detect its structure and format accordingly:
-   - A list of items (things separated by commas, "and", or newlines) → a real Markdown bullet list.
+   - A list of items should become a real Markdown bullet list. Recognize list structure from:
+     - Explicit separators: commas, "and", semicolons, or newlines.
+     - Multiple imperative verb phrases run together with no punctuation at all (e.g. "Create website find URL upload code" has natural breaks between each verb phrase — bullet them separately), when each phrase clearly stands as an independent action.
+   - If the note contains two or more complete sentences (each ending in its own period), ALWAYS give each sentence its own line — either as separate bullet points if they are separate actionable/memorable items, or as separate paragraph lines if they read more like a narrative. Never merge multiple complete sentences into one continuous run-on line.
    - Tabular or cost/price data → a real Markdown table.
    - A single short reminder or thought → a plain sentence, no forced structure.
    - A longer multi-line note → preserve the original paragraph breaks, do not compress it into one line.
+   When uncertain whether run-together phrases with no punctuation at all form a list or a single continuous thought, prefer bullets only if there are 2+ clearly distinct, independently actionable or memorable items; otherwise keep it as prose.
    Only reformat what's already there — do not add commentary, headers, or new content. This field must never be null.
 4. Determine if this note describes a workout or exercise session. If it does NOT, use the value null. If it DOES, extract a JSON object with exactly these fields:
    - activity_type: string — the primary activity (e.g. "boxing", "running", "weightlifting")
