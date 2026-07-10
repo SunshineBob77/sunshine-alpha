@@ -4,7 +4,18 @@ import { supabaseAdmin } from "@/app/lib/supabaseAdmin";
 
 const anthropic = new Anthropic();
 
-const SYSTEM_PROMPT = `You are analyzing a short personal note (a "Drop"). Do six independent things:
+const SPACE_IDS = [
+  "personal",
+  "work",
+  "health",
+  "family",
+  "finance",
+  "ideas",
+  "travel",
+  "recipes",
+] as const;
+
+const SYSTEM_PROMPT = `You are analyzing a short personal note (a "Drop"). Do seven independent things:
 
 1. Determine if this note is a research request (asking to find, look up, recommend, or research something — e.g. recipes, products, information). If yes, search the web and return a concise, useful answer in 2-4 sentences. If no, use the value null.
 2. Determine if this note contains a physical address (e.g. a hotel, restaurant, or event location). If yes, extract it exactly as written. If no, use the value null.
@@ -27,6 +38,9 @@ const SYSTEM_PROMPT = `You are analyzing a short personal note (a "Drop"). Do si
    Respond with just the JSON object on one line, or the literal word null.
 5. Extract a short, specific title for this note — a few words capturing WHAT it's actually about (e.g. "Annual OOB Car Show 2026", "Boxing session with Joe", "Dentist appointment reminder"). This must be specific to the note's actual content, never a generic description like "Personal note" or "A reminder". This field must never be null.
 6. Determine if this note is actionable — a to-do, checklist, or reminder describing something the person needs to DO (e.g. "buy toothpaste", "call the dentist", "register for the car show"). It is NOT actionable if it's a journal entry, idea, memory, reflection, or a note that just records information without describing a task to complete. Respond with exactly true or false.
+7. Classify this note based on its full meaning and context, not just keyword matching:
+   - category: one of "Achievement" (something the person accomplished or made progress on), "Task" (something to do, a reminder, or an action item), "Work" (work/job-related content that isn't itself a to-do), or "Memory" (a personal reflection, note, or record — the default when nothing else clearly fits).
+   - space: the single best-fitting Space for this note's actual subject matter, one of: ${SPACE_IDS.join(", ")}. Use "personal" when nothing more specific clearly fits — it is the default, not a last resort to avoid.
 
 Do not narrate what you're about to do or describe your search process — no preamble like "I'll search for..." or "Let me find...".
 
@@ -36,7 +50,9 @@ ADDRESS: <address or null>
 FORMATTED: <reformatted note>
 WORKOUT: <JSON object or null>
 TITLE: <short specific title>
-ACTIONABLE: <true or false>`;
+ACTIONABLE: <true or false>
+CATEGORY: <Achievement, Task, Work, or Memory>
+SPACE: <one of ${SPACE_IDS.join(", ")}>`;
 
 const PREAMBLE_PATTERN = /^[^.!?\n]*\b(I'll search|I will search|Let me|I'll look|I will look)\b[^.!?\n]*[.!?]+\s*/i;
 
@@ -80,6 +96,20 @@ function parseWorkout(raw: string | undefined): WorkoutExtraction | null {
   }
 }
 
+const VALID_CATEGORIES = ["Achievement", "Task", "Work", "Memory"];
+
+function parseCategory(raw: string | undefined): string {
+  const value = (raw ?? "").trim();
+  const match = VALID_CATEGORIES.find((c) => c.toLowerCase() === value.toLowerCase());
+  return match ?? "Memory";
+}
+
+function parseSpace(raw: string | undefined): (typeof SPACE_IDS)[number] {
+  const value = (raw ?? "").trim().toLowerCase();
+  const match = SPACE_IDS.find((s) => s === value);
+  return match ?? "personal";
+}
+
 function parseAnalysis(rawText: string): {
   research: string | null;
   address: string | null;
@@ -87,13 +117,17 @@ function parseAnalysis(rawText: string): {
   workout: WorkoutExtraction | null;
   title: string | null;
   isActionable: boolean;
+  category: string;
+  spaceId: (typeof SPACE_IDS)[number];
 } {
   const researchMatch = rawText.match(/RESEARCH:\s*([\s\S]*?)\s*ADDRESS:/i);
   const addressMatch = rawText.match(/ADDRESS:\s*([\s\S]*?)\s*FORMATTED:/i);
   const formattedMatch = rawText.match(/FORMATTED:\s*([\s\S]*?)\s*WORKOUT:/i);
   const workoutMatch = rawText.match(/WORKOUT:\s*([\s\S]*?)\s*TITLE:/i);
   const titleMatch = rawText.match(/TITLE:\s*([\s\S]*?)\s*ACTIONABLE:/i);
-  const actionableMatch = rawText.match(/ACTIONABLE:\s*([\s\S]*)$/i);
+  const actionableMatch = rawText.match(/ACTIONABLE:\s*([\s\S]*?)\s*CATEGORY:/i);
+  const categoryMatch = rawText.match(/CATEGORY:\s*([\s\S]*?)\s*SPACE:/i);
+  const spaceMatch = rawText.match(/SPACE:\s*([\s\S]*)$/i);
 
   if (
     !researchMatch ||
@@ -101,7 +135,9 @@ function parseAnalysis(rawText: string): {
     !formattedMatch ||
     !workoutMatch ||
     !titleMatch ||
-    !actionableMatch
+    !actionableMatch ||
+    !categoryMatch ||
+    !spaceMatch
   ) {
     // Model didn't follow the format — fall back to treating the whole response as the research answer.
     return {
@@ -111,6 +147,8 @@ function parseAnalysis(rawText: string): {
       workout: null,
       title: null,
       isActionable: false,
+      category: "Memory",
+      spaceId: "personal",
     };
   }
 
@@ -121,6 +159,8 @@ function parseAnalysis(rawText: string): {
     workout: parseWorkout(workoutMatch[1]),
     title: nullableValue(titleMatch[1]),
     isActionable: actionableMatch[1].trim().toLowerCase().startsWith("true"),
+    category: parseCategory(categoryMatch[1]),
+    spaceId: parseSpace(spaceMatch[1]),
   };
 }
 
@@ -134,7 +174,7 @@ export async function POST(request: Request) {
   try {
     const { data: captureRow, error: captureLookupError } = await supabaseAdmin
       .from("captures")
-      .select("user_id, created_at")
+      .select("user_id, created_at, space_ids, space_manually_set")
       .eq("id", id)
       .single();
 
@@ -154,7 +194,13 @@ export async function POST(request: Request) {
       .join("")
       .trim();
 
-    const { research, address, formatted, workout, title, isActionable } = parseAnalysis(rawText);
+    const { research, address, formatted, workout, title, isActionable, category, spaceId } =
+      parseAnalysis(rawText);
+
+    // Never overwrite a Space the user manually assigned/changed themselves -
+    // AI classification only applies while a Drop is still on its original
+    // auto-assigned Space.
+    const nextSpaceIds = captureRow.space_manually_set ? captureRow.space_ids : [spaceId];
 
     const { error } = await supabaseAdmin
       .from("captures")
@@ -164,6 +210,8 @@ export async function POST(request: Request) {
         formatted_text: formatted,
         title,
         is_actionable: isActionable,
+        category,
+        space_ids: nextSpaceIds,
       })
       .eq("id", id);
 
@@ -195,7 +243,16 @@ export async function POST(request: Request) {
       if (deleteError) throw deleteError;
     }
 
-    return NextResponse.json({ result: research, address, formatted, workout, title, isActionable });
+    return NextResponse.json({
+      result: research,
+      address,
+      formatted,
+      workout,
+      title,
+      isActionable,
+      category,
+      spaceIds: nextSpaceIds,
+    });
   } catch (error) {
     console.error("analyze-drop failed", error);
     return NextResponse.json({ error: "Analysis failed" }, { status: 500 });

@@ -16,6 +16,7 @@ export type Capture = {
   title: string | null;
   status: "active" | "completed" | "deleted";
   isActionable: boolean;
+  spaceManuallySet: boolean;
 };
 
 type CaptureRow = {
@@ -34,6 +35,7 @@ type CaptureRow = {
   title: string | null;
   status: "active" | "completed" | "deleted";
   is_actionable: boolean;
+  space_manually_set: boolean;
 };
 
 function mapRowToCapture(row: CaptureRow): Capture {
@@ -53,6 +55,7 @@ function mapRowToCapture(row: CaptureRow): Capture {
     title: row.title ?? null,
     status: row.status ?? "active",
     isActionable: row.is_actionable ?? false,
+    spaceManuallySet: row.space_manually_set ?? false,
   };
 }
 
@@ -99,9 +102,11 @@ export async function deleteCapture(id: number): Promise<void> {
 }
 
 export async function updateCaptureSpaces(id: number, spaceIds: string[]): Promise<void> {
+  // Manually touching Space assignment permanently protects this Drop from
+  // future AI re-classification overwriting the user's choice.
   const { error } = await supabase
     .from("captures")
-    .update({ space_ids: spaceIds })
+    .update({ space_ids: spaceIds, space_manually_set: true })
     .eq("id", id);
 
   if (error) throw error;

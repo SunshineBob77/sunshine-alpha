@@ -87,6 +87,8 @@ export function DashboardProvider({
           formatted?: string | null;
           title?: string | null;
           isActionable?: boolean;
+          category?: string;
+          spaceIds?: string[];
         }) => {
           if (data.result === undefined) return;
           setCaptures((prev) =>
@@ -99,6 +101,8 @@ export function DashboardProvider({
                     formattedText: data.formatted ?? null,
                     title: data.title ?? null,
                     isActionable: data.isActionable ?? false,
+                    category: data.category ?? capture.category,
+                    spaceIds: data.spaceIds ?? capture.spaceIds,
                   }
                 : capture
             )
