@@ -84,6 +84,186 @@ function SpacePicker({ capture }: { capture: Capture }) {
   );
 }
 
+function formatEventDate(eventAt: string, hasTime: boolean | null): string {
+  const date = new Date(eventAt);
+  return hasTime
+    ? date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+    : date.toLocaleDateString(undefined, { dateStyle: "medium" });
+}
+
+function toDateInputValue(iso: string): string {
+  const date = new Date(iso);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function toTimeInputValue(iso: string): string {
+  const date = new Date(iso);
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
+function buildEventAtIso(dateValue: string, timeValue: string | null): string | null {
+  if (!dateValue) return null;
+  const [year, month, day] = dateValue.split("-").map(Number);
+
+  if (timeValue) {
+    const [hours, minutes] = timeValue.split(":").map(Number);
+    return new Date(year, month - 1, day, hours, minutes, 0).toISOString();
+  }
+
+  // All-day: anchor at local noon rather than midnight, so converting to
+  // UTC for storage never shifts the calendar date to the day before/after
+  // when read back in a different timezone.
+  return new Date(year, month - 1, day, 12, 0, 0).toISOString();
+}
+
+function TemporalEditor({ capture }: { capture: Capture }) {
+  const { updateTemporal } = useCaptures();
+  const [open, setOpen] = useState(false);
+  const [dateValue, setDateValue] = useState("");
+  const [timeValue, setTimeValue] = useState("");
+  const [allDay, setAllDay] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function startEditing() {
+    setDateValue(capture.eventAt ? toDateInputValue(capture.eventAt) : "");
+    setTimeValue(capture.eventAt && capture.eventHasTime ? toTimeInputValue(capture.eventAt) : "");
+    setAllDay(capture.eventAt ? !capture.eventHasTime : true);
+    setError(null);
+    setOpen(true);
+  }
+
+  async function handleSave() {
+    const iso = buildEventAtIso(dateValue, allDay ? null : timeValue || null);
+    if (!iso) {
+      setError("Pick a date first.");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    try {
+      await updateTemporal(capture.id, {
+        eventAt: iso,
+        eventHasTime: !allDay,
+        eventTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      });
+      setOpen(false);
+    } catch (err) {
+      console.error(err);
+      setError("Couldn't save. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (open) {
+    return (
+      <div className="mb-3 p-3 bg-gray-50 rounded-2xl">
+        <div className="flex items-center gap-2 flex-wrap">
+          <input
+            type="date"
+            value={dateValue}
+            onChange={(event) => setDateValue(event.target.value)}
+            className="text-sm border border-gray-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-400"
+          />
+          {!allDay && (
+            <input
+              type="time"
+              value={timeValue}
+              onChange={(event) => setTimeValue(event.target.value)}
+              className="text-sm border border-gray-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-400"
+            />
+          )}
+          <label className="flex items-center gap-1.5 text-xs text-gray-600">
+            <input
+              type="checkbox"
+              checked={allDay}
+              onChange={(event) => setAllDay(event.target.checked)}
+            />
+            All-day
+          </label>
+        </div>
+
+        <div className="flex items-center gap-2 mt-2">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="text-xs font-semibold bg-amber-400 hover:bg-amber-500 text-gray-900 px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              setError(null);
+            }}
+            disabled={saving}
+            className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
+          >
+            Cancel
+          </button>
+        </div>
+
+        {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
+      </div>
+    );
+  }
+
+  if (capture.eventStatus === "resolved" && capture.eventAt) {
+    return (
+      <div className="mb-3 flex items-center gap-2 flex-wrap">
+        <span className="text-xs font-semibold bg-amber-50 text-amber-800 px-2.5 py-1 rounded-full">
+          📅 {formatEventDate(capture.eventAt, capture.eventHasTime)}
+        </span>
+        <button
+          type="button"
+          onClick={startEditing}
+          className="text-xs font-semibold text-gray-500 hover:text-gray-700"
+        >
+          Edit
+        </button>
+      </div>
+    );
+  }
+
+  if (capture.eventStatus === "unresolved") {
+    return (
+      <div className="mb-3">
+        <button
+          type="button"
+          onClick={startEditing}
+          className="text-xs font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 px-2.5 py-1.5 rounded-full transition-all"
+        >
+          ⚠️ Date unclear{capture.temporalRawText ? ` — "${capture.temporalRawText}"` : ""} · Set date
+        </button>
+      </div>
+    );
+  }
+
+  // 'none' (and 'dismissed', which nothing produces yet) - optional,
+  // collapsed by default. Never forced into view for a Drop with no
+  // temporal content.
+  return (
+    <div className="mb-3">
+      <button
+        type="button"
+        onClick={startEditing}
+        className="text-xs font-semibold text-gray-400 hover:text-gray-600"
+      >
+        + Add a date
+      </button>
+    </div>
+  );
+}
+
 export default function DropDetailModal({
   capture,
   onClose,
@@ -173,6 +353,7 @@ export default function DropDetailModal({
         </div>
 
         <SpacePicker capture={capture} />
+        <TemporalEditor capture={capture} />
 
         {editing ? (
           <div>

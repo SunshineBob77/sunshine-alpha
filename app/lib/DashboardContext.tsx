@@ -9,6 +9,7 @@ import {
   updateCaptureSpaces,
   updateCaptureText,
   updateCaptureStatus,
+  updateCaptureTemporal,
   type Capture,
 } from "./captures";
 import { analyzeCapture } from "./analyzeCapture";
@@ -26,6 +27,10 @@ type DashboardContextValue = {
   updateSpaces: (id: number, spaceIds: string[]) => Promise<void>;
   updateText: (id: number, text: string) => Promise<void>;
   updateStatus: (id: number, status: "active" | "completed") => Promise<void>;
+  updateTemporal: (
+    id: number,
+    input: { eventAt: string; eventHasTime: boolean; eventTimezone: string }
+  ) => Promise<void>;
 };
 
 const DashboardContext = createContext<DashboardContextValue | null>(null);
@@ -75,10 +80,12 @@ export function DashboardProvider({
   }, [user.id]);
 
   function analyzeDrop(id: number, text: string) {
+    const captureTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
     fetch("/api/analyze-drop", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, text }),
+      body: JSON.stringify({ id, text, captureTimezone }),
     })
       .then((response) => response.json())
       .then(
@@ -179,6 +186,28 @@ export function DashboardProvider({
     );
   }
 
+  async function updateTemporal(
+    id: number,
+    input: { eventAt: string; eventHasTime: boolean; eventTimezone: string }
+  ) {
+    await updateCaptureTemporal(id, input);
+    setCaptures((prev) =>
+      prev.map((capture) =>
+        capture.id === id
+          ? {
+              ...capture,
+              eventAt: input.eventAt,
+              eventHasTime: input.eventHasTime,
+              eventTimezone: input.eventTimezone,
+              eventStatus: "resolved",
+              temporalConfidence: "high",
+              temporalLocked: true,
+            }
+          : capture
+      )
+    );
+  }
+
   return (
     <DashboardContext.Provider
       value={{
@@ -192,6 +221,7 @@ export function DashboardProvider({
         updateSpaces,
         updateText,
         updateStatus,
+        updateTemporal,
       }}
     >
       {children}
