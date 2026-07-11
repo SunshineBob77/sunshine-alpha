@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/app/lib/supabaseAdmin";
+import type { RecognizedEntities } from "@/app/lib/recognizeEntities";
 
 const anthropic = new Anthropic();
 
@@ -15,9 +16,19 @@ const SPACE_IDS = [
   "recipes",
 ] as const;
 
-const SYSTEM_PROMPT = `You are analyzing a short personal note (a "Drop"). Do seven independent things:
+const URL_PATTERN = /https?:\/\/\S+/i;
 
-1. Determine if this note is a research request (asking to find, look up, recommend, or research something — e.g. recipes, products, information). If yes, search the web and return 2-4 short, distinct bullet points as a JSON array of strings — each bullet a standalone fact or detail, not full sentences chained together (e.g. ["$20 cash cover at the door", "Live music starts at 8pm", "Full bar and pizza available"]). Respond with just the JSON array on one line. If no, use the value null.
+// A pasted link is a deterministic signal, not a wording inference - if the
+// note contains a URL, treat it as a research request regardless of how the
+// user phrased it ("review this", "check this out", or nothing at all).
+const RESEARCH_TASK_WITH_URL = `1. This note contains a URL. Always treat it as a research request, regardless of phrasing. First use web_fetch to open and read the actual linked page (e.g. the real Reddit thread, article, or listing) - do not guess at its content. Synthesize 2-4 short, distinct bullet points from what you actually read (e.g. the thread's real consensus/top points, an article's key facts) as a JSON array of strings. If the fetch fails or the page is inaccessible (paywalled, blocked, deleted, requires login), fall back to web_search around the URL/topic instead and still return your best 2-4 bullet summary from that. Only use the value null if both fetching and searching genuinely turn up nothing useful. Respond with just the JSON array on one line.`;
+
+const RESEARCH_TASK_DEFAULT = `1. Determine if this note is a research request (asking to find, look up, recommend, or research something — e.g. recipes, products, information). If yes, search the web and return 2-4 short, distinct bullet points as a JSON array of strings — each bullet a standalone fact or detail, not full sentences chained together (e.g. ["$20 cash cover at the door", "Live music starts at 8pm", "Full bar and pizza available"]). Respond with just the JSON array on one line. If no, use the value null.`;
+
+function buildSystemPrompt(hasUrl: boolean): string {
+  return `You are analyzing a short personal note (a "Drop"). Do seven independent things:
+
+${hasUrl ? RESEARCH_TASK_WITH_URL : RESEARCH_TASK_DEFAULT}
 2. Determine if this note contains a physical address (e.g. a hotel, restaurant, or event location). If yes, extract it exactly as written. If no, use the value null.
 3. Reformat the note's own content for clean display, using Markdown. Detect its structure and format accordingly:
    - A list of items should become a real Markdown bullet list. Recognize list structure from:
@@ -53,6 +64,7 @@ TITLE: <short specific title>
 ACTIONABLE: <true or false>
 CATEGORY: <Achievement, Task, Work, or Memory>
 SPACE: <one of ${SPACE_IDS.join(", ")}>`;
+}
 
 const PREAMBLE_PATTERN = /^[^.!?\n]*\b(I'll search|I will search|Let me|I'll look|I will look)\b[^.!?\n]*[.!?]+\s*/i;
 
@@ -193,17 +205,29 @@ export async function POST(request: Request) {
   try {
     const { data: captureRow, error: captureLookupError } = await supabaseAdmin
       .from("captures")
-      .select("user_id, created_at, space_ids, space_manually_set")
+      .select("user_id, created_at, space_ids, space_manually_set, entities")
       .eq("id", id)
       .single();
 
     if (captureLookupError) throw captureLookupError;
 
+    // Deterministic trigger, not a wording inference: prefer the already
+    // -computed entities.urls (Recognize stage), but also check the raw
+    // text directly in case entities is missing or stale (e.g. an edited
+    // Drop - updateCaptureText doesn't currently recompute entities).
+    const entities = captureRow.entities as RecognizedEntities | null;
+    const hasUrl = (entities?.urls?.length ?? 0) > 0 || URL_PATTERN.test(text);
+
     const response = await anthropic.messages.create({
       model: "claude-opus-4-8",
       max_tokens: 1024,
-      system: SYSTEM_PROMPT,
-      tools: [{ type: "web_search_20260209", name: "web_search" }],
+      system: buildSystemPrompt(hasUrl),
+      tools: hasUrl
+        ? [
+            { type: "web_search_20260209", name: "web_search" },
+            { type: "web_fetch_20260209", name: "web_fetch" },
+          ]
+        : [{ type: "web_search_20260209", name: "web_search" }],
       messages: [{ role: "user", content: text }],
     });
 
