@@ -3,6 +3,7 @@
 import { useAuthUser } from "@/app/lib/useAuthUser";
 import AuthForm from "@/app/components/AuthForm";
 import { DashboardProvider } from "@/app/lib/DashboardContext";
+import DashboardHeader from "@/app/components/DashboardHeader";
 import BottomNav from "@/app/components/BottomNav";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -20,7 +21,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <DashboardProvider user={user}>
-      <div className="min-h-dvh bg-gradient-to-b from-amber-50 via-orange-50/50 to-white pb-28">
+      <DashboardHeader />
+      <div className="min-h-dvh bg-gradient-to-b from-amber-50 via-orange-50/50 to-white pt-24 pb-28">
         {children}
       </div>
       <BottomNav />
