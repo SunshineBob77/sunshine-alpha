@@ -10,7 +10,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-b from-amber-50 via-orange-50/50 to-white" />
+      <main className="min-h-dvh bg-gradient-to-b from-amber-50 via-orange-50/50 to-white" />
     );
   }
 
@@ -20,7 +20,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <DashboardProvider user={user}>
-      <div className="min-h-screen bg-gradient-to-b from-amber-50 via-orange-50/50 to-white pb-28">
+      <div className="min-h-dvh bg-gradient-to-b from-amber-50 via-orange-50/50 to-white pb-28">
         {children}
       </div>
       <BottomNav />
