@@ -1,7 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/app/lib/supabaseAdmin";
-import type { RecognizedEntities } from "@/app/lib/recognizeEntities";
+import type { RecognizedEntities, RecognizedDate } from "@/app/lib/recognizeEntities";
+import {
+  detectRiskFlags,
+  resolveTemporal,
+  type TemporalResolutionOutput,
+} from "@/app/lib/resolveTemporal";
 
 const anthropic = new Anthropic();
 
@@ -25,8 +30,46 @@ const RESEARCH_TASK_WITH_URL = `1. This note contains a URL. Always treat it as 
 
 const RESEARCH_TASK_DEFAULT = `1. Determine if this note is a research request (asking to find, look up, recommend, or research something — e.g. recipes, products, information). If yes, search the web and return 2-4 short, distinct bullet points as a JSON array of strings — each bullet a standalone fact or detail, not full sentences chained together (e.g. ["$20 cash cover at the door", "Live music starts at 8pm", "Full bar and pizza available"]). Respond with just the JSON array on one line. If no, use the value null.`;
 
-function buildSystemPrompt(hasUrl: boolean): string {
-  return `You are analyzing a short personal note (a "Drop"). Do seven independent things:
+function buildTemporalTask(
+  rawText: string,
+  referenceDatetime: string,
+  captureTimezone: string,
+  localCandidates: RecognizedDate[]
+): string {
+  const candidatesText =
+    localCandidates.length > 0 ? JSON.stringify(localCandidates) : "none";
+
+  return `
+8. Determine if this text refers to one specific, resolvable date or time.
+
+Raw text: ${rawText}
+Reference date/time: ${referenceDatetime}
+Capture timezone: ${captureTimezone}
+Locally-detected candidate(s): ${candidatesText}
+
+Rules:
+- If the text clearly identifies a single intended date (e.g. "Meeting moved from Monday to Tuesday" clearly means Tuesday), resolve to that one date.
+- If the text uses vague or uncertain language ("sometime", "around", "ish", "ASAP", "a couple weeks") without enough surrounding context to pin down a specific date, do NOT invent one — respond unresolved instead, even if a local candidate exists.
+- If the text has no temporal meaning at all, respond none.
+- Only respond resolved when you have genuine confidence in one specific instant.
+- "ASAP" and pure urgency language, without any resolvable date, must always be unresolved — never invent a date for urgency alone.
+- If resolving a date-only reference with no explicit time of day, say so explicitly.`;
+}
+
+function buildSystemPrompt(
+  hasUrl: boolean,
+  includeTemporalTask: boolean,
+  rawText: string,
+  referenceDatetime: string,
+  captureTimezone: string,
+  localCandidates: RecognizedDate[]
+): string {
+  const taskCount = includeTemporalTask ? "eight" : "seven";
+  const temporalTask = includeTemporalTask
+    ? buildTemporalTask(rawText, referenceDatetime, captureTimezone, localCandidates)
+    : "";
+
+  return `You are analyzing a short personal note (a "Drop"). Do ${taskCount} independent things:
 
 ${hasUrl ? RESEARCH_TASK_WITH_URL : RESEARCH_TASK_DEFAULT}
 2. Determine if this note contains a physical address (e.g. a hotel, restaurant, or event location). If yes, extract it exactly as written. If no, use the value null.
@@ -52,6 +95,7 @@ ${hasUrl ? RESEARCH_TASK_WITH_URL : RESEARCH_TASK_DEFAULT}
 7. Classify this note based on its full meaning and context, not just keyword matching:
    - category: one of "Achievement" (something the person accomplished or made progress on), "Task" (something to do, a reminder, or an action item), "Work" (work/job-related content that isn't itself a to-do), or "Memory" (a personal reflection, note, or record — the default when nothing else clearly fits).
    - space: the single best-fitting Space for this note's actual subject matter, one of: ${SPACE_IDS.join(", ")}. Use "personal" when nothing more specific clearly fits — it is the default, not a last resort to avoid.
+${temporalTask}
 
 Do not narrate what you're about to do or describe your search process — no preamble like "I'll search for..." or "Let me find...".
 
@@ -63,7 +107,8 @@ WORKOUT: <JSON object or null>
 TITLE: <short specific title>
 ACTIONABLE: <true or false>
 CATEGORY: <Achievement, Task, Work, or Memory>
-SPACE: <one of ${SPACE_IDS.join(", ")}>`;
+SPACE: <one of ${SPACE_IDS.join(", ")}>
+TEMPORAL: <JSON object: {"status": "resolved" | "unresolved" | "none", "eventAt": "<ISO string>" | null, "hasTime": true | false | null}, or null if this task was not included in the prompt>`;
 }
 
 const PREAMBLE_PATTERN = /^[^.!?\n]*\b(I'll search|I will search|Let me|I'll look|I will look)\b[^.!?\n]*[.!?]+\s*/i;
@@ -141,6 +186,35 @@ function parseSpace(raw: string | undefined): (typeof SPACE_IDS)[number] {
   return match ?? "personal";
 }
 
+type TemporalExtraction = {
+  status: "resolved" | "unresolved" | "none";
+  eventAt: string | null;
+  hasTime: boolean | null;
+};
+
+const VALID_TEMPORAL_STATUSES = ["resolved", "unresolved", "none"];
+
+function parseTemporal(raw: string | undefined): TemporalExtraction | null {
+  const value = (raw ?? "").trim();
+  if (value.length === 0 || value.toLowerCase() === "null") return null;
+
+  try {
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== "object" || !VALID_TEMPORAL_STATUSES.includes(parsed.status)) {
+      return null;
+    }
+
+    return {
+      status: parsed.status,
+      eventAt: typeof parsed.eventAt === "string" ? parsed.eventAt : null,
+      hasTime: typeof parsed.hasTime === "boolean" ? parsed.hasTime : null,
+    };
+  } catch {
+    console.error("Failed to parse TEMPORAL JSON", value);
+    return null;
+  }
+}
+
 function parseAnalysis(rawText: string): {
   research: string[] | null;
   address: string | null;
@@ -150,6 +224,7 @@ function parseAnalysis(rawText: string): {
   isActionable: boolean;
   category: string;
   spaceId: (typeof SPACE_IDS)[number];
+  temporal: TemporalExtraction | null;
 } {
   const researchMatch = rawText.match(/RESEARCH:\s*([\s\S]*?)\s*ADDRESS:/i);
   const addressMatch = rawText.match(/ADDRESS:\s*([\s\S]*?)\s*FORMATTED:/i);
@@ -158,7 +233,8 @@ function parseAnalysis(rawText: string): {
   const titleMatch = rawText.match(/TITLE:\s*([\s\S]*?)\s*ACTIONABLE:/i);
   const actionableMatch = rawText.match(/ACTIONABLE:\s*([\s\S]*?)\s*CATEGORY:/i);
   const categoryMatch = rawText.match(/CATEGORY:\s*([\s\S]*?)\s*SPACE:/i);
-  const spaceMatch = rawText.match(/SPACE:\s*([\s\S]*)$/i);
+  const spaceMatch = rawText.match(/SPACE:\s*([\s\S]*?)\s*TEMPORAL:/i);
+  const temporalMatch = rawText.match(/TEMPORAL:\s*([\s\S]*)$/i);
 
   if (
     !researchMatch ||
@@ -168,7 +244,8 @@ function parseAnalysis(rawText: string): {
     !titleMatch ||
     !actionableMatch ||
     !categoryMatch ||
-    !spaceMatch
+    !spaceMatch ||
+    !temporalMatch
   ) {
     // Model didn't follow the format — fall back to treating the whole response as the research answer.
     return {
@@ -180,6 +257,7 @@ function parseAnalysis(rawText: string): {
       isActionable: false,
       category: "Memory",
       spaceId: "personal",
+      temporal: null,
     };
   }
 
@@ -192,15 +270,23 @@ function parseAnalysis(rawText: string): {
     isActionable: actionableMatch[1].trim().toLowerCase().startsWith("true"),
     category: parseCategory(categoryMatch[1]),
     spaceId: parseSpace(spaceMatch[1]),
+    temporal: parseTemporal(temporalMatch[1]),
   };
 }
 
 export async function POST(request: Request) {
-  const { id, text } = await request.json();
+  const { id, text, captureTimezone: requestTimezone } = await request.json();
 
   if (!id || typeof text !== "string" || !text.trim()) {
     return NextResponse.json({ error: "Missing id or text" }, { status: 400 });
   }
+
+  // The client sends its real IANA timezone (Intl.DateTimeFormat().resolvedOptions().timeZone)
+  // captured at the moment analyzeDrop() fires. Fall back to UTC only for
+  // requests from a caller that doesn't send it (e.g. a stale client build) -
+  // this is a plain default, not an offset-derived guess.
+  const captureTimezone =
+    typeof requestTimezone === "string" && requestTimezone.trim() ? requestTimezone : "UTC";
 
   try {
     const { data: captureRow, error: captureLookupError } = await supabaseAdmin
@@ -218,10 +304,31 @@ export async function POST(request: Request) {
     const entities = captureRow.entities as RecognizedEntities | null;
     const hasUrl = (entities?.urls?.length ?? 0) > 0 || URL_PATTERN.test(text);
 
+    const localCandidates: RecognizedDate[] = entities?.dates ?? [];
+    const riskFlags = detectRiskFlags(text);
+    const referenceDatetime = captureRow.created_at as string;
+
+    // Only ask the AI about temporal resolution when the local pass alone
+    // can't be trusted: nothing found, a single candidate with a risk flag,
+    // or multiple candidates to disambiguate. A clean single candidate with
+    // no risk flags skips the AI task entirely (see the resolveTemporal call
+    // below, which is called directly with aiResult: null in that case).
+    const includeTemporalTask =
+      localCandidates.length === 0 ||
+      (localCandidates.length === 1 && riskFlags.length > 0) ||
+      localCandidates.length >= 2;
+
     const response = await anthropic.messages.create({
       model: "claude-opus-4-8",
       max_tokens: 1024,
-      system: buildSystemPrompt(hasUrl),
+      system: buildSystemPrompt(
+        hasUrl,
+        includeTemporalTask,
+        text,
+        referenceDatetime,
+        captureTimezone,
+        localCandidates
+      ),
       tools: hasUrl
         ? [
             { type: "web_search_20260209", name: "web_search" },
@@ -237,13 +344,45 @@ export async function POST(request: Request) {
       .join("")
       .trim();
 
-    const { research, address, formatted, workout, title, isActionable, category, spaceId } =
+    const { research, address, formatted, workout, title, isActionable, category, spaceId, temporal } =
       parseAnalysis(rawText);
 
     // Never overwrite a Space the user manually assigned/changed themselves -
     // AI classification only applies while a Drop is still on its original
     // auto-assigned Space.
     const nextSpaceIds = captureRow.space_manually_set ? captureRow.space_ids : [spaceId];
+
+    // aiResult is null both when the TEMPORAL task was intentionally skipped
+    // (clean single candidate) and when it was included but the model's JSON
+    // didn't parse - resolveTemporal treats both cases identically (safe
+    // degradation), so there's no need to distinguish them here.
+    const aiTemporalResult: TemporalResolutionOutput | null =
+      includeTemporalTask && temporal
+        ? {
+            eventAt: temporal.eventAt,
+            eventHasTime: temporal.hasTime,
+            eventTimezone: captureTimezone,
+            eventStatus: temporal.status,
+            // The model isn't asked for a confidence value directly - its own
+            // instructions already gate 'resolved' on genuine confidence, so
+            // 'high' is the correct label when it commits to that status.
+            // resolveTemporal's universal rule nulls this out for any
+            // non-resolved status regardless of what's passed here.
+            temporalConfidence: temporal.status === "resolved" ? "high" : null,
+            temporalRawText: null,
+          }
+        : null;
+
+    const temporalResolution = resolveTemporal(
+      {
+        rawText: text,
+        referenceDatetime,
+        captureTimezone,
+        localCandidates,
+        riskFlags,
+      },
+      aiTemporalResult
+    );
 
     const { error } = await supabaseAdmin
       .from("captures")
@@ -255,6 +394,12 @@ export async function POST(request: Request) {
         is_actionable: isActionable,
         category,
         space_ids: nextSpaceIds,
+        event_at: temporalResolution.eventAt,
+        event_has_time: temporalResolution.eventHasTime,
+        event_timezone: temporalResolution.eventTimezone,
+        event_status: temporalResolution.eventStatus,
+        temporal_confidence: temporalResolution.temporalConfidence,
+        temporal_raw_text: temporalResolution.temporalRawText,
       })
       .eq("id", id);
 
@@ -295,6 +440,12 @@ export async function POST(request: Request) {
       isActionable,
       category,
       spaceIds: nextSpaceIds,
+      eventAt: temporalResolution.eventAt,
+      eventHasTime: temporalResolution.eventHasTime,
+      eventTimezone: temporalResolution.eventTimezone,
+      eventStatus: temporalResolution.eventStatus,
+      temporalConfidence: temporalResolution.temporalConfidence,
+      temporalRawText: temporalResolution.temporalRawText,
     });
   } catch (error) {
     console.error("analyze-drop failed", error);
