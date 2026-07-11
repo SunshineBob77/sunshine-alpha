@@ -39,6 +39,13 @@ export type Capture = {
   isActionable: boolean;
   spaceManuallySet: boolean;
   entities: RecognizedEntities | null;
+  eventAt: string | null;
+  eventHasTime: boolean | null;
+  eventTimezone: string | null;
+  eventStatus: "none" | "resolved" | "unresolved" | "dismissed";
+  temporalConfidence: "high" | "low" | null;
+  temporalRawText: string | null;
+  temporalLocked: boolean;
 };
 
 type CaptureRow = {
@@ -59,6 +66,13 @@ type CaptureRow = {
   is_actionable: boolean;
   space_manually_set: boolean;
   entities: RecognizedEntities | null;
+  event_at: string | null;
+  event_has_time: boolean | null;
+  event_timezone: string | null;
+  event_status: "none" | "resolved" | "unresolved" | "dismissed" | null;
+  temporal_confidence: "high" | "low" | null;
+  temporal_raw_text: string | null;
+  temporal_locked: boolean;
 };
 
 function mapRowToCapture(row: CaptureRow): Capture {
@@ -80,6 +94,13 @@ function mapRowToCapture(row: CaptureRow): Capture {
     isActionable: row.is_actionable ?? false,
     spaceManuallySet: row.space_manually_set ?? false,
     entities: row.entities ?? null,
+    eventAt: row.event_at ?? null,
+    eventHasTime: row.event_has_time ?? null,
+    eventTimezone: row.event_timezone ?? null,
+    eventStatus: row.event_status ?? "none",
+    temporalConfidence: row.temporal_confidence ?? null,
+    temporalRawText: row.temporal_raw_text ?? null,
+    temporalLocked: row.temporal_locked ?? false,
   };
 }
 
@@ -133,6 +154,30 @@ export async function updateCaptureSpaces(id: number, spaceIds: string[]): Promi
   const { error } = await supabase
     .from("captures")
     .update({ space_ids: spaceIds, space_manually_set: true })
+    .eq("id", id);
+
+  if (error) throw error;
+}
+
+export async function updateCaptureTemporal(
+  id: number,
+  input: { eventAt: string; eventHasTime: boolean; eventTimezone: string }
+): Promise<void> {
+  // Manually setting/correcting a date locks it, mirroring
+  // updateCaptureSpaces's space_manually_set - future automatic
+  // re-analysis on text edits must never silently overwrite a user's
+  // own correction. temporal_raw_text is deliberately not touched here:
+  // it represents what the original capture said, not the correction.
+  const { error } = await supabase
+    .from("captures")
+    .update({
+      event_at: input.eventAt,
+      event_has_time: input.eventHasTime,
+      event_timezone: input.eventTimezone,
+      event_status: "resolved",
+      temporal_confidence: "high",
+      temporal_locked: true,
+    })
     .eq("id", id);
 
   if (error) throw error;
