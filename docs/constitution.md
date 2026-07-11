@@ -129,6 +129,26 @@ Local, synchronous, no API cost. Scope for v1: dates/times (merged into one stru
 
 Stored as a single `captures.entities` jsonb column (mirrors how `space_ids` is already stored) — avoids a proliferation of narrow columns for something still evolving.
 
+### Calendar / Temporal Extraction — Shipped
+
+Builds on Entity Detection above, but promoted to its own pipeline since a Drop's date needs one canonical, trustworthy answer, not a raw list of candidates. Local parsing (`recognizeEntities.ts`, chrono-based) produces candidate dates first. Risk-flag detection (`detectRiskFlags()`) then identifies inherently ambiguous phrasing: vague anchors ("weekend," "sometime"), bare hours with no am/pm, dropped qualifiers ("EOD," "ASAP"). The AI temporal task (in `analyze-drop/route.ts`) is only invoked when local parsing alone isn't trustworthy — zero candidates, a risk-flagged single candidate, or two or more candidates to disambiguate. A pure function, `resolveTemporal()`, then produces one final canonical result regardless of which path was taken.
+
+Schema — added to `captures`:
+
+```
+event_at              timestamptz
+event_has_time        boolean
+event_timezone        IANA zone, captured client-side at parse time — never a UTC-offset proxy
+event_status          'none' | 'resolved' | 'unresolved' | 'dismissed'
+temporal_confidence   'high' | 'low' | null — only meaningful when resolved
+temporal_raw_text     the original phrase, always preserved (Law #3)
+temporal_locked       boolean — set true once a user manually corrects a date; blocks future automatic overwrites
+```
+
+A user can correct a date via a `TemporalEditor` UI, which sets `temporal_locked`. Once locked, subsequent text edits to the Drop never silently overwrite the date — Sunshine instead re-parses the new text locally and, only if the temporal content appears to have meaningfully changed, surfaces a dismissible "Text changed — update date from text?" prompt; the user must explicitly confirm before anything is overwritten. A direct implementation of Law #3 (preserve original memory / user corrections) and Law #4 (never mysterious — always ask before overwriting a user's explicit choice).
+
+A Calendar/Agenda view groups Drops by `event_at`, computed in each Drop's own `event_timezone` — never the viewer's local zone — so an all-day item never shifts across a date boundary depending on who's looking. Shown alongside a separate "Needs your input" list for `event_status: unresolved` Drops. This is a lens over existing Drop data, consistent with the "Threads are the interface" pattern — Calendar is not a new object type.
+
 ### Enrichment Scoring — Roadmap (schema change required)
 
 Simple test before any lookup: *can this be verified in the outside world?* If no (journal entries, gratitude, personal reflections, therapy notes, brainstorms, dreams, emotional voice memos) — leave it alone.
@@ -261,6 +281,20 @@ thread_memberships
 ```
 
 Open question to resolve before starting: does this replace `thread_id` outright, or run alongside it during a migration period?
+
+### Shared Spaces — Architecture proposed, not yet built
+
+Spaces are not yet a database entity — they're a hardcoded array (`app/lib/spaces.ts`), identical for every user. A Drop holds `space_ids: text[]` pointing at these fixed labels.
+
+Proposed model:
+1. Migrate Spaces to a real `spaces` table, preserving existing `space_ids` assignments.
+2. Add a `space_members` table (`space_id`, `user_id`/invited email, `role`) for membership.
+3. Update RLS on `captures` from strictly owner-only to owner-or-accepted-member.
+4. Build an invite flow (email lookup for existing users, pending invite for new signups).
+
+Explicitly separate from the existing one-off `/s/[id]` public share flow (backed by the `shares` table) — that's a read-only, non-membership, link-based share and is unaffected by this work.
+
+Status: architecture defined, build not started as of this doc's last edit.
 
 ### Share Architecture — Four-Stage Reception Funnel
 
