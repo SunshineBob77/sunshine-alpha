@@ -83,7 +83,7 @@ export function DashboardProvider({
       .then((response) => response.json())
       .then(
         (data: {
-          result?: string | null;
+          result?: string[] | null;
           address?: string | null;
           formatted?: string | null;
           title?: string | null;

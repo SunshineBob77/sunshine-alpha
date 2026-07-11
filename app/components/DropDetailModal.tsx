@@ -224,7 +224,17 @@ export default function DropDetailModal({
               </span>
               <h3 className="font-semibold text-sm text-gray-900">Sunshine found this</h3>
             </div>
-            <p className="text-sm text-gray-800 break-words">{capture.aiResearchResult}</p>
+            {Array.isArray(capture.aiResearchResult) ? (
+              <ul className="text-sm text-gray-800 list-disc ml-5 space-y-1">
+                {capture.aiResearchResult.map((bullet, index) => (
+                  <li key={index} className="break-words">
+                    {bullet}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-800 break-words">{capture.aiResearchResult}</p>
+            )}
           </div>
         )}
 

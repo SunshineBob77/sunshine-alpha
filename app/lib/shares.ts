@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { supabase } from "./supabaseClient";
-import type { Capture } from "./captures";
+import { parseResearchResult, type Capture } from "./captures";
 
 export type Share = {
   id: string;
@@ -11,7 +11,7 @@ export type Share = {
   spaceId: string | null;
   createdAt: string;
   extractedAddress: string | null;
-  aiResearchResult: string | null;
+  aiResearchResult: string | string[] | null;
 };
 
 const SHARE_COLUMNS =
@@ -39,7 +39,7 @@ function mapRowToShare(row: ShareRow): Share {
     spaceId: row.space_id,
     createdAt: row.created_at,
     extractedAddress: row.extracted_address ?? null,
-    aiResearchResult: row.ai_research_result ?? null,
+    aiResearchResult: parseResearchResult(row.ai_research_result),
   };
 }
 
@@ -63,7 +63,9 @@ export async function getOrCreateShare(capture: Capture, sharerName: string): Pr
       category: capture.category,
       space_id: capture.spaceIds?.[0] ?? null,
       extracted_address: capture.extractedAddress,
-      ai_research_result: capture.aiResearchResult,
+      ai_research_result: Array.isArray(capture.aiResearchResult)
+        ? JSON.stringify(capture.aiResearchResult)
+        : capture.aiResearchResult,
     })
     .select(SHARE_COLUMNS)
     .single();

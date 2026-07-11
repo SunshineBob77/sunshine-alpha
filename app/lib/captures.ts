@@ -1,6 +1,26 @@
 import { supabase } from "./supabaseClient";
 import type { RecognizedEntities } from "./recognizeEntities";
 
+// AI research answers are stored as JSON-encoded bullet arrays in the
+// existing ai_research_result text column (no schema change) - but rows
+// written before this change hold plain prose. Parsing here means every
+// caller gets a value that's either string[] (new) or string (legacy),
+// and can render either without knowing which format is in the DB.
+export function parseResearchResult(raw: string | null): string | string[] | null {
+  if (raw == null) return null;
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.every((item) => typeof item === "string")) {
+      return parsed;
+    }
+  } catch {
+    // Not JSON - old-format plain-text research result, return as-is.
+  }
+
+  return raw;
+}
+
 export type Capture = {
   id: number;
   text: string;
@@ -11,7 +31,7 @@ export type Capture = {
   mood: string;
   sunshineSummary: string;
   spaceIds: string[];
-  aiResearchResult: string | null;
+  aiResearchResult: string | string[] | null;
   extractedAddress: string | null;
   formattedText: string | null;
   title: string | null;
@@ -52,7 +72,7 @@ function mapRowToCapture(row: CaptureRow): Capture {
     mood: row.mood,
     sunshineSummary: row.sunshine_summary,
     spaceIds: row.space_ids ?? [],
-    aiResearchResult: row.ai_research_result ?? null,
+    aiResearchResult: parseResearchResult(row.ai_research_result),
     extractedAddress: row.extracted_address ?? null,
     formattedText: row.formatted_text ?? null,
     title: row.title ?? null,

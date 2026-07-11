@@ -17,7 +17,7 @@ const SPACE_IDS = [
 
 const SYSTEM_PROMPT = `You are analyzing a short personal note (a "Drop"). Do seven independent things:
 
-1. Determine if this note is a research request (asking to find, look up, recommend, or research something — e.g. recipes, products, information). If yes, search the web and return a concise, useful answer in 2-4 sentences. If no, use the value null.
+1. Determine if this note is a research request (asking to find, look up, recommend, or research something — e.g. recipes, products, information). If yes, search the web and return 2-4 short, distinct bullet points as a JSON array of strings — each bullet a standalone fact or detail, not full sentences chained together (e.g. ["$20 cash cover at the door", "Live music starts at 8pm", "Full bar and pizza available"]). Respond with just the JSON array on one line. If no, use the value null.
 2. Determine if this note contains a physical address (e.g. a hotel, restaurant, or event location). If yes, extract it exactly as written. If no, use the value null.
 3. Reformat the note's own content for clean display, using Markdown. Detect its structure and format accordingly:
    - A list of items should become a real Markdown bullet list. Recognize list structure from:
@@ -45,7 +45,7 @@ const SYSTEM_PROMPT = `You are analyzing a short personal note (a "Drop"). Do se
 Do not narrate what you're about to do or describe your search process — no preamble like "I'll search for..." or "Let me find...".
 
 Respond with exactly this format and nothing else before or after it:
-RESEARCH: <answer or null>
+RESEARCH: <JSON array of bullet strings, or null>
 ADDRESS: <address or null>
 FORMATTED: <reformatted note>
 WORKOUT: <JSON object or null>
@@ -63,6 +63,25 @@ function stripPreamble(text: string): string {
 function nullableValue(raw: string | undefined): string | null {
   const value = (raw ?? "").trim();
   return value.length === 0 || value.toLowerCase() === "null" ? null : value;
+}
+
+function parseResearch(raw: string | undefined): string[] | null {
+  const value = (raw ?? "").trim();
+  if (value.length === 0 || value.toLowerCase() === "null") return null;
+
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed) && parsed.every((item) => typeof item === "string")) {
+      const bullets = parsed.map((item) => item.trim()).filter(Boolean);
+      return bullets.length > 0 ? bullets : null;
+    }
+  } catch {
+    // Model didn't return valid JSON - fall through to treating the raw
+    // text as a single bullet rather than discarding the research answer.
+  }
+
+  const plain = nullableValue(stripPreamble(value));
+  return plain ? [plain] : null;
 }
 
 type WorkoutExtraction = {
@@ -111,7 +130,7 @@ function parseSpace(raw: string | undefined): (typeof SPACE_IDS)[number] {
 }
 
 function parseAnalysis(rawText: string): {
-  research: string | null;
+  research: string[] | null;
   address: string | null;
   formatted: string | null;
   workout: WorkoutExtraction | null;
@@ -141,7 +160,7 @@ function parseAnalysis(rawText: string): {
   ) {
     // Model didn't follow the format — fall back to treating the whole response as the research answer.
     return {
-      research: nullableValue(stripPreamble(rawText)),
+      research: parseResearch(rawText),
       address: null,
       formatted: null,
       workout: null,
@@ -153,7 +172,7 @@ function parseAnalysis(rawText: string): {
   }
 
   return {
-    research: nullableValue(stripPreamble(researchMatch[1])),
+    research: parseResearch(researchMatch[1]),
     address: nullableValue(addressMatch[1]),
     formatted: nullableValue(formattedMatch[1]),
     workout: parseWorkout(workoutMatch[1]),
@@ -205,7 +224,7 @@ export async function POST(request: Request) {
     const { error } = await supabaseAdmin
       .from("captures")
       .update({
-        ai_research_result: research,
+        ai_research_result: research ? JSON.stringify(research) : null,
         extracted_address: address,
         formatted_text: formatted,
         title,
