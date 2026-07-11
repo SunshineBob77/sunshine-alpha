@@ -75,6 +75,21 @@ function hasBareHour(text: string): boolean {
   });
 }
 
+// Shared gating rule: only escalate to the AI when the local pass alone
+// can't be trusted. A clean single candidate with no risk flags is
+// resolved directly, with no AI call at all - used by both
+// analyze-drop/route.ts (deciding whether to include the TEMPORAL task in
+// the prompt) and the client's edit-time re-analysis preview (deciding
+// whether it can resolve locally or needs to hit the endpoint), so the two
+// can never drift out of sync with each other.
+export function shouldEscalateToAi(localCandidates: LocalCandidate[], riskFlags: RiskFlag[]): boolean {
+  return (
+    localCandidates.length === 0 ||
+    (localCandidates.length === 1 && riskFlags.length > 0) ||
+    localCandidates.length >= 2
+  );
+}
+
 export function detectRiskFlags(rawText: string): RiskFlag[] {
   const flags: RiskFlag[] = [];
 

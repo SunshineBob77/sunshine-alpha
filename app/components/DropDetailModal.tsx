@@ -8,6 +8,7 @@ import { assignableSpaces } from "@/app/lib/spaces";
 import { getSpaceTone } from "@/app/lib/spaceTone";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import type { Capture } from "@/app/lib/captures";
+import type { TemporalResolutionOutput } from "@/app/lib/resolveTemporal";
 
 function SpacePicker({ capture }: { capture: Capture }) {
   const { updateSpaces } = useCaptures();
@@ -264,6 +265,125 @@ function TemporalEditor({ capture }: { capture: Capture }) {
   );
 }
 
+// Surfaced only for a locked Drop whose text has changed in a way that
+// looks temporally different from what's locked in. Never auto-writes -
+// tapping the initial button only fetches a preview; overwriting the
+// locked value requires a second, explicit confirm tap.
+function TemporalEditSuggestion({ capture }: { capture: Capture }) {
+  const { previewTemporalReanalysis, dismissTemporalSuggestion, updateTemporal } = useCaptures();
+  const [preview, setPreview] = useState<TemporalResolutionOutput | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleCheck() {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await previewTemporalReanalysis(capture.id);
+      setPreview(result);
+    } catch (err) {
+      console.error(err);
+      setError("Couldn't check. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleConfirm() {
+    if (!preview || !preview.eventAt || preview.eventHasTime === null) return;
+
+    setConfirming(true);
+    setError(null);
+    try {
+      await updateTemporal(capture.id, {
+        eventAt: preview.eventAt,
+        eventHasTime: preview.eventHasTime,
+        eventTimezone: preview.eventTimezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+      });
+      dismissTemporalSuggestion(capture.id);
+      setPreview(null);
+    } catch (err) {
+      console.error(err);
+      setError("Couldn't save. Try again.");
+    } finally {
+      setConfirming(false);
+    }
+  }
+
+  function handleDismiss() {
+    dismissTemporalSuggestion(capture.id);
+    setPreview(null);
+    setError(null);
+  }
+
+  if (preview) {
+    return (
+      <div className="mb-3 p-3 bg-blue-50 rounded-2xl text-sm">
+        {preview.eventStatus === "resolved" && preview.eventAt ? (
+          <>
+            <p className="text-gray-800 mb-2">
+              New date from text:{" "}
+              <strong>{formatEventDate(preview.eventAt, preview.eventHasTime)}</strong>
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleConfirm}
+                disabled={confirming}
+                className="text-xs font-semibold bg-amber-400 hover:bg-amber-500 text-gray-900 px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
+              >
+                {confirming ? "Updating…" : "Update date"}
+              </button>
+              <button
+                type="button"
+                onClick={handleDismiss}
+                disabled={confirming}
+                className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
+              >
+                Keep current
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-gray-600 mb-2">Still unclear from the new text.</p>
+            <button
+              type="button"
+              onClick={handleDismiss}
+              className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-all"
+            >
+              Dismiss
+            </button>
+          </>
+        )}
+        {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-3 flex items-center gap-2 flex-wrap">
+      <button
+        type="button"
+        onClick={handleCheck}
+        disabled={loading}
+        className="text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 px-2.5 py-1.5 rounded-full transition-all disabled:opacity-60"
+      >
+        {loading ? "Checking…" : "🔄 Text changed — update date from text?"}
+      </button>
+      <button
+        type="button"
+        onClick={handleDismiss}
+        className="text-xs text-gray-400 hover:text-gray-600"
+      >
+        Dismiss
+      </button>
+      {error && <p className="text-xs text-red-600 w-full">{error}</p>}
+    </div>
+  );
+}
+
 export default function DropDetailModal({
   capture,
   onClose,
@@ -271,7 +391,7 @@ export default function DropDetailModal({
   capture: Capture;
   onClose: () => void;
 }) {
-  const { updateText } = useCaptures();
+  const { updateText, temporalSuggestions } = useCaptures();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(capture.text);
   const [savingText, setSavingText] = useState(false);
@@ -354,6 +474,9 @@ export default function DropDetailModal({
 
         <SpacePicker capture={capture} />
         <TemporalEditor capture={capture} />
+        {capture.temporalLocked && temporalSuggestions[capture.id] && (
+          <TemporalEditSuggestion capture={capture} />
+        )}
 
         {editing ? (
           <div>

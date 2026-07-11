@@ -1,10 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/app/lib/supabaseAdmin";
-import type { RecognizedEntities, RecognizedDate } from "@/app/lib/recognizeEntities";
+import { recognizeEntities, type RecognizedDate } from "@/app/lib/recognizeEntities";
 import {
   detectRiskFlags,
   resolveTemporal,
+  shouldEscalateToAi,
+  type RiskFlag,
   type TemporalResolutionOutput,
 } from "@/app/lib/resolveTemporal";
 
@@ -31,25 +33,30 @@ const RESEARCH_TASK_WITH_URL = `1. This note contains a URL. Always treat it as 
 const RESEARCH_TASK_DEFAULT = `1. Determine if this note is a research request (asking to find, look up, recommend, or research something — e.g. recipes, products, information). If yes, search the web and return 2-4 short, distinct bullet points as a JSON array of strings — each bullet a standalone fact or detail, not full sentences chained together (e.g. ["$20 cash cover at the door", "Live music starts at 8pm", "Full bar and pizza available"]). Respond with just the JSON array on one line. If no, use the value null.`;
 
 function buildTemporalTask(
+  taskNumber: number,
   rawText: string,
   referenceDatetime: string,
   captureTimezone: string,
-  localCandidates: RecognizedDate[]
+  localCandidates: RecognizedDate[],
+  riskFlags: RiskFlag[]
 ): string {
   const candidatesText =
     localCandidates.length > 0 ? JSON.stringify(localCandidates) : "none";
+  const riskFlagsText = riskFlags.length > 0 ? riskFlags.join(", ") : "none";
 
   return `
-8. Determine if this text refers to one specific, resolvable date or time.
+${taskNumber}. Determine if this text refers to one specific, resolvable date or time.
 
 Raw text: ${rawText}
 Reference date/time: ${referenceDatetime}
 Capture timezone: ${captureTimezone}
 Locally-detected candidate(s): ${candidatesText}
+Risk flags detected on the local candidate: ${riskFlagsText}
 
 Rules:
 - If the text clearly identifies a single intended date (e.g. "Meeting moved from Monday to Tuesday" clearly means Tuesday), resolve to that one date.
 - If the text uses vague or uncertain language ("sometime", "around", "ish", "ASAP", "a couple weeks") without enough surrounding context to pin down a specific date, do NOT invent one — respond unresolved instead, even if a local candidate exists.
+- If risk flags are present for a local candidate, treat that as a specific signal to be skeptical of that candidate's precision — a risk flag being present means the local parser itself considers this phrasing ambiguous, not just an example category. Do not resolve a flagged candidate to "resolved" unless the surrounding text provides genuinely disambiguating context beyond what's in the flagged phrase itself (e.g. "this weekend, the 18th" would be disambiguating; "this weekend" alone is not).
 - If the text has no temporal meaning at all, respond none.
 - Only respond resolved when you have genuine confidence in one specific instant.
 - "ASAP" and pure urgency language, without any resolvable date, must always be unresolved — never invent a date for urgency alone.
@@ -62,11 +69,12 @@ function buildSystemPrompt(
   rawText: string,
   referenceDatetime: string,
   captureTimezone: string,
-  localCandidates: RecognizedDate[]
+  localCandidates: RecognizedDate[],
+  riskFlags: RiskFlag[]
 ): string {
   const taskCount = includeTemporalTask ? "eight" : "seven";
   const temporalTask = includeTemporalTask
-    ? buildTemporalTask(rawText, referenceDatetime, captureTimezone, localCandidates)
+    ? buildTemporalTask(8, rawText, referenceDatetime, captureTimezone, localCandidates, riskFlags)
     : "";
 
   return `You are analyzing a short personal note (a "Drop"). Do ${taskCount} independent things:
@@ -109,6 +117,26 @@ ACTIONABLE: <true or false>
 CATEGORY: <Achievement, Task, Work, or Memory>
 SPACE: <one of ${SPACE_IDS.join(", ")}>
 TEMPORAL: <JSON object: {"status": "resolved" | "unresolved" | "none", "eventAt": "<ISO string>" | null, "hasTime": true | false | null}, or null if this task was not included in the prompt>`;
+}
+
+// Used only for the edit-time re-analysis preview (temporalPreviewOnly) -
+// a single-task, tool-free call so checking "does the new text suggest a
+// different date" doesn't pay for the other 7 tasks or web tools it
+// doesn't need.
+function buildTemporalOnlySystemPrompt(
+  rawText: string,
+  referenceDatetime: string,
+  captureTimezone: string,
+  localCandidates: RecognizedDate[],
+  riskFlags: RiskFlag[]
+): string {
+  return `You are analyzing a short personal note (a "Drop") for temporal content only. Do one thing:
+${buildTemporalTask(1, rawText, referenceDatetime, captureTimezone, localCandidates, riskFlags)}
+
+Do not narrate what you're about to do or describe your reasoning process.
+
+Respond with exactly this format and nothing else before or after it:
+TEMPORAL: <JSON object: {"status": "resolved" | "unresolved" | "none", "eventAt": "<ISO string>" | null, "hasTime": true | false | null}>`;
 }
 
 const PREAMBLE_PATTERN = /^[^.!?\n]*\b(I'll search|I will search|Let me|I'll look|I will look)\b[^.!?\n]*[.!?]+\s*/i;
@@ -274,8 +302,34 @@ function parseAnalysis(rawText: string): {
   };
 }
 
+function buildAiTemporalResult(
+  temporal: TemporalExtraction | null,
+  captureTimezone: string
+): TemporalResolutionOutput | null {
+  if (!temporal) return null;
+
+  return {
+    eventAt: temporal.eventAt,
+    eventHasTime: temporal.hasTime,
+    eventTimezone: captureTimezone,
+    eventStatus: temporal.status,
+    // The model isn't asked for a confidence value directly - its own
+    // instructions already gate 'resolved' on genuine confidence, so
+    // 'high' is the correct label when it commits to that status.
+    // resolveTemporal's universal rule nulls this out for any non-resolved
+    // status regardless of what's passed here.
+    temporalConfidence: temporal.status === "resolved" ? "high" : null,
+    temporalRawText: null,
+  };
+}
+
 export async function POST(request: Request) {
-  const { id, text, captureTimezone: requestTimezone } = await request.json();
+  const {
+    id,
+    text,
+    captureTimezone: requestTimezone,
+    temporalPreviewOnly,
+  } = await request.json();
 
   if (!id || typeof text !== "string" || !text.trim()) {
     return NextResponse.json({ error: "Missing id or text" }, { status: 400 });
@@ -291,43 +345,79 @@ export async function POST(request: Request) {
   try {
     const { data: captureRow, error: captureLookupError } = await supabaseAdmin
       .from("captures")
-      .select("user_id, created_at, space_ids, space_manually_set, entities")
+      .select("user_id, created_at, space_ids, space_manually_set, temporal_locked")
       .eq("id", id)
       .single();
 
     if (captureLookupError) throw captureLookupError;
 
-    // Deterministic trigger, not a wording inference: prefer the already
-    // -computed entities.urls (Recognize stage), but also check the raw
-    // text directly in case entities is missing or stale (e.g. an edited
-    // Drop - updateCaptureText doesn't currently recompute entities).
-    const entities = captureRow.entities as RecognizedEntities | null;
-    const hasUrl = (entities?.urls?.length ?? 0) > 0 || URL_PATTERN.test(text);
-
-    const localCandidates: RecognizedDate[] = entities?.dates ?? [];
+    // Always computed fresh from the current text rather than trusted from
+    // the stored entities column, which updateCaptureText never refreshes -
+    // this is what keeps risk-flag/candidate detection correct after an
+    // edit, not just at creation time.
+    const freshEntities = recognizeEntities(text);
+    const hasUrl = freshEntities.urls.length > 0 || URL_PATTERN.test(text);
+    const localCandidates = freshEntities.dates;
     const riskFlags = detectRiskFlags(text);
     const referenceDatetime = captureRow.created_at as string;
+    const includeTemporalTask = shouldEscalateToAi(localCandidates, riskFlags);
 
-    // Only ask the AI about temporal resolution when the local pass alone
-    // can't be trusted: nothing found, a single candidate with a risk flag,
-    // or multiple candidates to disambiguate. A clean single candidate with
-    // no risk flags skips the AI task entirely (see the resolveTemporal call
-    // below, which is called directly with aiResult: null in that case).
-    const includeTemporalTask =
-      localCandidates.length === 0 ||
-      (localCandidates.length === 1 && riskFlags.length > 0) ||
-      localCandidates.length >= 2;
+    // Lightweight path used only by the edit-time "update date from text?"
+    // suggestion in DropDetailModal, after a locked Drop's text changes.
+    // Computes and returns a temporal resolution WITHOUT writing anything -
+    // the user must explicitly confirm before it overwrites a locked value.
+    if (temporalPreviewOnly) {
+      let temporal: TemporalExtraction | null = null;
+
+      if (includeTemporalTask) {
+        const response = await anthropic.messages.create({
+          model: "claude-opus-4-8",
+          max_tokens: 512,
+          system: buildTemporalOnlySystemPrompt(
+            text,
+            referenceDatetime,
+            captureTimezone,
+            localCandidates,
+            riskFlags
+          ),
+          messages: [{ role: "user", content: text }],
+        });
+
+        const rawText = response.content
+          .filter((block): block is Anthropic.TextBlock => block.type === "text")
+          .map((block) => block.text)
+          .join("")
+          .trim();
+
+        const temporalMatch = rawText.match(/TEMPORAL:\s*([\s\S]*)$/i);
+        temporal = parseTemporal(temporalMatch?.[1]);
+      }
+
+      const temporalResolution = resolveTemporal(
+        { rawText: text, referenceDatetime, captureTimezone, localCandidates, riskFlags },
+        buildAiTemporalResult(temporal, captureTimezone)
+      );
+
+      return NextResponse.json({ temporal: temporalResolution });
+    }
+
+    const temporalLocked = captureRow.temporal_locked ?? false;
+    // A locked Drop's date was set/corrected manually - never let an
+    // automatic edit-triggered pass silently overwrite it. The other 7
+    // tasks still run normally either way.
+    const effectiveIncludeTemporalTask = !temporalLocked && includeTemporalTask;
 
     const response = await anthropic.messages.create({
       model: "claude-opus-4-8",
       max_tokens: 1024,
       system: buildSystemPrompt(
         hasUrl,
-        includeTemporalTask,
+        effectiveIncludeTemporalTask,
         text,
         referenceDatetime,
         captureTimezone,
-        localCandidates
+        localCandidates,
+        riskFlags
       ),
       tools: hasUrl
         ? [
@@ -352,56 +442,35 @@ export async function POST(request: Request) {
     // auto-assigned Space.
     const nextSpaceIds = captureRow.space_manually_set ? captureRow.space_ids : [spaceId];
 
-    // aiResult is null both when the TEMPORAL task was intentionally skipped
-    // (clean single candidate) and when it was included but the model's JSON
-    // didn't parse - resolveTemporal treats both cases identically (safe
-    // degradation), so there's no need to distinguish them here.
-    const aiTemporalResult: TemporalResolutionOutput | null =
-      includeTemporalTask && temporal
-        ? {
-            eventAt: temporal.eventAt,
-            eventHasTime: temporal.hasTime,
-            eventTimezone: captureTimezone,
-            eventStatus: temporal.status,
-            // The model isn't asked for a confidence value directly - its own
-            // instructions already gate 'resolved' on genuine confidence, so
-            // 'high' is the correct label when it commits to that status.
-            // resolveTemporal's universal rule nulls this out for any
-            // non-resolved status regardless of what's passed here.
-            temporalConfidence: temporal.status === "resolved" ? "high" : null,
-            temporalRawText: null,
-          }
-        : null;
+    const updatePayload: Record<string, unknown> = {
+      ai_research_result: research ? JSON.stringify(research) : null,
+      extracted_address: address,
+      formatted_text: formatted,
+      title,
+      is_actionable: isActionable,
+      category,
+      space_ids: nextSpaceIds,
+    };
 
-    const temporalResolution = resolveTemporal(
-      {
-        rawText: text,
-        referenceDatetime,
-        captureTimezone,
-        localCandidates,
-        riskFlags,
-      },
-      aiTemporalResult
-    );
+    let temporalResolution: TemporalResolutionOutput | null = null;
 
-    const { error } = await supabaseAdmin
-      .from("captures")
-      .update({
-        ai_research_result: research ? JSON.stringify(research) : null,
-        extracted_address: address,
-        formatted_text: formatted,
-        title,
-        is_actionable: isActionable,
-        category,
-        space_ids: nextSpaceIds,
-        event_at: temporalResolution.eventAt,
-        event_has_time: temporalResolution.eventHasTime,
-        event_timezone: temporalResolution.eventTimezone,
-        event_status: temporalResolution.eventStatus,
-        temporal_confidence: temporalResolution.temporalConfidence,
-        temporal_raw_text: temporalResolution.temporalRawText,
-      })
-      .eq("id", id);
+    if (!temporalLocked) {
+      temporalResolution = resolveTemporal(
+        { rawText: text, referenceDatetime, captureTimezone, localCandidates, riskFlags },
+        buildAiTemporalResult(temporal, captureTimezone)
+      );
+
+      updatePayload.event_at = temporalResolution.eventAt;
+      updatePayload.event_has_time = temporalResolution.eventHasTime;
+      updatePayload.event_timezone = temporalResolution.eventTimezone;
+      updatePayload.event_status = temporalResolution.eventStatus;
+      updatePayload.temporal_confidence = temporalResolution.temporalConfidence;
+      updatePayload.temporal_raw_text = temporalResolution.temporalRawText;
+    }
+    // else: temporal columns are simply omitted from the update - locked,
+    // untouched, exactly as they were before this edit.
+
+    const { error } = await supabaseAdmin.from("captures").update(updatePayload).eq("id", id);
 
     if (error) throw error;
 
@@ -440,12 +509,16 @@ export async function POST(request: Request) {
       isActionable,
       category,
       spaceIds: nextSpaceIds,
-      eventAt: temporalResolution.eventAt,
-      eventHasTime: temporalResolution.eventHasTime,
-      eventTimezone: temporalResolution.eventTimezone,
-      eventStatus: temporalResolution.eventStatus,
-      temporalConfidence: temporalResolution.temporalConfidence,
-      temporalRawText: temporalResolution.temporalRawText,
+      ...(temporalResolution
+        ? {
+            eventAt: temporalResolution.eventAt,
+            eventHasTime: temporalResolution.eventHasTime,
+            eventTimezone: temporalResolution.eventTimezone,
+            eventStatus: temporalResolution.eventStatus,
+            temporalConfidence: temporalResolution.temporalConfidence,
+            temporalRawText: temporalResolution.temporalRawText,
+          }
+        : {}),
     });
   } catch (error) {
     console.error("analyze-drop failed", error);

@@ -14,7 +14,29 @@ import {
 } from "./captures";
 import { analyzeCapture } from "./analyzeCapture";
 import { recognizeEntities } from "./recognizeEntities";
+import {
+  detectRiskFlags,
+  resolveTemporal,
+  shouldEscalateToAi,
+  type TemporalResolutionOutput,
+} from "./resolveTemporal";
 import CaptureModal from "../components/CaptureModal";
+
+// Two texts "look the same" temporally if the set of local date/time
+// phrases they contain is identical - used only to decide whether a
+// locked Drop needs the "update date from text?" suggestion surfaced, never
+// to auto-write anything.
+function temporalCandidatesChanged(oldText: string, newText: string): boolean {
+  const oldRaws = recognizeEntities(oldText)
+    .dates.map((candidate) => candidate.raw.toLowerCase())
+    .sort();
+  const newRaws = recognizeEntities(newText)
+    .dates.map((candidate) => candidate.raw.toLowerCase())
+    .sort();
+
+  if (oldRaws.length !== newRaws.length) return true;
+  return oldRaws.some((raw, index) => raw !== newRaws[index]);
+}
 
 type DashboardContextValue = {
   user: User;
@@ -31,6 +53,9 @@ type DashboardContextValue = {
     id: number,
     input: { eventAt: string; eventHasTime: boolean; eventTimezone: string }
   ) => Promise<void>;
+  temporalSuggestions: Record<number, boolean>;
+  dismissTemporalSuggestion: (id: number) => void;
+  previewTemporalReanalysis: (id: number) => Promise<TemporalResolutionOutput>;
 };
 
 const DashboardContext = createContext<DashboardContextValue | null>(null);
@@ -56,6 +81,16 @@ export function DashboardProvider({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showSavedToast, setShowSavedToast] = useState(false);
+  const [temporalSuggestions, setTemporalSuggestions] = useState<Record<number, boolean>>({});
+
+  function dismissTemporalSuggestion(id: number) {
+    setTemporalSuggestions((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -97,6 +132,12 @@ export function DashboardProvider({
           isActionable?: boolean;
           category?: string;
           spaceIds?: string[];
+          eventAt?: string | null;
+          eventHasTime?: boolean | null;
+          eventTimezone?: string | null;
+          eventStatus?: "none" | "resolved" | "unresolved" | "dismissed";
+          temporalConfidence?: "high" | "low" | null;
+          temporalRawText?: string | null;
         }) => {
           if (data.result === undefined) return;
           setCaptures((prev) =>
@@ -111,6 +152,23 @@ export function DashboardProvider({
                     isActionable: data.isActionable ?? false,
                     category: data.category ?? capture.category,
                     spaceIds: data.spaceIds ?? capture.spaceIds,
+                    // The route omits these entirely for a locked Drop -
+                    // fall back to whatever's already in local state
+                    // instead of clobbering it with undefined.
+                    eventAt: data.eventAt !== undefined ? data.eventAt : capture.eventAt,
+                    eventHasTime:
+                      data.eventHasTime !== undefined ? data.eventHasTime : capture.eventHasTime,
+                    eventTimezone:
+                      data.eventTimezone !== undefined ? data.eventTimezone : capture.eventTimezone,
+                    eventStatus: data.eventStatus ?? capture.eventStatus,
+                    temporalConfidence:
+                      data.temporalConfidence !== undefined
+                        ? data.temporalConfidence
+                        : capture.temporalConfidence,
+                    temporalRawText:
+                      data.temporalRawText !== undefined
+                        ? data.temporalRawText
+                        : capture.temporalRawText,
                   }
                 : capture
             )
@@ -172,11 +230,72 @@ export function DashboardProvider({
   }
 
   async function updateText(id: number, text: string) {
+    const existing = captures.find((capture) => capture.id === id);
+    const oldText = existing?.text ?? "";
+    const wasLocked = existing?.temporalLocked ?? false;
+
     await updateCaptureText(id, text);
     setCaptures((prev) =>
       prev.map((capture) => (capture.id === id ? { ...capture, text } : capture))
     );
+
+    // A locked Drop's date is never touched automatically - analyzeDrop()
+    // below still re-runs the other 7 tasks as normal (route.ts itself
+    // skips writing temporal fields when locked), but only a suggestion
+    // gets surfaced here, never an auto-write.
+    if (wasLocked) {
+      const changed = temporalCandidatesChanged(oldText, text);
+      setTemporalSuggestions((prev) => ({ ...prev, [id]: changed }));
+    } else {
+      dismissTemporalSuggestion(id);
+    }
+
     analyzeDrop(id, text);
+  }
+
+  // Computes what the temporal fields WOULD be for a Drop's current text,
+  // without writing anything - reuses the same gating rule and the same
+  // /api/analyze-drop endpoint the automatic pipeline uses (only hitting
+  // the AI when the local pass alone can't be trusted), rather than
+  // duplicating the AI-calling code.
+  async function previewTemporalReanalysis(id: number): Promise<TemporalResolutionOutput> {
+    const capture = captures.find((c) => c.id === id);
+    if (!capture) throw new Error("Capture not found");
+
+    const captureTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const localCandidates = recognizeEntities(capture.text).dates;
+    const riskFlags = detectRiskFlags(capture.text);
+
+    if (!shouldEscalateToAi(localCandidates, riskFlags)) {
+      return resolveTemporal(
+        {
+          rawText: capture.text,
+          referenceDatetime: capture.createdAt,
+          captureTimezone,
+          localCandidates,
+          riskFlags,
+        },
+        null
+      );
+    }
+
+    const response = await fetch("/api/analyze-drop", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id,
+        text: capture.text,
+        captureTimezone,
+        temporalPreviewOnly: true,
+      }),
+    });
+
+    if (!response.ok) throw new Error("Preview request failed");
+
+    const data: { temporal?: TemporalResolutionOutput } = await response.json();
+    if (!data.temporal) throw new Error("No temporal preview returned");
+
+    return data.temporal;
   }
 
   async function updateStatus(id: number, status: "active" | "completed") {
@@ -222,6 +341,9 @@ export function DashboardProvider({
         updateText,
         updateStatus,
         updateTemporal,
+        temporalSuggestions,
+        dismissTemporalSuggestion,
+        previewTemporalReanalysis,
       }}
     >
       {children}
