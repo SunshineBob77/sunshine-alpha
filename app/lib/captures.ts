@@ -212,6 +212,20 @@ export async function updateCaptureTemporal(
   if (error) throw error;
 }
 
+export async function dismissCaptureTemporal(id: number): Promise<void> {
+  // "Not a calendar event" - sets temporal_locked alongside event_status
+  // so this reuses the exact same protection updateCaptureTemporal relies
+  // on (analyze-drop/route.ts already unconditionally skips the temporal
+  // task and all temporal writes for a locked Drop) - no new gating logic
+  // needed for a future edit/re-analysis to leave this alone.
+  const { error } = await supabase
+    .from("captures")
+    .update({ event_status: "dismissed", temporal_locked: true })
+    .eq("id", id);
+
+  if (error) throw error;
+}
+
 export async function updateCaptureText(id: number, text: string): Promise<void> {
   const { error } = await supabase.from("captures").update({ text }).eq("id", id);
   if (error) throw error;

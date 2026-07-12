@@ -10,6 +10,7 @@ import {
   updateCaptureText,
   updateCaptureStatus,
   updateCaptureTemporal,
+  dismissCaptureTemporal,
   updateCapturePinned,
   mapRowToCapture,
   type Capture,
@@ -57,6 +58,7 @@ type DashboardContextValue = {
     id: number,
     input: { eventAt: string; eventHasTime: boolean; eventTimezone: string }
   ) => Promise<void>;
+  dismissTemporal: (id: number) => Promise<void>;
   temporalSuggestions: Record<number, boolean>;
   dismissTemporalSuggestion: (id: number) => void;
   previewTemporalReanalysis: (id: number) => Promise<TemporalResolutionOutput>;
@@ -276,8 +278,12 @@ export function DashboardProvider({
     // A locked Drop's date is never touched automatically - analyzeDrop()
     // below still re-runs the other 7 tasks as normal (route.ts itself
     // skips writing temporal fields when locked), but only a suggestion
-    // gets surfaced here, never an auto-write.
-    if (wasLocked) {
+    // gets surfaced here, never an auto-write. A dismissed Drop ("not a
+    // calendar event") is also locked, but must stay fully quiet - it
+    // should never resurface a "text changed, update date?" suggestion
+    // either, or dismissal wouldn't really mean "stop asking."
+    const wasDismissed = existing?.eventStatus === "dismissed";
+    if (wasLocked && !wasDismissed) {
       const changed = temporalCandidatesChanged(oldText, text);
       setTemporalSuggestions((prev) => ({ ...prev, [id]: changed }));
     } else {
@@ -339,6 +345,16 @@ export function DashboardProvider({
     );
   }
 
+  async function dismissTemporal(id: number) {
+    await dismissCaptureTemporal(id);
+    setCaptures((prev) =>
+      prev.map((capture) =>
+        capture.id === id ? { ...capture, eventStatus: "dismissed", temporalLocked: true } : capture
+      )
+    );
+    dismissTemporalSuggestion(id);
+  }
+
   async function updatePinned(id: number, pinned: boolean) {
     await updateCapturePinned(id, pinned);
     setCaptures((prev) =>
@@ -383,6 +399,7 @@ export function DashboardProvider({
         updateStatus,
         updatePinned,
         updateTemporal,
+        dismissTemporal,
         temporalSuggestions,
         dismissTemporalSuggestion,
         previewTemporalReanalysis,

@@ -123,13 +123,26 @@ function buildEventAtIso(dateValue: string, timeValue: string | null): string | 
 }
 
 function TemporalEditor({ capture }: { capture: Capture }) {
-  const { updateTemporal } = useCaptures();
+  const { updateTemporal, dismissTemporal } = useCaptures();
   const [open, setOpen] = useState(false);
   const [dateValue, setDateValue] = useState("");
   const [timeValue, setTimeValue] = useState("");
   const [allDay, setAllDay] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dismissing, setDismissing] = useState(false);
+
+  async function handleDismiss() {
+    setDismissing(true);
+    setError(null);
+    try {
+      await dismissTemporal(capture.id);
+    } catch (err) {
+      console.error(err);
+      setError("Couldn't save. Try again.");
+      setDismissing(false);
+    }
+  }
 
   function startEditing() {
     setDateValue(capture.eventAt ? toDateInputValue(capture.eventAt) : "");
@@ -237,7 +250,7 @@ function TemporalEditor({ capture }: { capture: Capture }) {
 
   if (capture.eventStatus === "unresolved") {
     return (
-      <div className="mb-3">
+      <div className="mb-3 flex items-center gap-2 flex-wrap">
         <button
           type="button"
           onClick={startEditing}
@@ -245,13 +258,24 @@ function TemporalEditor({ capture }: { capture: Capture }) {
         >
           ⚠️ Date unclear{capture.temporalRawText ? ` — "${capture.temporalRawText}"` : ""} · Set date
         </button>
+        <button
+          type="button"
+          onClick={handleDismiss}
+          disabled={dismissing}
+          className="text-xs font-semibold text-gray-400 hover:text-gray-600 disabled:opacity-60"
+        >
+          {dismissing ? "…" : "Not a calendar event"}
+        </button>
+        {error && <p className="text-xs text-red-600 w-full">{error}</p>}
       </div>
     );
   }
 
-  // 'none' (and 'dismissed', which nothing produces yet) - optional,
-  // collapsed by default. Never forced into view for a Drop with no
-  // temporal content.
+  // 'none' and 'dismissed' both land here - optional, collapsed by
+  // default. For 'dismissed' this quiet "+ Add a date" is also the entire
+  // undo path: picking a date calls updateTemporal, which overwrites
+  // event_status straight to 'resolved'. No separate "un-dismiss" control
+  // needed.
   return (
     <div className="mb-3">
       <button
