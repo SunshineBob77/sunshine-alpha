@@ -46,9 +46,13 @@ export type Capture = {
   temporalConfidence: "high" | "low" | null;
   temporalRawText: string | null;
   temporalLocked: boolean;
+  source: "user" | "system";
+  systemDropType: string | null;
+  generatedForDate: string | null;
+  archivedAt: string | null;
 };
 
-type CaptureRow = {
+export type CaptureRow = {
   id: number;
   text: string;
   created_at: string;
@@ -73,9 +77,13 @@ type CaptureRow = {
   temporal_confidence: "high" | "low" | null;
   temporal_raw_text: string | null;
   temporal_locked: boolean;
+  source: "user" | "system";
+  system_drop_type: string | null;
+  generated_for_date: string | null;
+  archived_at: string | null;
 };
 
-function mapRowToCapture(row: CaptureRow): Capture {
+export function mapRowToCapture(row: CaptureRow): Capture {
   return {
     id: row.id,
     text: row.text,
@@ -101,17 +109,35 @@ function mapRowToCapture(row: CaptureRow): Capture {
     temporalConfidence: row.temporal_confidence ?? null,
     temporalRawText: row.temporal_raw_text ?? null,
     temporalLocked: row.temporal_locked ?? false,
+    source: row.source ?? "user",
+    systemDropType: row.system_drop_type ?? null,
+    generatedForDate: row.generated_for_date ?? null,
+    archivedAt: row.archived_at ?? null,
   };
 }
 
 export async function fetchCaptures(): Promise<Capture[]> {
+  // Archived System Drops (e.g. yesterday's Morning Brief) stay in the DB
+  // and remain directly queryable, they just drop out of the active
+  // Lifeline view - same as how completed Drops are handled elsewhere.
   const { data, error } = await supabase
     .from("captures")
     .select("*")
+    .is("archived_at", null)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
-  return (data as CaptureRow[]).map(mapRowToCapture);
+
+  const captures = (data as CaptureRow[]).map(mapRowToCapture);
+
+  // Non-archived System Drops are pinned to the top of the Lifeline for
+  // their day, regardless of how many user Drops get created after them.
+  return captures.sort((a, b) => {
+    const aSystem = a.source === "system" ? 1 : 0;
+    const bSystem = b.source === "system" ? 1 : 0;
+    if (aSystem !== bSystem) return bSystem - aSystem;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
 }
 
 export async function insertCapture(input: {

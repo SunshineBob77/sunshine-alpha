@@ -10,7 +10,9 @@ import {
   updateCaptureText,
   updateCaptureStatus,
   updateCaptureTemporal,
+  mapRowToCapture,
   type Capture,
+  type CaptureRow,
 } from "./captures";
 import { analyzeCapture } from "./analyzeCapture";
 import { recognizeEntities } from "./recognizeEntities";
@@ -112,6 +114,36 @@ export function DashboardProvider({
     return () => {
       cancelled = true;
     };
+  }, [user.id]);
+
+  // Fire-and-forget, once per full app load (this provider mounts once per
+  // session, not per client-side route change) - the endpoint's own
+  // idempotency check makes repeated mounts/tabs/days safe regardless.
+  // Never awaited by the Lifeline load above, so it can't block it.
+  useEffect(() => {
+    const localDate = new Date().toLocaleDateString("en-CA");
+    const localHour = new Date().getHours();
+    const displayName = user.user_metadata?.full_name || null;
+
+    fetch("/api/morning-brief", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: user.id, localDate, localHour, displayName }),
+    })
+      .then((response) => response.json())
+      .then((data: { capture?: CaptureRow; skipped?: boolean }) => {
+        if (!data.capture) return;
+        const brief = mapRowToCapture(data.capture);
+        setCaptures((prev) => {
+          if (prev.some((capture) => capture.id === brief.id)) {
+            return prev.map((capture) => (capture.id === brief.id ? brief : capture));
+          }
+          return [brief, ...prev];
+        });
+      })
+      .catch((error) => {
+        console.error("morning-brief generation failed", error);
+      });
   }, [user.id]);
 
   function analyzeDrop(id: number, text: string) {
