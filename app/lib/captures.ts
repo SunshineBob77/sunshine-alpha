@@ -50,6 +50,7 @@ export type Capture = {
   systemDropType: string | null;
   generatedForDate: string | null;
   archivedAt: string | null;
+  pinned: boolean;
 };
 
 export type CaptureRow = {
@@ -81,6 +82,7 @@ export type CaptureRow = {
   system_drop_type: string | null;
   generated_for_date: string | null;
   archived_at: string | null;
+  pinned: boolean;
 };
 
 export function mapRowToCapture(row: CaptureRow): Capture {
@@ -113,6 +115,7 @@ export function mapRowToCapture(row: CaptureRow): Capture {
     systemDropType: row.system_drop_type ?? null,
     generatedForDate: row.generated_for_date ?? null,
     archivedAt: row.archived_at ?? null,
+    pinned: row.pinned ?? false,
   };
 }
 
@@ -219,5 +222,10 @@ export async function updateCaptureStatus(
   status: "active" | "completed"
 ): Promise<void> {
   const { error } = await supabase.from("captures").update({ status }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function updateCapturePinned(id: number, pinned: boolean): Promise<void> {
+  const { error } = await supabase.from("captures").update({ pinned }).eq("id", id);
   if (error) throw error;
 }

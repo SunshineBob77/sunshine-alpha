@@ -3,6 +3,7 @@
 import DropCard from "./DropCard";
 import ShareButton from "./ShareButton";
 import DeleteDropButton from "./DeleteDropButton";
+import { useCaptures } from "@/app/lib/DashboardContext";
 import type { Capture } from "@/app/lib/captures";
 
 export default function LifelineDropCard({
@@ -20,7 +21,12 @@ export default function LifelineDropCard({
   onDismiss?: () => void;
   onToggleStatus?: () => void;
 }) {
+  const { updatePinned } = useCaptures();
   const isUrgent = capture.tags?.includes("urgent") ?? false;
+
+  function handleTogglePin() {
+    updatePinned(capture.id, !capture.pinned);
+  }
 
   return (
     <DropCard
@@ -33,6 +39,8 @@ export default function LifelineDropCard({
       status={capture.status}
       onToggleStatus={kind === "drop" ? onToggleStatus : undefined}
       onTitleTap={() => onSelect(capture.id)}
+      isPinned={capture.pinned}
+      onTogglePin={kind === "drop" ? handleTogglePin : undefined}
       actions={
         kind === "suggestion" ? (
           <>
@@ -59,6 +67,14 @@ export default function LifelineDropCard({
               className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1.5 rounded-full transition-all"
             >
               ✏️ Edit
+            </button>
+
+            <button
+              type="button"
+              onClick={handleTogglePin}
+              className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1.5 rounded-full transition-all"
+            >
+              {capture.pinned ? "📌 Unpin" : "📌 Pin"}
             </button>
 
             <ShareButton capture={capture} />

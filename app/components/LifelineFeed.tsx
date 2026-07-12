@@ -27,6 +27,7 @@ export default function LifelineFeed({
       if (pendingRemovalIds.has(capture.id)) return true;
 
       if (activeFilter === "completed") return capture.status === "completed";
+      if (activeFilter === "pinned") return capture.pinned === true;
       if (capture.status === "completed") return false;
 
       return activeFilter === "all" || capture.spaceIds?.includes(activeFilter);

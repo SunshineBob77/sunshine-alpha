@@ -6,12 +6,8 @@ import LifelineFeed from "@/app/components/LifelineFeed";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import { defaultSpaces } from "@/app/lib/spaces";
 
-// "Pinned" is a system view, not a real Space - same pill styling, no
-// pinning feature/data model exists yet, so selecting it will correctly
-// show an empty Lifeline until that's built.
 const filterOptions = [
   { id: "all", name: "All" },
-  { id: "pinned", name: "Pinned" },
   ...defaultSpaces.map((space) => ({ id: space.id, name: space.name })),
 ];
 

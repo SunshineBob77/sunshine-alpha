@@ -32,6 +32,7 @@ export default function SpacesPage() {
       if (pendingRemovalIds.has(capture.id)) return true;
 
       if (activeSpace === "completed") return capture.status === "completed";
+      if (activeSpace === "pinned") return capture.pinned === true;
       return capture.status !== "completed" && capture.spaceIds?.includes(activeSpace);
     });
   }, [captures, activeSpace, pendingRemovalIds]);

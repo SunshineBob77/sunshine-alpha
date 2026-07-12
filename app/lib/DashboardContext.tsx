@@ -10,6 +10,7 @@ import {
   updateCaptureText,
   updateCaptureStatus,
   updateCaptureTemporal,
+  updateCapturePinned,
   mapRowToCapture,
   type Capture,
   type CaptureRow,
@@ -51,6 +52,7 @@ type DashboardContextValue = {
   updateSpaces: (id: number, spaceIds: string[]) => Promise<void>;
   updateText: (id: number, text: string) => Promise<void>;
   updateStatus: (id: number, status: "active" | "completed") => Promise<void>;
+  updatePinned: (id: number, pinned: boolean) => Promise<void>;
   updateTemporal: (
     id: number,
     input: { eventAt: string; eventHasTime: boolean; eventTimezone: string }
@@ -337,6 +339,13 @@ export function DashboardProvider({
     );
   }
 
+  async function updatePinned(id: number, pinned: boolean) {
+    await updateCapturePinned(id, pinned);
+    setCaptures((prev) =>
+      prev.map((capture) => (capture.id === id ? { ...capture, pinned } : capture))
+    );
+  }
+
   async function updateTemporal(
     id: number,
     input: { eventAt: string; eventHasTime: boolean; eventTimezone: string }
@@ -372,6 +381,7 @@ export function DashboardProvider({
         updateSpaces,
         updateText,
         updateStatus,
+        updatePinned,
         updateTemporal,
         temporalSuggestions,
         dismissTemporalSuggestion,

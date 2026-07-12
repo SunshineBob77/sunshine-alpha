@@ -24,6 +24,8 @@ export default function DropCard({
   status = "active",
   onToggleStatus,
   size = "default",
+  isPinned = false,
+  onTogglePin,
 }: {
   title: string;
   spaceId: string | null | undefined;
@@ -37,6 +39,8 @@ export default function DropCard({
   status?: "active" | "completed" | "deleted";
   onToggleStatus?: () => void;
   size?: "default" | "hero";
+  isPinned?: boolean;
+  onTogglePin?: () => void;
 }) {
   const tone = getSpaceTone(spaceId);
   const isHero = size === "hero";
@@ -91,24 +95,40 @@ export default function DropCard({
           )}
         </div>
 
-        <span
-          className={`relative flex shrink-0 items-center justify-center rounded-full ${
-            isHero ? "h-9 w-9 text-base" : "h-6 w-6 text-xs"
-          }`}
-          title={tone.name}
-        >
-          <span
-            className={`flex h-full w-full items-center justify-center rounded-full ${tone.color}`}
-          >
-            {tone.icon}
-          </span>
-          {isUrgent && (
-            <span
-              className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-500 ring-1 ring-white"
-              title="Urgent"
-            />
+        <div className="flex items-center gap-1.5 shrink-0">
+          {isPinned && onTogglePin && (
+            <button
+              type="button"
+              onClick={onTogglePin}
+              aria-label="Unpin"
+              title="Unpin"
+              className={`flex shrink-0 items-center justify-center rounded-full hover:bg-black/5 transition-colors ${
+                isHero ? "h-9 w-9 text-base" : "h-6 w-6 text-xs"
+              }`}
+            >
+              📌
+            </button>
           )}
-        </span>
+
+          <span
+            className={`relative flex shrink-0 items-center justify-center rounded-full ${
+              isHero ? "h-9 w-9 text-base" : "h-6 w-6 text-xs"
+            }`}
+            title={tone.name}
+          >
+            <span
+              className={`flex h-full w-full items-center justify-center rounded-full ${tone.color}`}
+            >
+              {tone.icon}
+            </span>
+            {isUrgent && (
+              <span
+                className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-500 ring-1 ring-white"
+                title="Urgent"
+              />
+            )}
+          </span>
+        </div>
       </div>
 
       <div

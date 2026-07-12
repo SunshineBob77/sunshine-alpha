@@ -20,6 +20,7 @@ export const defaultSpaces: Space[] = [
   { id: "travel", name: "Travel", icon: "✈️", color: "bg-sky-100", border: "border-sky-400", isShared: false },
   { id: "recipes", name: "Recipes", icon: "🍳", color: "bg-orange-100", border: "border-orange-400", isShared: false },
   { id: "shared", name: "Shared Space", icon: "👥", color: "bg-pink-100", border: "border-pink-400", isShared: true },
+  { id: "pinned", name: "Pinned", icon: "📌", color: "bg-amber-100", border: "border-amber-400", isShared: false, isSystem: true },
   { id: "completed", name: "Completed", icon: "✅", color: "bg-orange-100", border: "border-orange-400", isShared: false, isSystem: true },
 ];
 
