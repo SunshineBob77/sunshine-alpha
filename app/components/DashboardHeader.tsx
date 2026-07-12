@@ -4,29 +4,48 @@ import Link from "next/link";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import { useInviteShare } from "@/app/lib/useInviteShare";
 
-// Target: 55-60px total (h-14 = 56px). Logo, search, invite, "+", profile -
-// no greeting/weather/quote (moved out per spec, no replacement here). "+"
-// here is a compact icon (h-9), intentionally distinct from the large
-// emphasized floating "+" in BottomNav - both are live at once, on purpose,
-// so capture is reachable from either the header or the bottom nav.
+// Target: 55-60px total (h-14 = 56px). Left: logo + "Sunshine" wordmark.
+// Right, in order: search (no label) -> invite (labeled) -> me (labeled) ->
+// "+" (no label, far right edge). "+" here is a compact icon (h-9),
+// intentionally distinct from the large emphasized floating "+" in
+// BottomNav - both are live at once, on purpose, so capture is reachable
+// from either the header or the bottom nav.
+//
+// LOGO STUB: no real logo asset (black circle, yellow sun icon) exists in
+// public/ yet - this CSS-approximates it (black circle + the sun emoji,
+// which already renders yellow/orange) as a placeholder. Swap in the real
+// asset via next/image once it's dropped into public/ - the circle below
+// is the only thing that needs to change.
 export default function DashboardHeader() {
   const { openCapture } = useCaptures();
   const { status: inviteStatus, handleInvite } = useInviteShare();
 
+  const inviteLabel =
+    inviteStatus === "idle"
+      ? "Invite"
+      : inviteStatus === "sharing"
+        ? "…"
+        : inviteStatus === "copied"
+          ? "Copied!"
+          : "Error";
+
   return (
     <header className="fixed top-0 inset-x-0 z-30 h-14 bg-amber-50/95 backdrop-blur-md border-b border-black/5 px-4 sm:px-8">
       <div className="w-full max-w-2xl mx-auto h-full flex items-center justify-between gap-3">
-        <Link
-          href="/"
-          aria-label="Sunshine home"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white shadow-sm text-lg"
-        >
-          ☀️
+        <Link href="/" aria-label="Sunshine home" className="flex items-center gap-2 min-w-0 shrink-0">
+          <span
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black text-lg"
+            title="Sunshine logo (placeholder - swap in the real asset)"
+          >
+            ☀️
+          </span>
+          <span className="text-base font-bold text-black tracking-tight truncate">Sunshine</span>
         </Link>
 
         <div className="flex items-center gap-1 shrink-0">
           {/* Search has no destination/functionality yet - visual placeholder
-              only, per the header layout requirement. Not wired to anything. */}
+              only, per the header layout requirement. Not wired to anything.
+              No label, per spec - self-explanatory icon. */}
           <button
             type="button"
             aria-label="Search"
@@ -50,25 +69,15 @@ export default function DashboardHeader() {
 
           <button
             type="button"
-            onClick={openCapture}
-            aria-label="Drop"
-            title="New Drop"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-400 text-white text-lg font-bold shadow-sm transition-transform hover:scale-105"
-          >
-            +
-          </button>
-
-          <button
-            type="button"
             onClick={handleInvite}
             disabled={inviteStatus === "sharing"}
             aria-label="Invite a friend"
             title="Invite"
-            className="flex h-9 items-center justify-center gap-1 rounded-full px-2 text-gray-600 hover:bg-black/5 transition-colors disabled:opacity-40"
+            className="flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-gray-600 hover:bg-black/5 transition-colors disabled:opacity-40"
           >
             <svg
-              width="18"
-              height="18"
+              width="16"
+              height="16"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -81,25 +90,31 @@ export default function DashboardHeader() {
               <path d="M19 16v6" />
               <path d="M22 19h-6" />
             </svg>
-            {inviteStatus !== "idle" && (
-              <span className="text-xs font-semibold whitespace-nowrap">
-                {inviteStatus === "sharing"
-                  ? "…"
-                  : inviteStatus === "copied"
-                    ? "Copied!"
-                    : "Error"}
-              </span>
-            )}
+            <span className="text-[9px] font-semibold leading-none whitespace-nowrap">
+              {inviteLabel}
+            </span>
           </button>
 
           <Link
             href="/me"
             aria-label="Profile"
             title="Me"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-gray-600 hover:bg-black/5 transition-colors text-lg"
+            className="flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-gray-600 hover:bg-black/5 transition-colors"
           >
-            🙂
+            <span className="text-base leading-none">🙂</span>
+            <span className="text-[9px] font-semibold leading-none">Me</span>
           </Link>
+
+          {/* Far right edge, no label - per spec. */}
+          <button
+            type="button"
+            onClick={openCapture}
+            aria-label="Drop"
+            title="New Drop"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-400 text-white text-lg font-bold shadow-sm transition-transform hover:scale-105"
+          >
+            +
+          </button>
         </div>
       </div>
     </header>
