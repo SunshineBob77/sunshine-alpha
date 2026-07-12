@@ -125,9 +125,30 @@ export default function AgendaGrid({
   const today = new Date();
   const [thisWeek, nextWeek] = buildTwoWeeks(addDays(today, weekOffset * 7));
 
+  // A recurring Drop's stored event_at only holds ONE resolved occurrence
+  // (the next upcoming one at the time it was detected) - projecting it
+  // onto every year this grid renders (by month/day, in the capture's own
+  // event_timezone, matching how getEventDateKey already works) means it
+  // doesn't need to be re-created or re-resolved as years pass. Never
+  // projected before the Drop's creation year - the event only started
+  // being tracked from creation, it didn't retroactively happen every
+  // year before that.
   function capturesForDay(day: Date) {
     const dayKey = getLocalDateKey(day);
-    return captures.filter((capture) => getEventDateKey(capture) === dayKey);
+    const dayMonthDay = dayKey.slice(5);
+    const dayYear = Number(dayKey.slice(0, 4));
+
+    return captures.filter((capture) => {
+      if (getEventDateKey(capture) === dayKey) return true;
+
+      if (!capture.recurring || !capture.eventAt) return false;
+
+      const eventKey = getEventDateKey(capture);
+      if (!eventKey) return false;
+
+      const createdYear = new Date(capture.createdAt).getFullYear();
+      return eventKey.slice(5) === dayMonthDay && dayYear >= createdYear;
+    });
   }
 
   const selectedCaptures = selectedDate ? capturesForDay(selectedDate) : [];
@@ -229,6 +250,7 @@ export default function AgendaGrid({
                 <div key={capture.id}>
                   <p className="text-xs font-semibold text-amber-700 mb-1 px-1">
                     🕐 {formatEventTime(capture)}
+                    {capture.recurring ? " · 🎂 Every year" : ""}
                   </p>
                   <LifelineDropCard capture={capture} onSelect={onSelectCapture} />
                 </div>

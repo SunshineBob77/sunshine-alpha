@@ -236,6 +236,7 @@ function TemporalEditor({ capture }: { capture: Capture }) {
       <div className="mb-3 flex items-center gap-2 flex-wrap">
         <span className="text-xs font-semibold bg-amber-50 text-amber-800 px-2.5 py-1 rounded-full">
           📅 {formatEventDate(capture.eventAt, capture.eventHasTime)}
+          {capture.recurring ? " · 🎂 Every year" : ""}
         </span>
         <button
           type="button"

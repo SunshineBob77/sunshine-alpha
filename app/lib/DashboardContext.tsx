@@ -174,6 +174,8 @@ export function DashboardProvider({
           eventStatus?: "none" | "resolved" | "unresolved" | "dismissed";
           temporalConfidence?: "high" | "low" | null;
           temporalRawText?: string | null;
+          recurring?: boolean;
+          recurrenceType?: "yearly" | null;
         }) => {
           if (data.result === undefined) return;
           setCaptures((prev) =>
@@ -205,6 +207,11 @@ export function DashboardProvider({
                       data.temporalRawText !== undefined
                         ? data.temporalRawText
                         : capture.temporalRawText,
+                    recurring: data.recurring !== undefined ? data.recurring : capture.recurring,
+                    recurrenceType:
+                      data.recurrenceType !== undefined
+                        ? data.recurrenceType
+                        : capture.recurrenceType,
                   }
                 : capture
             )
@@ -306,7 +313,7 @@ export function DashboardProvider({
     const localCandidates = recognizeEntities(capture.text).dates;
     const riskFlags = detectRiskFlags(capture.text);
 
-    if (!shouldEscalateToAi(localCandidates, riskFlags)) {
+    if (!shouldEscalateToAi(capture.text, localCandidates, riskFlags)) {
       return resolveTemporal(
         {
           rawText: capture.text,
@@ -378,6 +385,8 @@ export function DashboardProvider({
               eventStatus: "resolved",
               temporalConfidence: "high",
               temporalLocked: true,
+              recurring: false,
+              recurrenceType: null,
             }
           : capture
       )

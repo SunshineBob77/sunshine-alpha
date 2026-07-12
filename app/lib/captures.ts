@@ -51,6 +51,8 @@ export type Capture = {
   generatedForDate: string | null;
   archivedAt: string | null;
   pinned: boolean;
+  recurring: boolean;
+  recurrenceType: "yearly" | null;
 };
 
 export type CaptureRow = {
@@ -83,6 +85,8 @@ export type CaptureRow = {
   generated_for_date: string | null;
   archived_at: string | null;
   pinned: boolean;
+  recurring: boolean;
+  recurrence_type: "yearly" | null;
 };
 
 export function mapRowToCapture(row: CaptureRow): Capture {
@@ -116,6 +120,8 @@ export function mapRowToCapture(row: CaptureRow): Capture {
     generatedForDate: row.generated_for_date ?? null,
     archivedAt: row.archived_at ?? null,
     pinned: row.pinned ?? false,
+    recurring: row.recurring ?? false,
+    recurrenceType: row.recurrence_type ?? null,
   };
 }
 
@@ -197,6 +203,10 @@ export async function updateCaptureTemporal(
   // re-analysis on text edits must never silently overwrite a user's
   // own correction. temporal_raw_text is deliberately not touched here:
   // it represents what the original capture said, not the correction.
+  // A manual date is always a specific, authoritative one-time value -
+  // clears recurring even if it was previously auto-detected as such,
+  // since the user is now overriding with an explicit date rather than
+  // relying on next-occurrence detection.
   const { error } = await supabase
     .from("captures")
     .update({
@@ -205,6 +215,8 @@ export async function updateCaptureTemporal(
       event_timezone: input.eventTimezone,
       event_status: "resolved",
       temporal_confidence: "high",
+      recurring: false,
+      recurrence_type: null,
       temporal_locked: true,
     })
     .eq("id", id);

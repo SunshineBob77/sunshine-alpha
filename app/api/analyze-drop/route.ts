@@ -320,6 +320,11 @@ function buildAiTemporalResult(
     // status regardless of what's passed here.
     temporalConfidence: temporal.status === "resolved" ? "high" : null,
     temporalRawText: null,
+    // The AI temporal task is never asked about recurrence - only the
+    // narrow local recurring-life-event path (which bypasses the AI
+    // entirely) ever sets this.
+    recurring: false,
+    recurrenceType: null,
   };
 }
 
@@ -360,7 +365,7 @@ export async function POST(request: Request) {
     const localCandidates = freshEntities.dates;
     const riskFlags = detectRiskFlags(text);
     const referenceDatetime = captureRow.created_at as string;
-    const includeTemporalTask = shouldEscalateToAi(localCandidates, riskFlags);
+    const includeTemporalTask = shouldEscalateToAi(text, localCandidates, riskFlags);
 
     // Lightweight path used only by the edit-time "update date from text?"
     // suggestion in DropDetailModal, after a locked Drop's text changes.
@@ -466,6 +471,8 @@ export async function POST(request: Request) {
       updatePayload.event_status = temporalResolution.eventStatus;
       updatePayload.temporal_confidence = temporalResolution.temporalConfidence;
       updatePayload.temporal_raw_text = temporalResolution.temporalRawText;
+      updatePayload.recurring = temporalResolution.recurring;
+      updatePayload.recurrence_type = temporalResolution.recurrenceType;
     }
     // else: temporal columns are simply omitted from the update - locked,
     // untouched, exactly as they were before this edit.
@@ -517,6 +524,8 @@ export async function POST(request: Request) {
             eventStatus: temporalResolution.eventStatus,
             temporalConfidence: temporalResolution.temporalConfidence,
             temporalRawText: temporalResolution.temporalRawText,
+            recurring: temporalResolution.recurring,
+            recurrenceType: temporalResolution.recurrenceType,
           }
         : {}),
     });

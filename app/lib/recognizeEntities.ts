@@ -4,6 +4,7 @@ export type RecognizedDate = {
   raw: string;
   iso: string;
   hasTime: boolean;
+  hasYear: boolean;
 };
 
 export type RecognizedEntities = {
@@ -41,6 +42,7 @@ function extractDates(text: string, referenceDate: Date): RecognizedDate[] {
     raw: result.text,
     iso: result.start.date().toISOString(),
     hasTime: result.start.isCertain("hour"),
+    hasYear: result.start.isCertain("year"),
   }));
 }
 
