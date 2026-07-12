@@ -1,11 +1,16 @@
+import Image from "next/image";
+
 export default function ShareNotFound() {
   return (
     <>
       <div className="flex flex-col items-center text-center mb-8">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-4xl">🌞</span>
-          <span className="text-3xl font-bold text-gray-900">sunshine</span>
-        </div>
+        <Image
+          src="/sunshine-logo.png"
+          alt="Sunshine"
+          width={1276}
+          height={358}
+          className="h-8 w-auto mb-3"
+        />
         <p className="text-gray-500">Remember everything. Live more.</p>
       </div>
 

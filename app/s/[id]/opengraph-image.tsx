@@ -8,6 +8,16 @@ export const contentType = "image/png";
 const BACKGROUND =
   "linear-gradient(135deg, #FFFBEF 0%, #FEF3D7 55%, #FBC02D 100%)";
 
+// TODO(logo standardization): swap the ☀️ emoji + "Sunshine" text below
+// for a single sunshine-logo.png lockup image (as a base64 data URI -
+// Satori/next-og needs an absolute URL or data URI, relative paths don't
+// resolve in this Edge-runtime render). Deferred because it exposed a
+// separate, PRE-EXISTING bug: this whole opengraph-image.tsx route
+// currently returns 500 ("Jest worker encountered 2 child process
+// exceptions") even completely unmodified, reproduced with a fresh dev
+// server restart and with a placeholder 1x1 test image, so it's not
+// specific to the logo swap. Needs its own investigation before either
+// BrandMark here or in page.tsx gets touched again.
 function BrandMark() {
   return (
     <div style={{ display: "flex", alignItems: "center", marginBottom: 48 }}>

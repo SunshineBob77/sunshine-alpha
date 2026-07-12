@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "../lib/supabaseClient";
 
@@ -46,9 +47,9 @@ export default function AuthForm() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-amber-50 via-orange-50/50 to-white flex flex-col items-center justify-center p-8">
       <div className="w-full max-w-sm bg-white rounded-3xl ring-1 ring-black/5 shadow-sm p-8">
-        <h1 className="text-3xl font-bold text-center mb-1 text-gray-900">
-          <span className="mr-2">🌞</span>Sunshine
-        </h1>
+        <div className="flex justify-center mb-1">
+          <Image src="/sunshine-logo.png" alt="Sunshine" width={1276} height={358} className="h-9 w-auto" priority />
+        </div>
         <p className="text-center text-gray-500 mb-6">
           {mode === "login" ? "Log in to your dashboard" : "Create your account"}
         </p>

@@ -54,6 +54,12 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   };
 }
 
+// TODO(logo standardization): swap this hand-drawn SVG + the separate
+// Caveat-script "Sunshine" text below it (in the /s/invite branch of
+// SharePage) for a single sunshine-logo.png lockup image, matching the
+// header. Deferred alongside the opengraph-image.tsx BrandMark below so
+// both ship together - otherwise the visible page and its social-preview
+// image would show two different logo treatments.
 function BrandMark() {
   return (
     <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#FEF3D7] flex items-center justify-center">
