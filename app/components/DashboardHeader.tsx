@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import { useInviteShare } from "@/app/lib/useInviteShare";
@@ -11,11 +12,10 @@ import { useInviteShare } from "@/app/lib/useInviteShare";
 // BottomNav - both are live at once, on purpose, so capture is reachable
 // from either the header or the bottom nav.
 //
-// LOGO STUB: no real logo asset (black circle, yellow sun icon) exists in
-// public/ yet - this CSS-approximates it (black circle + the sun emoji,
-// which already renders yellow/orange) as a placeholder. Swap in the real
-// asset via next/image once it's dropped into public/ - the circle below
-// is the only thing that needs to change.
+// sunshine-logo.png is the real icon+wordmark lockup (cropped tight from
+// the original asset, background keyed to transparent - the source file
+// had an opaque near-white canvas with large padding, neither of which
+// worked against this header's cream background).
 export default function DashboardHeader() {
   const { openCapture } = useCaptures();
   const { status: inviteStatus, handleInvite } = useInviteShare();
@@ -32,14 +32,15 @@ export default function DashboardHeader() {
   return (
     <header className="fixed top-0 inset-x-0 z-30 h-14 bg-amber-50/95 backdrop-blur-md border-b border-black/5 px-4 sm:px-8">
       <div className="w-full max-w-2xl mx-auto h-full flex items-center justify-between gap-3">
-        <Link href="/" aria-label="Sunshine home" className="flex items-center gap-2 min-w-0 shrink-0">
-          <span
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black text-lg"
-            title="Sunshine logo (placeholder - swap in the real asset)"
-          >
-            ☀️
-          </span>
-          <span className="text-base font-bold text-black tracking-tight truncate">Sunshine</span>
+        <Link href="/" aria-label="Sunshine home" className="flex items-center shrink-0">
+          <Image
+            src="/sunshine-logo.png"
+            alt="Sunshine"
+            width={1276}
+            height={358}
+            className="h-8 w-auto"
+            priority
+          />
         </Link>
 
         <div className="flex items-center gap-1 shrink-0">
