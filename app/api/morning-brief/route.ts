@@ -71,6 +71,22 @@ function greetingForHour(hour: number): string {
   return "Good evening";
 }
 
+// localDate is "YYYY-MM-DD" - the user's own local calendar day, computed
+// client-side (same value used for the idempotency key). Parsed and
+// re-formatted in UTC specifically to avoid any day-shift from the
+// server's own timezone, since a bare date-only string parses as UTC
+// midnight per the ISO 8601 spec - formatting it back in UTC guarantees
+// no shift regardless of what timezone the server happens to run in.
+function formatDisplayDate(localDate: string): string {
+  const date = new Date(`${localDate}T00:00:00Z`);
+  return date.toLocaleDateString(undefined, {
+    timeZone: "UTC",
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+}
+
 function buildBriefContent(
   weather: Awaited<ReturnType<typeof fetchWeather>>,
   quote: { text: string; author: string } | null
@@ -147,7 +163,7 @@ export async function POST(request: Request) {
     const weather = await fetchWeather();
     const quote = quoteEnabled ? getQuoteOfTheDay(new Date(localDate)) : null;
     const namePart = displayName ? `, ${displayName}` : "";
-    const title = `${greetingForHour(localHour)}${namePart} ☀️`;
+    const title = `${greetingForHour(localHour)}${namePart} · ${formatDisplayDate(localDate)} ☀️`;
     const content = buildBriefContent(weather, quote);
 
     const { data: inserted, error: insertError } = await supabaseAdmin
