@@ -22,7 +22,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <DashboardProvider user={user}>
       <DashboardHeader />
-      <div className="min-h-dvh bg-gradient-to-b from-amber-50 via-orange-50/50 to-white pt-24 pb-28">
+      <div className="relative z-0 min-h-dvh bg-gradient-to-b from-amber-50 via-orange-50/50 to-white pt-14 pb-28">
         {children}
       </div>
       <BottomNav />
