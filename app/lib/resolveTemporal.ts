@@ -100,6 +100,30 @@ export function isRecurringLifeEventCandidate(
   );
 }
 
+// A single clean local candidate is normally trusted immediately, no AI
+// needed - but that assumes a short, single-focus note. A long multi-line
+// note (a progress log, changelog, running expense tally) can contain
+// exactly one date near the start describing when the entry was logged,
+// not when something is scheduled - a false-positive risk the local
+// fast-path alone can't see (confirmed against two real Drops: a dev
+// progress log and a cost tally, both of which got a confidently wrong
+// resolved date this way). Keyword-matching on "progress"/"tally" doesn't
+// generalize - the progress-log example never contained either word in
+// its raw text (only in an AI-generated title, unavailable at this local-
+// only stage). Length/shape is the signal that's actually present and
+// structural, so that's what this checks instead.
+//
+// 10 is a documented judgment call from exactly those two examples, not
+// a tuned constant - revisit if real usage shows it's off in either
+// direction (false positives on long single-event notes, or false
+// negatives on shorter logs), but don't over-tune it now.
+const MULTI_SECTION_LINE_THRESHOLD = 10;
+
+export function looksLikeMultiSectionLog(rawText: string): boolean {
+  const nonEmptyLines = rawText.split("\n").filter((line) => line.trim().length > 0);
+  return nonEmptyLines.length >= MULTI_SECTION_LINE_THRESHOLD;
+}
+
 // Shared gating rule: only escalate to the AI when the local pass alone
 // can't be trusted. A clean single candidate with no risk flags is
 // resolved directly, with no AI call at all - used by both
@@ -109,13 +133,24 @@ export function isRecurringLifeEventCandidate(
 // can never drift out of sync with each other. A recognized recurring
 // life event also short-circuits here (checked first) - it resolves
 // confidently from the local candidate alone, so escalating to the AI
-// would just be a wasted call.
+// would just be a wasted call. A single clean candidate embedded in a
+// long multi-section log also escalates now (checked second) - the
+// opposite direction from the recurring-event short-circuit, since here
+// the local pass genuinely can't be trusted despite looking clean.
 export function shouldEscalateToAi(
   rawText: string,
   localCandidates: LocalCandidate[],
   riskFlags: RiskFlag[]
 ): boolean {
   if (isRecurringLifeEventCandidate(rawText, localCandidates)) return false;
+
+  if (
+    localCandidates.length === 1 &&
+    riskFlags.length === 0 &&
+    looksLikeMultiSectionLog(rawText)
+  ) {
+    return true;
+  }
 
   return (
     localCandidates.length === 0 ||
@@ -190,9 +225,14 @@ export function resolveTemporal(
       recurring: true,
       recurrenceType: "yearly",
     };
-  } else if (localCandidates.length === 1 && riskFlags.length === 0) {
-    // Clean, unambiguous single local match - AI is not called for this
-    // case, so aiResult is expected to be null.
+  } else if (
+    localCandidates.length === 1 &&
+    riskFlags.length === 0 &&
+    !looksLikeMultiSectionLog(rawText)
+  ) {
+    // Clean, unambiguous single local match in a short, single-focus note
+    // - AI is not called for this case, so aiResult is expected to be
+    // null.
     const candidate = localCandidates[0];
     result = {
       eventAt: candidate.iso,
@@ -204,9 +244,15 @@ export function resolveTemporal(
       recurring: false,
       recurrenceType: null,
     };
-  } else if (localCandidates.length === 1 && riskFlags.length > 0) {
+  } else if (
+    localCandidates.length === 1 &&
+    (riskFlags.length > 0 || looksLikeMultiSectionLog(rawText))
+  ) {
     // One candidate, but something about it is risky enough to defer to
-    // the AI (vague anchor, bare hour, dropped qualifier, abbreviation).
+    // the AI - either a real risk flag (vague anchor, bare hour, dropped
+    // qualifier, abbreviation), or the candidate sits inside a long
+    // multi-section log where a single date is more likely to describe
+    // when the entry was logged than something scheduled.
     if (!aiResult) {
       result = unresolvedResult();
     } else if (aiResult.eventStatus === "resolved") {

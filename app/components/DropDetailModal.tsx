@@ -245,6 +245,15 @@ function TemporalEditor({ capture }: { capture: Capture }) {
         >
           Edit
         </button>
+        <button
+          type="button"
+          onClick={handleDismiss}
+          disabled={dismissing}
+          className="text-xs font-semibold text-gray-400 hover:text-gray-600 disabled:opacity-60"
+        >
+          {dismissing ? "…" : "Not a calendar event"}
+        </button>
+        {error && <p className="text-xs text-red-600 w-full">{error}</p>}
       </div>
     );
   }

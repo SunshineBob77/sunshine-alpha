@@ -57,6 +57,7 @@ Rules:
 - If the text clearly identifies a single intended date (e.g. "Meeting moved from Monday to Tuesday" clearly means Tuesday), resolve to that one date.
 - If the text uses vague or uncertain language ("sometime", "around", "ish", "ASAP", "a couple weeks") without enough surrounding context to pin down a specific date, do NOT invent one — respond unresolved instead, even if a local candidate exists.
 - If risk flags are present for a local candidate, treat that as a specific signal to be skeptical of that candidate's precision — a risk flag being present means the local parser itself considers this phrasing ambiguous, not just an example category. Do not resolve a flagged candidate to "resolved" unless the surrounding text provides genuinely disambiguating context beyond what's in the flagged phrase itself (e.g. "this weekend, the 18th" would be disambiguating; "this weekend" alone is not).
+- Distinguish a date describing WHEN something is scheduled to happen from a date that's part of record-keeping content — an expense log, running tally, cost tracker, progress log, changelog, or status update. Record-keeping content often contains a date (when an entry was logged, or a past transaction date) but is NOT describing a future event. If the text reads as a log/tally/tracker/ledger — multiple line items, dollar amounts, "total to date," status sections like "Done"/"Queued"/"Known issues" — do not resolve a date from it even if one is present; respond unresolved instead.
 - If the text has no temporal meaning at all, respond none.
 - Only respond resolved when you have genuine confidence in one specific instant.
 - "ASAP" and pure urgency language, without any resolvable date, must always be unresolved — never invent a date for urgency alone.
@@ -86,7 +87,7 @@ ${hasUrl ? RESEARCH_TASK_WITH_URL : RESEARCH_TASK_DEFAULT}
      - Explicit separators: commas, "and", semicolons, or newlines.
      - Multiple imperative verb phrases run together with no punctuation at all (e.g. "Create website find URL upload code" has natural breaks between each verb phrase — bullet them separately), when each phrase clearly stands as an independent action.
    - If the note contains two or more complete sentences (each ending in its own period), ALWAYS give each sentence its own line — either as separate bullet points if they are separate actionable/memorable items, or as separate paragraph lines if they read more like a narrative. Never merge multiple complete sentences into one continuous run-on line.
-   - Tabular or cost/price data → a real Markdown table.
+   - Tabular or cost/price data → a real Markdown table. If the note already contains an existing table (e.g. cost/expense entries) and additional entries have been appended as plain text, merge ALL entries — old and new — into ONE unified table, not a table plus separate untabulated lines.
    - A single short reminder or thought → a plain sentence, no forced structure.
    - A longer multi-line note → preserve the original paragraph breaks, do not compress it into one line.
    When uncertain whether run-together phrases with no punctuation at all form a list or a single continuous thought, prefer bullets only if there are 2+ clearly distinct, independently actionable or memorable items; otherwise keep it as prose.
