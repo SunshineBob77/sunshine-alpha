@@ -11,7 +11,7 @@ import type { Capture } from "@/app/lib/captures";
 import type { TemporalResolutionOutput } from "@/app/lib/resolveTemporal";
 
 function SpacePicker({ capture }: { capture: Capture }) {
-  const { updateSpaces } = useCaptures();
+  const { updateSpaces, spaceOverrides } = useCaptures();
   const [open, setOpen] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +42,7 @@ function SpacePicker({ capture }: { capture: Capture }) {
       <div className="flex flex-wrap items-center gap-2">
         {activeSpaces.map((space) => (
           <span key={space.id} className={`text-xs px-2 py-1 rounded-full ${space.color}`}>
-            {space.icon} {space.name}
+            {space.icon} {spaceOverrides[space.id] ?? space.name}
             {space.isShared ? " · Shared" : ""}
           </span>
         ))}
@@ -73,7 +73,7 @@ function SpacePicker({ capture }: { capture: Capture }) {
                 }`}
               >
                 {active ? "✓ " : ""}
-                {space.icon} {space.name}
+                {space.icon} {spaceOverrides[space.id] ?? space.name}
               </button>
             );
           })}
@@ -416,13 +416,14 @@ export default function DropDetailModal({
   capture: Capture;
   onClose: () => void;
 }) {
-  const { updateText, temporalSuggestions } = useCaptures();
+  const { updateText, temporalSuggestions, spaceOverrides } = useCaptures();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(capture.text);
   const [savingText, setSavingText] = useState(false);
   const [textError, setTextError] = useState<string | null>(null);
 
   const tone = getSpaceTone(capture.spaceIds?.[0]);
+  const toneName = spaceOverrides[capture.spaceIds?.[0] ?? ""] ?? tone.name;
   const isUrgent = capture.tags?.includes("urgent") ?? false;
 
   async function handleSaveText() {
@@ -456,7 +457,7 @@ export default function DropDetailModal({
             </p>
             <span
               className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs mt-0.5"
-              title={tone.name}
+              title={toneName}
             >
               <span
                 className={`flex h-full w-full items-center justify-center rounded-full ${tone.color}`}

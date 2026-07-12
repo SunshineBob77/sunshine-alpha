@@ -1,21 +1,37 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import DropDetailModal from "@/app/components/DropDetailModal";
 import LifelineFeed from "@/app/components/LifelineFeed";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import { defaultSpaces } from "@/app/lib/spaces";
 
-const filterOptions = [
-  { id: "all", name: "All" },
-  ...defaultSpaces.map((space) => ({ id: space.id, name: space.name })),
-];
-
 export default function Home() {
-  const { captures, capturesLoading, capturesError } = useCaptures();
+  const { captures, capturesLoading, capturesError, spaceOverrides } = useCaptures();
+  const searchParams = useSearchParams();
+  // Deep-link from the Organization tab: tapping a Space tile there routes
+  // here with ?space=<id> pre-selected, since Organization no longer shows
+  // a Space's Drops itself - this is the one place that still does.
+  const requestedSpace = searchParams.get("space");
   const [selectedCaptureId, setSelectedCaptureId] = useState<number | null>(null);
   const selectedCapture = captures.find((capture) => capture.id === selectedCaptureId) ?? null;
-  const [activeFilter, setActiveFilter] = useState("all");
+  const [activeFilter, setActiveFilter] = useState(
+    requestedSpace && defaultSpaces.some((space) => space.id === requestedSpace)
+      ? requestedSpace
+      : "all"
+  );
+
+  // Names only - order intentionally unchanged (still defaultSpaces' fixed
+  // order). The pinned-first/recency ordering rule applies to Organization
+  // and the calendar pill toolbar, not this pre-existing filter row.
+  const filterOptions = useMemo(
+    () => [
+      { id: "all", name: "All" },
+      ...defaultSpaces.map((space) => ({ id: space.id, name: spaceOverrides[space.id] ?? space.name })),
+    ],
+    [spaceOverrides]
+  );
 
   const headerRef = useRef<HTMLElement>(null);
   // Generous initial estimate so content isn't clipped before the ResizeObserver

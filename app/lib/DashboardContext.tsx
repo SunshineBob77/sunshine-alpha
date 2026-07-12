@@ -24,6 +24,11 @@ import {
   shouldEscalateToAi,
   type TemporalResolutionOutput,
 } from "./resolveTemporal";
+import {
+  fetchSpaceOverrides,
+  renameSpace as renameSpaceRequest,
+  type SpaceOverrides,
+} from "./userSpaceOverrides";
 import CaptureModal from "../components/CaptureModal";
 
 // Two texts "look the same" temporally if the set of local date/time
@@ -62,6 +67,8 @@ type DashboardContextValue = {
   temporalSuggestions: Record<number, boolean>;
   dismissTemporalSuggestion: (id: number) => void;
   previewTemporalReanalysis: (id: number) => Promise<TemporalResolutionOutput>;
+  spaceOverrides: SpaceOverrides;
+  renameSpace: (spaceId: string, customName: string) => Promise<void>;
 };
 
 const DashboardContext = createContext<DashboardContextValue | null>(null);
@@ -88,6 +95,7 @@ export function DashboardProvider({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showSavedToast, setShowSavedToast] = useState(false);
   const [temporalSuggestions, setTemporalSuggestions] = useState<Record<number, boolean>>({});
+  const [spaceOverrides, setSpaceOverrides] = useState<SpaceOverrides>({});
 
   function dismissTemporalSuggestion(id: number) {
     setTemporalSuggestions((prev) => {
@@ -119,6 +127,27 @@ export function DashboardProvider({
       cancelled = true;
     };
   }, [user.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchSpaceOverrides(user.id)
+      .then((data) => {
+        if (!cancelled) setSpaceOverrides(data);
+      })
+      .catch((error) => {
+        console.error("Couldn't load space overrides", error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user.id]);
+
+  async function renameSpace(spaceId: string, customName: string) {
+    await renameSpaceRequest(user.id, spaceId, customName);
+    setSpaceOverrides((prev) => ({ ...prev, [spaceId]: customName }));
+  }
 
   // Fire-and-forget, once per full app load (this provider mounts once per
   // session, not per client-side route change) - the endpoint's own
@@ -412,6 +441,8 @@ export function DashboardProvider({
         temporalSuggestions,
         dismissTemporalSuggestion,
         previewTemporalReanalysis,
+        spaceOverrides,
+        renameSpace,
       }}
     >
       {children}
