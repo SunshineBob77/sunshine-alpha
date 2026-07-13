@@ -1,7 +1,9 @@
+import { randomUUID } from "crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/app/lib/supabaseAdmin";
 import { recognizeEntities, type RecognizedDate } from "@/app/lib/recognizeEntities";
+import type { ChecklistItem } from "@/app/lib/captures";
 import {
   detectRiskFlags,
   resolveTemporal,
@@ -303,6 +305,49 @@ function parseAnalysis(rawText: string): {
   };
 }
 
+const BULLET_LINE_PATTERN = /^\s*(?:[-*]|\d+\.)\s+(.+)$/;
+
+// Checklist detection reuses the FORMATTED task's own decision (see task 3
+// in buildSystemPrompt) about whether this note's content is list-like,
+// rather than asking the model a second time - a Drop becomes a checklist
+// exactly when EVERY line of the formatted output is a bullet, and there
+// are enough of them to be a "list" rather than one lone reminder (2+).
+// Re-analysis (e.g. after an edit) re-derives this from scratch each time,
+// so existing items are matched back in by their (trimmed, lowercased)
+// text to preserve checked state and id - a checklist a user has already
+// started checking off must not silently reset just because the Drop's
+// text was touched again.
+function extractChecklistItems(
+  formatted: string | null,
+  existingItems: ChecklistItem[]
+): ChecklistItem[] {
+  if (!formatted) return [];
+
+  const lines = formatted
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length < 2) return [];
+
+  const matches = lines.map((line) => line.match(BULLET_LINE_PATTERN));
+  if (matches.some((match) => !match)) return [];
+
+  const existingByText = new Map(
+    existingItems.map((item) => [item.text.trim().toLowerCase(), item])
+  );
+
+  return matches.map((match) => {
+    const text = match![1].trim();
+    const existing = existingByText.get(text.toLowerCase());
+    return {
+      id: existing?.id ?? randomUUID(),
+      text,
+      checked: existing?.checked ?? false,
+    };
+  });
+}
+
 function buildAiTemporalResult(
   temporal: TemporalExtraction | null,
   captureTimezone: string
@@ -351,7 +396,9 @@ export async function POST(request: Request) {
   try {
     const { data: captureRow, error: captureLookupError } = await supabaseAdmin
       .from("captures")
-      .select("user_id, created_at, space_ids, space_manually_set, temporal_locked")
+      .select(
+        "user_id, created_at, space_ids, space_manually_set, temporal_locked, checklist_items"
+      )
       .eq("id", id)
       .single();
 
@@ -448,6 +495,9 @@ export async function POST(request: Request) {
     // auto-assigned Space.
     const nextSpaceIds = captureRow.space_manually_set ? captureRow.space_ids : [spaceId];
 
+    const existingChecklistItems = (captureRow.checklist_items ?? []) as ChecklistItem[];
+    const checklistItems = extractChecklistItems(formatted, existingChecklistItems);
+
     const updatePayload: Record<string, unknown> = {
       ai_research_result: research ? JSON.stringify(research) : null,
       extracted_address: address,
@@ -456,6 +506,7 @@ export async function POST(request: Request) {
       is_actionable: isActionable,
       category,
       space_ids: nextSpaceIds,
+      checklist_items: checklistItems,
     };
 
     let temporalResolution: TemporalResolutionOutput | null = null;
@@ -517,6 +568,7 @@ export async function POST(request: Request) {
       isActionable,
       category,
       spaceIds: nextSpaceIds,
+      checklistItems,
       ...(temporalResolution
         ? {
             eventAt: temporalResolution.eventAt,

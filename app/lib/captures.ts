@@ -21,6 +21,19 @@ export function parseResearchResult(raw: string | null): string | string[] | nul
   return raw;
 }
 
+export type ChecklistItem = {
+  id: string;
+  text: string;
+  checked: boolean;
+};
+
+// A checklist Drop needs confirmation before Complete only while at least
+// one item is still unchecked - an empty or fully-checked list behaves
+// exactly like a non-checklist Drop.
+export function hasUncheckedChecklistItems(items: ChecklistItem[]): boolean {
+  return items.length > 0 && items.some((item) => !item.checked);
+}
+
 export type Capture = {
   id: number;
   text: string;
@@ -53,6 +66,7 @@ export type Capture = {
   pinned: boolean;
   recurring: boolean;
   recurrenceType: "yearly" | null;
+  checklistItems: ChecklistItem[];
 };
 
 export type CaptureRow = {
@@ -87,6 +101,7 @@ export type CaptureRow = {
   pinned: boolean;
   recurring: boolean;
   recurrence_type: "yearly" | null;
+  checklist_items: ChecklistItem[] | null;
 };
 
 export function mapRowToCapture(row: CaptureRow): Capture {
@@ -122,6 +137,7 @@ export function mapRowToCapture(row: CaptureRow): Capture {
     pinned: row.pinned ?? false,
     recurring: row.recurring ?? false,
     recurrenceType: row.recurrence_type ?? null,
+    checklistItems: row.checklist_items ?? [],
   };
 }
 
@@ -253,5 +269,17 @@ export async function updateCaptureStatus(
 
 export async function updateCapturePinned(id: number, pinned: boolean): Promise<void> {
   const { error } = await supabase.from("captures").update({ pinned }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function updateCaptureChecklistItems(
+  id: number,
+  items: ChecklistItem[]
+): Promise<void> {
+  const { error } = await supabase
+    .from("captures")
+    .update({ checklist_items: items })
+    .eq("id", id);
+
   if (error) throw error;
 }

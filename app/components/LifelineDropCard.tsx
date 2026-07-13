@@ -21,11 +21,18 @@ export default function LifelineDropCard({
   onDismiss?: () => void;
   onToggleStatus?: () => void;
 }) {
-  const { updatePinned } = useCaptures();
+  const { updatePinned, updateChecklistItems } = useCaptures();
   const isUrgent = capture.tags?.includes("urgent") ?? false;
 
   function handleTogglePin() {
     updatePinned(capture.id, !capture.pinned);
+  }
+
+  function handleToggleChecklistItem(itemId: string) {
+    const next = capture.checklistItems.map((item) =>
+      item.id === itemId ? { ...item, checked: !item.checked } : item
+    );
+    updateChecklistItems(capture.id, next);
   }
 
   return (
@@ -41,6 +48,8 @@ export default function LifelineDropCard({
       onTitleTap={() => onSelect(capture.id)}
       isPinned={capture.pinned}
       onTogglePin={kind === "drop" ? handleTogglePin : undefined}
+      checklistItems={capture.checklistItems}
+      onToggleChecklistItem={handleToggleChecklistItem}
       actions={
         kind === "suggestion" ? (
           <>

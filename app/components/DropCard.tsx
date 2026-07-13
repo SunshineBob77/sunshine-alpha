@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import DropContent from "./DropContent";
+import ChecklistContent from "./ChecklistContent";
 import { getSpaceTone } from "@/app/lib/spaceTone";
 import { formatRelativeTime } from "@/app/lib/relativeTime";
+import { hasUncheckedChecklistItems, type ChecklistItem } from "@/app/lib/captures";
 
 const MAX_COLLAPSED_HEIGHT = 160;
 // Card stays fully visible in its filled "Completed" state before it starts
@@ -26,6 +28,8 @@ export default function DropCard({
   size = "default",
   isPinned = false,
   onTogglePin,
+  checklistItems,
+  onToggleChecklistItem,
 }: {
   title: string;
   spaceId: string | null | undefined;
@@ -41,6 +45,8 @@ export default function DropCard({
   size?: "default" | "hero";
   isPinned?: boolean;
   onTogglePin?: () => void;
+  checklistItems?: ChecklistItem[];
+  onToggleChecklistItem?: (itemId: string) => void;
 }) {
   const tone = getSpaceTone(spaceId);
   const isHero = size === "hero";
@@ -48,6 +54,7 @@ export default function DropCard({
   const [expanded, setExpanded] = useState(false);
   const [isOverflowing, setIsOverflowing] = useState(false);
   const [collapsing, setCollapsing] = useState(false);
+  const [confirmingComplete, setConfirmingComplete] = useState(false);
 
   useEffect(() => {
     const el = contentRef.current;
@@ -61,7 +68,22 @@ export default function DropCard({
 
   function handleToggleTap() {
     if (!onToggleStatus) return;
-    onToggleStatus();
+
+    // Checklist state and Drop status are independent - unchecked items
+    // never block completion, they just require the user to confirm once
+    // before it happens. Un-completing never needs this (only guards the
+    // active -> completed direction).
+    if (!isCompleted && hasUncheckedChecklistItems(checklistItems ?? [])) {
+      setConfirmingComplete(true);
+      return;
+    }
+
+    commitToggleStatus();
+  }
+
+  function commitToggleStatus() {
+    setConfirmingComplete(false);
+    onToggleStatus?.();
 
     // Whichever direction this just toggled, the card is about to leave the
     // current view (default Lifeline when completing, the Completed Space
@@ -136,7 +158,11 @@ export default function DropCard({
         className={`mt-2 text-gray-800 overflow-hidden ${isHero ? "text-xl" : "text-base"}`}
         style={isClippedNow ? { maxHeight: MAX_COLLAPSED_HEIGHT } : undefined}
       >
-        <DropContent content={content} />
+        {checklistItems && checklistItems.length > 0 ? (
+          <ChecklistContent items={checklistItems} onToggle={onToggleChecklistItem ?? (() => {})} />
+        ) : (
+          <DropContent content={content} />
+        )}
       </div>
 
       {clipped && isOverflowing && (
@@ -153,20 +179,41 @@ export default function DropCard({
 
       {(actions || showCompletedToggle) && (
         <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100 flex-wrap">
-          {showCompletedToggle && (
-            <button
-              type="button"
-              onClick={handleToggleTap}
-              aria-label={isCompleted ? "Mark as active" : "Mark as completed"}
-              className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all ${
-                isCompleted
-                  ? "bg-orange-500 text-white"
-                  : "bg-gray-100 hover:bg-gray-200 text-gray-600"
-              }`}
-            >
-              {isCompleted ? "● Completed" : "○ Completed"}
-            </button>
-          )}
+          {showCompletedToggle &&
+            (confirmingComplete ? (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-gray-600">
+                  This checklist still has unchecked items. Complete anyway?
+                </span>
+                <button
+                  type="button"
+                  onClick={commitToggleStatus}
+                  className="text-xs font-semibold bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded-full transition-all"
+                >
+                  Complete anyway
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingComplete(false)}
+                  className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleToggleTap}
+                aria-label={isCompleted ? "Mark as active" : "Mark as completed"}
+                className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all ${
+                  isCompleted
+                    ? "bg-orange-500 text-white"
+                    : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+                }`}
+              >
+                {isCompleted ? "● Completed" : "○ Completed"}
+              </button>
+            ))}
           {actions}
         </div>
       )}

@@ -4,9 +4,11 @@ import { useState } from "react";
 import ShareButton from "./ShareButton";
 import DeleteDropButton from "./DeleteDropButton";
 import DropContent from "./DropContent";
+import ChecklistContent from "./ChecklistContent";
 import { assignableSpaces } from "@/app/lib/spaces";
 import { getSpaceTone } from "@/app/lib/spaceTone";
 import { useCaptures } from "@/app/lib/DashboardContext";
+import { hasUncheckedChecklistItems } from "@/app/lib/captures";
 import type { Capture } from "@/app/lib/captures";
 import type { TemporalResolutionOutput } from "@/app/lib/resolveTemporal";
 
@@ -425,12 +427,14 @@ export default function DropDetailModal({
   capture: Capture;
   onClose: () => void;
 }) {
-  const { updateText, updateStatus, temporalSuggestions, spaceOverrides } = useCaptures();
+  const { updateText, updateStatus, updateChecklistItems, temporalSuggestions, spaceOverrides } =
+    useCaptures();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(capture.text);
   const [savingText, setSavingText] = useState(false);
   const [textError, setTextError] = useState<string | null>(null);
   const [togglingStatus, setTogglingStatus] = useState(false);
+  const [confirmingComplete, setConfirmingComplete] = useState(false);
 
   const tone = getSpaceTone(capture.spaceIds?.[0]);
   const toneName = spaceOverrides[capture.spaceIds?.[0] ?? ""] ?? tone.name;
@@ -460,7 +464,20 @@ export default function DropDetailModal({
   // the first place. Matches how every other in-modal action already
   // behaves here (Space toggling, temporal edits) - the modal stays open
   // until the user closes it, showing the live updated state.
-  async function handleToggleStatus() {
+  function handleToggleStatus() {
+    // Checklist state and Drop status are independent - unchecked items
+    // never block completion, they just require one confirmation before it
+    // happens. Un-completing never needs this (only guards active -> completed).
+    if (!isCompleted && hasUncheckedChecklistItems(capture.checklistItems)) {
+      setConfirmingComplete(true);
+      return;
+    }
+
+    commitToggleStatus();
+  }
+
+  async function commitToggleStatus() {
+    setConfirmingComplete(false);
     setTogglingStatus(true);
     try {
       await updateStatus(capture.id, isCompleted ? "active" : "completed");
@@ -469,6 +486,13 @@ export default function DropDetailModal({
     } finally {
       setTogglingStatus(false);
     }
+  }
+
+  function handleToggleChecklistItem(itemId: string) {
+    const next = capture.checklistItems.map((item) =>
+      item.id === itemId ? { ...item, checked: !item.checked } : item
+    );
+    updateChecklistItems(capture.id, next);
   }
 
   return (
@@ -568,7 +592,14 @@ export default function DropDetailModal({
           </div>
         ) : (
           <div className="text-lg text-gray-900">
-            <DropContent content={capture.formattedText ?? capture.text} />
+            {capture.checklistItems.length > 0 ? (
+              <ChecklistContent
+                items={capture.checklistItems}
+                onToggle={handleToggleChecklistItem}
+              />
+            ) : (
+              <DropContent content={capture.formattedText ?? capture.text} />
+            )}
           </div>
         )}
 
@@ -599,21 +630,44 @@ export default function DropDetailModal({
         )}
 
         <div className="mt-4 flex items-center gap-2 flex-wrap">
-          {capture.isActionable && (
-            <button
-              type="button"
-              onClick={handleToggleStatus}
-              disabled={togglingStatus}
-              aria-label={isCompleted ? "Mark as active" : "Mark as completed"}
-              className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all disabled:opacity-60 ${
-                isCompleted
-                  ? "bg-orange-500 text-white"
-                  : "bg-gray-100 hover:bg-gray-200 text-gray-600"
-              }`}
-            >
-              {isCompleted ? "● Completed" : "○ Completed"}
-            </button>
-          )}
+          {capture.isActionable &&
+            (confirmingComplete ? (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-gray-600">
+                  This checklist still has unchecked items. Complete anyway?
+                </span>
+                <button
+                  type="button"
+                  onClick={commitToggleStatus}
+                  disabled={togglingStatus}
+                  className="text-xs font-semibold bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
+                >
+                  Complete anyway
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingComplete(false)}
+                  disabled={togglingStatus}
+                  className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleToggleStatus}
+                disabled={togglingStatus}
+                aria-label={isCompleted ? "Mark as active" : "Mark as completed"}
+                className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all disabled:opacity-60 ${
+                  isCompleted
+                    ? "bg-orange-500 text-white"
+                    : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+                }`}
+              >
+                {isCompleted ? "● Completed" : "○ Completed"}
+              </button>
+            ))}
           <DeleteDropButton captureId={capture.id} onDeleted={onClose} />
           {capture.extractedAddress && (
             <a

@@ -12,9 +12,11 @@ import {
   updateCaptureTemporal,
   dismissCaptureTemporal,
   updateCapturePinned,
+  updateCaptureChecklistItems,
   mapRowToCapture,
   type Capture,
   type CaptureRow,
+  type ChecklistItem,
 } from "./captures";
 import { analyzeCapture } from "./analyzeCapture";
 import { recognizeEntities } from "./recognizeEntities";
@@ -59,6 +61,7 @@ type DashboardContextValue = {
   updateText: (id: number, text: string) => Promise<void>;
   updateStatus: (id: number, status: "active" | "completed") => Promise<void>;
   updatePinned: (id: number, pinned: boolean) => Promise<void>;
+  updateChecklistItems: (id: number, items: ChecklistItem[]) => Promise<void>;
   updateTemporal: (
     id: number,
     input: { eventAt: string; eventHasTime: boolean; eventTimezone: string }
@@ -205,6 +208,7 @@ export function DashboardProvider({
           temporalRawText?: string | null;
           recurring?: boolean;
           recurrenceType?: "yearly" | null;
+          checklistItems?: ChecklistItem[];
         }) => {
           if (data.result === undefined) return;
           setCaptures((prev) =>
@@ -241,6 +245,7 @@ export function DashboardProvider({
                       data.recurrenceType !== undefined
                         ? data.recurrenceType
                         : capture.recurrenceType,
+                    checklistItems: data.checklistItems ?? [],
                   }
                 : capture
             )
@@ -398,6 +403,13 @@ export function DashboardProvider({
     );
   }
 
+  async function updateChecklistItems(id: number, items: ChecklistItem[]) {
+    await updateCaptureChecklistItems(id, items);
+    setCaptures((prev) =>
+      prev.map((capture) => (capture.id === id ? { ...capture, checklistItems: items } : capture))
+    );
+  }
+
   async function updateTemporal(
     id: number,
     input: { eventAt: string; eventHasTime: boolean; eventTimezone: string }
@@ -436,6 +448,7 @@ export function DashboardProvider({
         updateText,
         updateStatus,
         updatePinned,
+        updateChecklistItems,
         updateTemporal,
         dismissTemporal,
         temporalSuggestions,
