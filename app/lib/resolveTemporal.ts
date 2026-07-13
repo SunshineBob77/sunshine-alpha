@@ -169,6 +169,64 @@ export function describeRecurrence(phrase: string): string {
   return phrase;
 }
 
+export type RecurrenceCadence = "yearly" | "monthly" | "biweekly" | "weekly" | "daily";
+
+// Coarse cadence classification for CALENDAR PROJECTION (month-view dots,
+// timeline occurrences) - distinct from describeRecurrence's DISPLAY text
+// above, though both read the same underlying signal. Deliberately
+// excludes "every weekday"/"every weekend": projecting those correctly
+// needs real day-of-week filtering (skip Sat/Sun, or skip Mon-Fri), which
+// is exactly the "day-of-week array" logic detectRecurrencePhrase's own
+// doc comment rules out - a Drop with one of those phrases still shows
+// correctly on its own resolved date, it just doesn't project forward.
+// "every other X" beyond week (e.g. "every other month") isn't doubled
+// into its own interval either - a documented simplification: those
+// phrasings are far rarer than weekly, and doubling every cadence's
+// interval multiplies the branches here without a real capture to
+// validate it against.
+export function classifyRecurrenceCadence(
+  recurring: boolean,
+  recurrenceType: "yearly" | null,
+  recurrenceRawText: string | null
+): RecurrenceCadence | null {
+  if (!recurring) return null;
+  if (recurrenceType === "yearly") return "yearly";
+  if (!recurrenceRawText) return null;
+
+  const lower = recurrenceRawText.toLowerCase();
+  const isOtherWeek =
+    /\bother\b/.test(lower) &&
+    lower.includes("week") &&
+    !lower.includes("weekend") &&
+    !lower.includes("weekday");
+  if (lower === "biweekly" || isOtherWeek) return "biweekly";
+
+  const WEEKDAY_NAMES = [
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+  ];
+  if (WEEKDAY_NAMES.some((day) => lower.includes(day))) return "weekly";
+  if (lower.includes("weekend") || lower.includes("weekday")) return null;
+  if (lower.includes("week") || lower === "weekly") return "weekly";
+  if (lower.includes("month") || lower === "monthly") return "monthly";
+  if (lower.includes("year") || lower === "yearly" || lower === "annually") return "yearly";
+  if (
+    lower.includes("day") ||
+    lower === "daily" ||
+    lower.includes("night") ||
+    lower.includes("morning")
+  ) {
+    return "daily";
+  }
+
+  return null;
+}
+
 // A single clean local candidate is normally trusted immediately, no AI
 // needed - but that assumes a short, single-focus note. A long multi-line
 // note (a progress log, changelog, running expense tally) can contain
