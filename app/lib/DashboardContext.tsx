@@ -208,6 +208,7 @@ export function DashboardProvider({
           temporalRawText?: string | null;
           recurring?: boolean;
           recurrenceType?: "yearly" | null;
+          recurrenceRawText?: string | null;
           checklistItems?: ChecklistItem[];
         }) => {
           if (data.result === undefined) return;
@@ -245,6 +246,10 @@ export function DashboardProvider({
                       data.recurrenceType !== undefined
                         ? data.recurrenceType
                         : capture.recurrenceType,
+                    recurrenceRawText:
+                      data.recurrenceRawText !== undefined
+                        ? data.recurrenceRawText
+                        : capture.recurrenceRawText,
                     checklistItems: data.checklistItems ?? [],
                   }
                 : capture
@@ -390,7 +395,16 @@ export function DashboardProvider({
     await dismissCaptureTemporal(id);
     setCaptures((prev) =>
       prev.map((capture) =>
-        capture.id === id ? { ...capture, eventStatus: "dismissed", temporalLocked: true } : capture
+        capture.id === id
+          ? {
+              ...capture,
+              eventStatus: "dismissed",
+              temporalLocked: true,
+              recurring: false,
+              recurrenceType: null,
+              recurrenceRawText: null,
+            }
+          : capture
       )
     );
     dismissTemporalSuggestion(id);
@@ -428,6 +442,7 @@ export function DashboardProvider({
               temporalLocked: true,
               recurring: false,
               recurrenceType: null,
+              recurrenceRawText: null,
             }
           : capture
       )

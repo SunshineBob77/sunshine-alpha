@@ -372,11 +372,13 @@ function buildAiTemporalResult(
     // status regardless of what's passed here.
     temporalConfidence: temporal.status === "resolved" ? "high" : null,
     temporalRawText: null,
-    // The AI temporal task is never asked about recurrence - only the
-    // narrow local recurring-life-event path (which bypasses the AI
-    // entirely) ever sets this.
+    // The AI temporal task is never asked about recurrence - only
+    // resolveTemporal's own local detectors (the narrow recurring-life-
+    // event path, and the general recurring-phrase overlay applied after
+    // this result comes back) ever set these.
     recurring: false,
     recurrenceType: null,
+    recurrenceRawText: null,
   };
 }
 
@@ -531,6 +533,7 @@ export async function POST(request: Request) {
       updatePayload.temporal_raw_text = temporalResolution.temporalRawText;
       updatePayload.recurring = temporalResolution.recurring;
       updatePayload.recurrence_type = temporalResolution.recurrenceType;
+      updatePayload.recurrence_raw_text = temporalResolution.recurrenceRawText;
     }
     // else: temporal columns are simply omitted from the update - locked,
     // untouched, exactly as they were before this edit.
@@ -585,6 +588,7 @@ export async function POST(request: Request) {
             temporalRawText: temporalResolution.temporalRawText,
             recurring: temporalResolution.recurring,
             recurrenceType: temporalResolution.recurrenceType,
+            recurrenceRawText: temporalResolution.recurrenceRawText,
           }
         : {}),
     });

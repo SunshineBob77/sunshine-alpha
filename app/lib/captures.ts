@@ -66,6 +66,7 @@ export type Capture = {
   pinned: boolean;
   recurring: boolean;
   recurrenceType: "yearly" | null;
+  recurrenceRawText: string | null;
   checklistItems: ChecklistItem[];
 };
 
@@ -101,6 +102,7 @@ export type CaptureRow = {
   pinned: boolean;
   recurring: boolean;
   recurrence_type: "yearly" | null;
+  recurrence_raw_text: string | null;
   checklist_items: ChecklistItem[] | null;
 };
 
@@ -137,6 +139,7 @@ export function mapRowToCapture(row: CaptureRow): Capture {
     pinned: row.pinned ?? false,
     recurring: row.recurring ?? false,
     recurrenceType: row.recurrence_type ?? null,
+    recurrenceRawText: row.recurrence_raw_text ?? null,
     checklistItems: row.checklist_items ?? [],
   };
 }
@@ -233,6 +236,7 @@ export async function updateCaptureTemporal(
       temporal_confidence: "high",
       recurring: false,
       recurrence_type: null,
+      recurrence_raw_text: null,
       temporal_locked: true,
     })
     .eq("id", id);
@@ -245,10 +249,19 @@ export async function dismissCaptureTemporal(id: number): Promise<void> {
   // so this reuses the exact same protection updateCaptureTemporal relies
   // on (analyze-drop/route.ts already unconditionally skips the temporal
   // task and all temporal writes for a locked Drop) - no new gating logic
-  // needed for a future edit/re-analysis to leave this alone.
+  // needed for a future edit/re-analysis to leave this alone. Also clears
+  // recurring/recurrence_type/recurrence_raw_text - a Drop the user says
+  // isn't a calendar item at all shouldn't keep floating a recurrence flag
+  // either.
   const { error } = await supabase
     .from("captures")
-    .update({ event_status: "dismissed", temporal_locked: true })
+    .update({
+      event_status: "dismissed",
+      temporal_locked: true,
+      recurring: false,
+      recurrence_type: null,
+      recurrence_raw_text: null,
+    })
     .eq("id", id);
 
   if (error) throw error;

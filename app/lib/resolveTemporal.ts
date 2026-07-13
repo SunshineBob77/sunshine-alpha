@@ -28,6 +28,13 @@ export type TemporalResolutionOutput = {
   temporalRawText: string | null;
   recurring: boolean;
   recurrenceType: "yearly" | null;
+  // Raw recurring phrase for the GENERAL case ("every Monday", "monthly",
+  // "every other week") - separate from recurrenceType, which is a
+  // structured enum reserved for the narrow birthday/anniversary
+  // "yearly" detection below. No structured rule parsing in v1 - this is
+  // free text only. Null whenever recurring came from the yearly path
+  // instead (that path is already fully described by recurrenceType).
+  recurrenceRawText: string | null;
 };
 
 // ---- Risk flag detection -------------------------------------------------
@@ -98,6 +105,24 @@ export function isRecurringLifeEventCandidate(
     !localCandidates[0].hasYear &&
     matchesAnyTerm(rawText, RECURRING_LIFE_EVENT_TERMS)
   );
+}
+
+// General recurring-language detection - deliberately separate from
+// isRecurringLifeEventCandidate above, which only covers the narrow
+// birthday/anniversary + missing-year case and resolves a structured
+// "yearly" recurrenceType. This covers everyday recurring phrasing
+// ("every Monday", "monthly", "every other week", "daily") with NO
+// structured rule parsing (no RRULE, no day-of-week arrays, no interval
+// logic) - just capturing the matched phrase as-is for display. Purely
+// local/regex, no AI call needed, same discipline as the risk-flag term
+// lists above: a short, named pattern, not a general slang dictionary -
+// scope it up if real captures show more phrasings.
+const RECURRENCE_PHRASE_PATTERN =
+  /\bevery\s+(?:other\s+)?(?:day|night|morning|week|month|year|weekday|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b|\b(?:daily|weekly|biweekly|monthly|yearly|annually)\b/i;
+
+export function detectRecurrencePhrase(rawText: string): string | null {
+  const match = rawText.match(RECURRENCE_PHRASE_PATTERN);
+  return match ? match[0] : null;
 }
 
 // A single clean local candidate is normally trusted immediately, no AI
@@ -182,6 +207,7 @@ const NONE_RESULT_BASE: Omit<TemporalResolutionOutput, "temporalRawText"> = {
   temporalConfidence: null,
   recurring: false,
   recurrenceType: null,
+  recurrenceRawText: null,
 };
 
 function fromAiResult(aiResult: TemporalResolutionOutput): TemporalResolutionOutput {
@@ -198,6 +224,7 @@ function unresolvedResult(temporalRawText: string | null = null): TemporalResolu
     temporalRawText,
     recurring: false,
     recurrenceType: null,
+    recurrenceRawText: null,
   };
 }
 
@@ -224,6 +251,7 @@ export function resolveTemporal(
       temporalRawText: null, // set by the universal rule below
       recurring: true,
       recurrenceType: "yearly",
+      recurrenceRawText: null, // structured "yearly" already fully describes this
     };
   } else if (
     localCandidates.length === 1 &&
@@ -243,6 +271,7 @@ export function resolveTemporal(
       temporalRawText: null, // set by the universal rule below
       recurring: false,
       recurrenceType: null,
+      recurrenceRawText: null,
     };
   } else if (
     localCandidates.length === 1 &&
@@ -294,6 +323,17 @@ export function resolveTemporal(
     // 'high'/'low' confidence is only meaningful once something is
     // actually resolved - 'unresolved' and 'none' always carry null.
     result = { ...result, temporalConfidence: null };
+  }
+
+  // General recurring-language detection is independent of the date/time
+  // branch above - a Drop can be resolved-date AND recurring, or recurring
+  // with no resolved date at all. Only applies when the birthday/
+  // anniversary path hasn't already set a structured yearly recurrence.
+  if (!result.recurring) {
+    const recurrenceRawText = detectRecurrencePhrase(input.rawText);
+    if (recurrenceRawText) {
+      result = { ...result, recurring: true, recurrenceRawText };
+    }
   }
 
   return result;
