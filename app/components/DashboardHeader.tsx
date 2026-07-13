@@ -2,22 +2,20 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCaptures } from "@/app/lib/DashboardContext";
 import { useInviteShare } from "@/app/lib/useInviteShare";
 
 // Target: 55-60px total (h-14 = 56px). Left: logo + "Sunshine" wordmark.
-// Right, in order: search (no label) -> invite (labeled) -> me (labeled) ->
-// "+" (no label, far right edge). "+" here is a compact icon (h-9),
-// intentionally distinct from the large emphasized floating "+" in
-// BottomNav - both are live at once, on purpose, so capture is reachable
-// from either the header or the bottom nav.
+// Right, in order: an empty vacated slot (same width as the icon buttons,
+// keeps the group's total width - and therefore Search/Invite/Me's
+// position - unchanged from when the header "+" lived here) -> search
+// (no label) -> invite (labeled) -> me (labeled, now at the far right
+// edge). Capture is still reachable via the floating "+" in BottomNav.
 //
 // sunshine-logo.png is the real icon+wordmark lockup (cropped tight from
 // the original asset, background keyed to transparent - the source file
 // had an opaque near-white canvas with large padding, neither of which
 // worked against this header's cream background).
 export default function DashboardHeader() {
-  const { openCapture } = useCaptures();
   const { status: inviteStatus, handleInvite } = useInviteShare();
 
   const inviteLabel =
@@ -44,6 +42,12 @@ export default function DashboardHeader() {
         </Link>
 
         <div className="flex items-center gap-1 shrink-0">
+          {/* Vacated slot - the header "+" used to live here. Kept as an
+              empty spacer (same footprint as a button) so removing it
+              shifts Search/Invite/Me right instead of collapsing the
+              group's width. */}
+          <div aria-hidden="true" className="h-9 w-9" />
+
           {/* Search has no destination/functionality yet - visual placeholder
               only, per the header layout requirement. Not wired to anything.
               No label, per spec - self-explanatory icon. */}
@@ -105,17 +109,6 @@ export default function DashboardHeader() {
             <span className="text-base leading-none">🙂</span>
             <span className="text-[9px] font-semibold leading-none">Me</span>
           </Link>
-
-          {/* Far right edge, no label - per spec. */}
-          <button
-            type="button"
-            onClick={openCapture}
-            aria-label="Drop"
-            title="New Drop"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-400 text-white text-lg font-bold shadow-sm transition-transform hover:scale-105"
-          >
-            +
-          </button>
         </div>
       </div>
     </header>
