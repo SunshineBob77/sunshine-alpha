@@ -425,15 +425,17 @@ export default function DropDetailModal({
   capture: Capture;
   onClose: () => void;
 }) {
-  const { updateText, temporalSuggestions, spaceOverrides } = useCaptures();
+  const { updateText, updateStatus, temporalSuggestions, spaceOverrides } = useCaptures();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(capture.text);
   const [savingText, setSavingText] = useState(false);
   const [textError, setTextError] = useState<string | null>(null);
+  const [togglingStatus, setTogglingStatus] = useState(false);
 
   const tone = getSpaceTone(capture.spaceIds?.[0]);
   const toneName = spaceOverrides[capture.spaceIds?.[0] ?? ""] ?? tone.name;
   const isUrgent = capture.tags?.includes("urgent") ?? false;
+  const isCompleted = capture.status === "completed";
 
   async function handleSaveText() {
     if (!draft.trim()) return;
@@ -447,6 +449,25 @@ export default function DropDetailModal({
       setTextError("Couldn't save. Try again.");
     } finally {
       setSavingText(false);
+    }
+  }
+
+  // Deliberately does NOT auto-close the modal, and doesn't need the
+  // card list's settle-then-remove animation (LifelineFeed/SpacesPage's
+  // pendingRemovalIds) - that mechanism only exists to keep a card
+  // visible in its new state briefly before the LIST's own filter drops
+  // it, and the modal was never part of that list-rendering concern in
+  // the first place. Matches how every other in-modal action already
+  // behaves here (Space toggling, temporal edits) - the modal stays open
+  // until the user closes it, showing the live updated state.
+  async function handleToggleStatus() {
+    setTogglingStatus(true);
+    try {
+      await updateStatus(capture.id, isCompleted ? "active" : "completed");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setTogglingStatus(false);
     }
   }
 
@@ -578,6 +599,21 @@ export default function DropDetailModal({
         )}
 
         <div className="mt-4 flex items-center gap-2 flex-wrap">
+          {capture.isActionable && (
+            <button
+              type="button"
+              onClick={handleToggleStatus}
+              disabled={togglingStatus}
+              aria-label={isCompleted ? "Mark as active" : "Mark as completed"}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all disabled:opacity-60 ${
+                isCompleted
+                  ? "bg-orange-500 text-white"
+                  : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+              }`}
+            >
+              {isCompleted ? "● Completed" : "○ Completed"}
+            </button>
+          )}
           <DeleteDropButton captureId={capture.id} onDeleted={onClose} />
           {capture.extractedAddress && (
             <a
