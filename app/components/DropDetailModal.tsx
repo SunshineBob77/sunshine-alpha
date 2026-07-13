@@ -3,7 +3,7 @@
 import { useState } from "react";
 import ShareButton from "./ShareButton";
 import DeleteDropButton from "./DeleteDropButton";
-import CardOverflowMenu from "./CardOverflowMenu";
+import HidePlaceholderButton from "./HidePlaceholderButton";
 import DropContent from "./DropContent";
 import ChecklistContent from "./ChecklistContent";
 import { assignableSpaces } from "@/app/lib/spaces";
@@ -683,9 +683,8 @@ export default function DropDetailModal({
                 {isCompleted ? "● Completed" : "○ Completed"}
               </button>
             ))}
-          <CardOverflowMenu>
-            <DeleteDropButton captureId={capture.id} onDeleted={onClose} />
-          </CardOverflowMenu>
+          <HidePlaceholderButton />
+          <DeleteDropButton captureId={capture.id} onDeleted={onClose} />
           {capture.extractedAddress && (
             <a
               href={`https://maps.google.com/?q=${encodeURIComponent(capture.extractedAddress)}`}

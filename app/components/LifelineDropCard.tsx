@@ -3,7 +3,7 @@
 import DropCard from "./DropCard";
 import ShareButton from "./ShareButton";
 import DeleteDropButton from "./DeleteDropButton";
-import CardOverflowMenu from "./CardOverflowMenu";
+import HidePlaceholderButton from "./HidePlaceholderButton";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import type { Capture } from "@/app/lib/captures";
 
@@ -81,9 +81,9 @@ export default function LifelineDropCard({
 
             <ShareButton capture={capture} />
 
-            <CardOverflowMenu>
-              <DeleteDropButton captureId={capture.id} />
-            </CardOverflowMenu>
+            <HidePlaceholderButton />
+
+            <DeleteDropButton captureId={capture.id} />
           </>
         )
       }
