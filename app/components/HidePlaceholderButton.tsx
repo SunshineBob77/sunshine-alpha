@@ -11,7 +11,7 @@ export default function HidePlaceholderButton() {
       disabled
       aria-label="Hide (coming soon)"
       title="Coming soon"
-      className="text-xs font-semibold bg-gray-50 text-gray-400 px-3 py-1.5 rounded-full opacity-60 cursor-not-allowed"
+      className="text-xs font-semibold bg-gray-50 text-gray-400 px-2 py-1.5 rounded-full opacity-60 cursor-not-allowed"
     >
       🙈 Hide
     </button>

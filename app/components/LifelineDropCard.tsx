@@ -74,7 +74,7 @@ export default function LifelineDropCard({
             <button
               type="button"
               onClick={() => onSelect(capture.id)}
-              className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1.5 rounded-full transition-all"
+              className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1.5 rounded-full transition-all"
             >
               ✏️ Edit
             </button>

@@ -178,7 +178,7 @@ export default function DropCard({
       <p className="text-sm text-gray-500 mt-2">{formatRelativeTime(createdAt)}</p>
 
       {(actions || showCompletedToggle) && (
-        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100 flex-wrap">
+        <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-gray-100 flex-wrap">
           {showCompletedToggle &&
             (confirmingComplete ? (
               <div className="flex items-center gap-2 flex-wrap">
@@ -205,7 +205,7 @@ export default function DropCard({
                 type="button"
                 onClick={handleToggleTap}
                 aria-label={isCompleted ? "Mark as active" : "Mark as completed"}
-                className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all ${
+                className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
                   isCompleted
                     ? "bg-orange-500 text-white"
                     : "bg-gray-100 hover:bg-gray-200 text-gray-600"

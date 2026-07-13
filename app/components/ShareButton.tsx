@@ -11,7 +11,7 @@ export default function ShareButton({ capture }: { capture: Capture }) {
       <button
         onClick={handleShare}
         disabled={status === "sharing"}
-        className="text-xs font-semibold bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
+        className="text-xs font-semibold bg-amber-100 hover:bg-amber-200 text-amber-800 px-2 py-1.5 rounded-full transition-all disabled:opacity-60"
       >
         {status === "sharing" && "Sharing…"}
         {status === "copied" && "Copied!"}
