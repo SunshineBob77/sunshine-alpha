@@ -22,16 +22,25 @@ export default function Home() {
       : "all"
   );
 
-  // Names only - order intentionally unchanged (still defaultSpaces' fixed
-  // order). The pinned-first/recency ordering rule applies to Organization
-  // and the calendar pill toolbar, not this pre-existing filter row.
-  const filterOptions = useMemo(
-    () => [
+  // Otherwise still defaultSpaces' fixed order (the pinned-first/recency
+  // ordering rule applies to Organization and the calendar pill toolbar,
+  // not this row) - "pinned" is pulled out and reinserted right after
+  // "all" as the one deliberate exception, so it reads All, Pinned,
+  // Personal, Work... instead of sitting next to Completed at the end.
+  const filterOptions = useMemo(() => {
+    const spaceOptions = defaultSpaces.map((space) => ({
+      id: space.id,
+      name: spaceOverrides[space.id] ?? space.name,
+    }));
+    const pinnedIndex = spaceOptions.findIndex((option) => option.id === "pinned");
+    const pinnedOption = pinnedIndex === -1 ? null : spaceOptions.splice(pinnedIndex, 1)[0];
+
+    return [
       { id: "all", name: "All" },
-      ...defaultSpaces.map((space) => ({ id: space.id, name: spaceOverrides[space.id] ?? space.name })),
-    ],
-    [spaceOverrides]
-  );
+      ...(pinnedOption ? [pinnedOption] : []),
+      ...spaceOptions,
+    ];
+  }, [spaceOverrides]);
 
   const headerRef = useRef<HTMLElement>(null);
   // Generous initial estimate so content isn't clipped before the ResizeObserver
