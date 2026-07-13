@@ -310,8 +310,11 @@ const BULLET_LINE_PATTERN = /^\s*(?:[-*]|\d+\.)\s+(.+)$/;
 // Checklist detection reuses the FORMATTED task's own decision (see task 3
 // in buildSystemPrompt) about whether this note's content is list-like,
 // rather than asking the model a second time - a Drop becomes a checklist
-// exactly when EVERY line of the formatted output is a bullet, and there
-// are enough of them to be a "list" rather than one lone reminder (2+).
+// when the formatted output is a bullet list, and there are enough items
+// to be a "list" rather than one lone reminder (2+). A single leading
+// non-bullet line is tolerated as a heading/title (e.g. "Grocery list"
+// above the actual items) and excluded from the "are these all bullets"
+// check - but only ever one such line, not an arbitrary prefix of prose.
 // Re-analysis (e.g. after an edit) re-derives this from scratch each time,
 // so existing items are matched back in by their (trimmed, lowercased)
 // text to preserve checked state and id - a checklist a user has already
@@ -328,9 +331,12 @@ function extractChecklistItems(
     .map((line) => line.trim())
     .filter(Boolean);
 
-  if (lines.length < 2) return [];
+  const itemLines =
+    lines.length > 0 && !BULLET_LINE_PATTERN.test(lines[0]) ? lines.slice(1) : lines;
 
-  const matches = lines.map((line) => line.match(BULLET_LINE_PATTERN));
+  if (itemLines.length < 2) return [];
+
+  const matches = itemLines.map((line) => line.match(BULLET_LINE_PATTERN));
   if (matches.some((match) => !match)) return [];
 
   const existingByText = new Map(
