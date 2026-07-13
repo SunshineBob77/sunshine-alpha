@@ -10,7 +10,7 @@ import { getSpaceTone } from "@/app/lib/spaceTone";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import { hasUncheckedChecklistItems } from "@/app/lib/captures";
 import type { Capture } from "@/app/lib/captures";
-import type { TemporalResolutionOutput } from "@/app/lib/resolveTemporal";
+import { describeRecurrence, type TemporalResolutionOutput } from "@/app/lib/resolveTemporal";
 
 function SpacePicker({ capture }: { capture: Capture }) {
   const { updateSpaces, spaceOverrides } = useCaptures();
@@ -124,6 +124,18 @@ function buildEventAtIso(dateValue: string, timeValue: string | null): string | 
   return new Date(year, month - 1, day, 12, 0, 0).toISOString();
 }
 
+// The birthday/anniversary path (recurrenceType: "yearly") keeps its
+// original "Every year" wording untouched. General recurring-phrase
+// detection never sets recurrenceType (that DB enum is constrained to
+// 'yearly' only) - it only sets recurring + recurrenceRawText, so those
+// Drops get their badge text derived from the raw phrase instead.
+function recurrenceBadgeText(capture: Capture): string | null {
+  if (!capture.recurring) return null;
+  if (capture.recurrenceType === "yearly") return "🎂 Every year";
+  if (capture.recurrenceRawText) return `🔁 ${describeRecurrence(capture.recurrenceRawText)}`;
+  return null;
+}
+
 function TemporalEditor({ capture }: { capture: Capture }) {
   const { updateTemporal, dismissTemporal } = useCaptures();
   const [open, setOpen] = useState(false);
@@ -234,11 +246,13 @@ function TemporalEditor({ capture }: { capture: Capture }) {
   }
 
   if (capture.eventStatus === "resolved" && capture.eventAt) {
+    const recurrenceBadge = recurrenceBadgeText(capture);
+
     return (
       <div className="mb-3 flex items-center gap-2 flex-wrap">
         <span className="text-xs font-semibold bg-amber-50 text-amber-800 px-2.5 py-1 rounded-full">
           📅 {formatEventDate(capture.eventAt, capture.eventHasTime)}
-          {capture.recurring ? " · 🎂 Every year" : ""}
+          {recurrenceBadge ? ` · ${recurrenceBadge}` : ""}
         </span>
         <button
           type="button"

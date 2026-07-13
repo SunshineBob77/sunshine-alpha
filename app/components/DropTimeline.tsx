@@ -174,7 +174,11 @@ export default function DropTimeline({
                 <p className="text-xs font-semibold text-amber-700">
                   {formatOccurrenceDate(occurrence.occurrenceDate)} ·{" "}
                   {formatOccurrenceTime(occurrence.capture, occurrence.occurrenceDate)}
-                  {occurrence.capture.recurring ? " · 🎂" : ""}
+                  {occurrence.capture.recurring
+                    ? occurrence.capture.recurrenceType === "yearly"
+                      ? " · 🎂"
+                      : " · 🔁"
+                    : ""}
                 </p>
                 <p className="text-sm text-gray-900 font-medium truncate">
                   {occurrence.capture.title ?? occurrence.capture.sunshineSummary}

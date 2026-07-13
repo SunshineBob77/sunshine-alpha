@@ -125,6 +125,50 @@ export function detectRecurrencePhrase(rawText: string): string | null {
   return match ? match[0] : null;
 }
 
+// Display-only categorization of an already-detected recurrenceRawText
+// phrase, exhaustive over every shape RECURRENCE_PHRASE_PATTERN can
+// produce. This intentionally does NOT write to recurrenceType - that
+// field is a DB-level enum constrained to `check (recurrence_type in
+// ('yearly'))` (see docs/recurring-events-schema.sql), reserved for the
+// structured birthday/anniversary path above. Widening that constraint to
+// weekly/monthly/daily is a real schema decision (What enum values? Does
+// anything besides display need to consume it structurally?) that hasn't
+// been confirmed - so this only derives friendly text from the raw
+// phrase at render time, never touches the DB.
+export function describeRecurrence(phrase: string): string {
+  const lower = phrase.toLowerCase();
+  const isOther = /\bother\b/.test(lower);
+  const suffix = isOther ? "other " : "";
+
+  const WEEKDAY_NAMES = [
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+  ];
+
+  if (lower === "biweekly") return "Every other week";
+  if (WEEKDAY_NAMES.some((day) => lower.includes(day))) return `Every ${suffix}week`;
+  if (lower.includes("weekend")) return `Every ${suffix}weekend`;
+  if (lower.includes("weekday")) return `Every ${suffix}weekday`;
+  if (lower.includes("week") || lower === "weekly") return `Every ${suffix}week`;
+  if (lower.includes("month") || lower === "monthly") return `Every ${suffix}month`;
+  if (lower.includes("year") || lower === "yearly" || lower === "annually") {
+    return `Every ${suffix}year`;
+  }
+  if (lower.includes("day") || lower === "daily") return `Every ${suffix}day`;
+  if (lower.includes("night")) return `Every ${suffix}night`;
+  if (lower.includes("morning")) return `Every ${suffix}morning`;
+
+  // Unreachable given RECURRENCE_PHRASE_PATTERN's own alternatives, kept
+  // only as a safe fallback rather than an assumption the switch is
+  // exhaustive forever.
+  return phrase;
+}
+
 // A single clean local candidate is normally trusted immediately, no AI
 // needed - but that assumes a short, single-focus note. A long multi-line
 // note (a progress log, changelog, running expense tally) can contain
