@@ -97,10 +97,10 @@ export default function DropCard({
       className={`bg-white rounded-2xl border-[5px] ${tone.border} shadow-sm transition-all duration-500 ease-in-out overflow-hidden ${
         collapsing
           ? "max-h-0 opacity-0 !p-0 !border-0"
-          : `max-h-[20000px] opacity-100 ${isHero ? "p-8" : "p-5"}`
+          : `max-h-[20000px] opacity-100 ${isHero ? "p-8" : "p-4"}`
       }`}
     >
-      <div className="flex items-start justify-between gap-3 mb-2">
+      <div className="flex items-start justify-between gap-3 mb-1.5">
         <div className="min-w-0 flex-1">
           {onTitleTap ? (
             <button type="button" onClick={onTitleTap} className="block w-full text-left">
@@ -118,15 +118,15 @@ export default function DropCard({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          {isPinned && onTogglePin && (
+          {onTogglePin && (
             <button
               type="button"
               onClick={onTogglePin}
-              aria-label="Unpin"
-              title="Unpin"
-              className={`flex shrink-0 items-center justify-center rounded-full hover:bg-black/5 transition-colors ${
-                isHero ? "h-9 w-9 text-base" : "h-6 w-6 text-xs"
-              }`}
+              aria-label={isPinned ? "Unpin" : "Pin"}
+              title={isPinned ? "Unpin" : "Pin"}
+              className={`flex shrink-0 items-center justify-center rounded-full transition-all hover:bg-black/5 ${
+                isPinned ? "opacity-100 bg-amber-100" : "opacity-35 hover:opacity-70"
+              } ${isHero ? "h-9 w-9 text-base" : "h-6 w-6 text-xs"}`}
             >
               📌
             </button>
@@ -155,7 +155,7 @@ export default function DropCard({
 
       <div
         ref={contentRef}
-        className={`mt-2 text-gray-800 overflow-hidden ${isHero ? "text-xl" : "text-base"}`}
+        className={`mt-1.5 text-gray-800 overflow-hidden ${isHero ? "text-xl" : "text-base"}`}
         style={isClippedNow ? { maxHeight: MAX_COLLAPSED_HEIGHT } : undefined}
       >
         {checklistItems && checklistItems.length > 0 ? (
@@ -169,16 +169,16 @@ export default function DropCard({
         <button
           type="button"
           onClick={() => setExpanded((prev) => !prev)}
-          className="text-sm font-semibold text-amber-700 mt-1.5"
+          className="text-sm font-semibold text-amber-700 mt-1"
         >
           {expanded ? "Show less" : "Show more"}
         </button>
       )}
 
-      <p className="text-sm text-gray-500 mt-3">{formatRelativeTime(createdAt)}</p>
+      <p className="text-sm text-gray-500 mt-2">{formatRelativeTime(createdAt)}</p>
 
       {(actions || showCompletedToggle) && (
-        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100 flex-wrap">
+        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100 flex-wrap">
           {showCompletedToggle &&
             (confirmingComplete ? (
               <div className="flex items-center gap-2 flex-wrap">

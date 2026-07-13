@@ -3,6 +3,7 @@
 import DropCard from "./DropCard";
 import ShareButton from "./ShareButton";
 import DeleteDropButton from "./DeleteDropButton";
+import CardOverflowMenu from "./CardOverflowMenu";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import type { Capture } from "@/app/lib/captures";
 
@@ -78,17 +79,11 @@ export default function LifelineDropCard({
               ✏️ Edit
             </button>
 
-            <button
-              type="button"
-              onClick={handleTogglePin}
-              className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1.5 rounded-full transition-all"
-            >
-              {capture.pinned ? "📌 Unpin" : "📌 Pin"}
-            </button>
-
             <ShareButton capture={capture} />
 
-            <DeleteDropButton captureId={capture.id} />
+            <CardOverflowMenu>
+              <DeleteDropButton captureId={capture.id} />
+            </CardOverflowMenu>
           </>
         )
       }
