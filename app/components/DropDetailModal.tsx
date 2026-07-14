@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ShareButton from "./ShareButton";
 import DeleteDropButton from "./DeleteDropButton";
-import HidePlaceholderButton from "./HidePlaceholderButton";
+import HidePanel from "./HidePanel";
 import DropContent from "./DropContent";
 import ChecklistContent from "./ChecklistContent";
 import { assignableSpaces } from "@/app/lib/spaces";
@@ -442,19 +442,58 @@ export default function DropDetailModal({
   capture: Capture;
   onClose: () => void;
 }) {
-  const { updateText, updateStatus, updateChecklistItems, temporalSuggestions, spaceOverrides } =
-    useCaptures();
+  const {
+    updateText,
+    updateStatus,
+    updateChecklistItems,
+    hideCapture,
+    archiveCapture,
+    undoCaptureState,
+    temporalSuggestions,
+    spaceOverrides,
+  } = useCaptures();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(capture.text);
   const [savingText, setSavingText] = useState(false);
   const [textError, setTextError] = useState<string | null>(null);
   const [togglingStatus, setTogglingStatus] = useState(false);
   const [confirmingComplete, setConfirmingComplete] = useState(false);
+  const [expandedPanel, setExpandedPanel] = useState<"hide" | "more" | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
 
   const tone = getSpaceTone(capture.spaceIds?.[0]);
   const toneName = spaceOverrides[capture.spaceIds?.[0] ?? ""] ?? tone.name;
   const isUrgent = capture.tags?.includes("urgent") ?? false;
   const isCompleted = capture.status === "completed";
+
+  // Cursor at the END of the existing text, not the start - autoFocus
+  // alone leaves a controlled textarea's cursor at position 0, which
+  // interrupts voice dictation (has to manually reposition before
+  // continuing). Runs once per entry into edit mode.
+  useEffect(() => {
+    if (!editing) return;
+    const el = textareaRef.current;
+    if (!el) return;
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+  }, [editing]);
+
+  // Tapping elsewhere in the modal (but not outside it - the backdrop's
+  // own onClick already closes the whole modal) collapses whichever
+  // panel is open. Scoped to the modal's own inner box via boxRef.
+  useEffect(() => {
+    if (!expandedPanel) return;
+
+    function handleOutsideClick(event: MouseEvent) {
+      if (boxRef.current && !boxRef.current.contains(event.target as Node)) {
+        setExpandedPanel(null);
+      }
+    }
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [expandedPanel]);
 
   async function handleSaveText() {
     if (!draft.trim()) return;
@@ -510,12 +549,43 @@ export default function DropDetailModal({
     updateChecklistItems(capture.id, next);
   }
 
+  // Same "stay open, reflect live state" convention as every other
+  // in-modal action here (Space toggling, temporal edits, Complete) -
+  // no auto-close, no list settle animation to coordinate with.
+  async function handleHideToday() {
+    setExpandedPanel(null);
+    await hideCapture(capture.id, "today");
+  }
+
+  async function handleHideWeek() {
+    setExpandedPanel(null);
+    await hideCapture(capture.id, "week");
+  }
+
+  async function handleArchiveTap() {
+    setExpandedPanel(null);
+    await archiveCapture(capture.id);
+  }
+
+  async function handleUndoTap() {
+    setExpandedPanel(null);
+    await undoCaptureState(capture.id);
+  }
+
+  function handleEditTap() {
+    setExpandedPanel(null);
+    setDraft(capture.text);
+    setTextError(null);
+    setEditing((prev) => !prev);
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       onClick={onClose}
     >
       <div
+        ref={boxRef}
         className={`w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white p-6 rounded-3xl border-[5px] ${tone.border} shadow-lg`}
         onClick={(event) => event.stopPropagation()}
       >
@@ -543,19 +613,6 @@ export default function DropDetailModal({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <ShareButton capture={capture} />
-            <button
-              type="button"
-              onClick={() => {
-                setDraft(capture.text);
-                setTextError(null);
-                setEditing((prev) => !prev);
-              }}
-              aria-label="Edit Drop text"
-              className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-2.5 py-1.5 rounded-full transition-all"
-            >
-              ✏️ Edit
-            </button>
             <button
               type="button"
               onClick={onClose}
@@ -576,9 +633,9 @@ export default function DropDetailModal({
         {editing ? (
           <div>
             <textarea
+              ref={textareaRef}
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
-              autoFocus
               className="w-full border border-gray-300 rounded-xl p-3 text-lg min-h-32 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
             />
             <div className="flex items-center gap-2 mt-2">
@@ -644,56 +701,118 @@ export default function DropDetailModal({
           </div>
         )}
 
-        <div className="mt-4 flex items-center gap-2 flex-wrap">
-          {capture.isActionable &&
-            (confirmingComplete ? (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-gray-600">
-                  This checklist still has unchecked items. Complete anyway?
-                </span>
+        <div className="mt-4 pt-3 border-t border-gray-100">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {capture.isActionable &&
+              (confirmingComplete ? (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-gray-600">
+                    This checklist still has unchecked items. Complete anyway?
+                  </span>
+                  <button
+                    type="button"
+                    onClick={commitToggleStatus}
+                    disabled={togglingStatus}
+                    className="text-xs font-semibold bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
+                  >
+                    Complete anyway
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingComplete(false)}
+                    disabled={togglingStatus}
+                    className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
                 <button
                   type="button"
-                  onClick={commitToggleStatus}
+                  onClick={handleToggleStatus}
                   disabled={togglingStatus}
-                  className="text-xs font-semibold bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
+                  aria-label={isCompleted ? "Mark as active" : "Mark as completed"}
+                  className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all disabled:opacity-60 ${
+                    isCompleted
+                      ? "bg-orange-500 text-white"
+                      : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+                  }`}
                 >
-                  Complete anyway
+                  {isCompleted ? "● Completed" : "○ Completed"}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmingComplete(false)}
-                  disabled={togglingStatus}
-                  className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={handleToggleStatus}
-                disabled={togglingStatus}
-                aria-label={isCompleted ? "Mark as active" : "Mark as completed"}
-                className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all disabled:opacity-60 ${
-                  isCompleted
-                    ? "bg-orange-500 text-white"
-                    : "bg-gray-100 hover:bg-gray-200 text-gray-600"
-                }`}
-              >
-                {isCompleted ? "● Completed" : "○ Completed"}
-              </button>
-            ))}
-          <HidePlaceholderButton />
-          <DeleteDropButton captureId={capture.id} onDeleted={onClose} />
-          {capture.extractedAddress && (
-            <a
-              href={`https://maps.google.com/?q=${encodeURIComponent(capture.extractedAddress)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-full transition-all"
+              ))}
+
+            <ShareButton capture={capture} />
+
+            <button
+              type="button"
+              onClick={() => setExpandedPanel((prev) => (prev === "hide" ? null : "hide"))}
+              aria-expanded={expandedPanel === "hide"}
+              className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
+                expandedPanel === "hide"
+                  ? "bg-gray-800 text-white"
+                  : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+              }`}
             >
-              📍 Open in Maps
-            </a>
+              🙈 Hide
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setExpandedPanel((prev) => (prev === "more" ? null : "more"))}
+              aria-expanded={expandedPanel === "more"}
+              className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
+                expandedPanel === "more"
+                  ? "bg-gray-800 text-white"
+                  : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+              }`}
+            >
+              ⋯ More
+            </button>
+
+            {capture.extractedAddress && (
+              <a
+                href={`https://maps.google.com/?q=${encodeURIComponent(capture.extractedAddress)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-full transition-all"
+              >
+                📍 Open in Maps
+              </a>
+            )}
+          </div>
+
+          {expandedPanel && (
+            <div className="mt-2 pt-2 border-t border-gray-100">
+              {expandedPanel === "hide" ? (
+                <HidePanel
+                  onToday={handleHideToday}
+                  onWeek={handleHideWeek}
+                  onArchive={handleArchiveTap}
+                />
+              ) : (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={handleEditTap}
+                    aria-label="Edit Drop text"
+                    className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1.5 rounded-full transition-all"
+                  >
+                    ✏️ Edit
+                  </button>
+                  <DeleteDropButton captureId={capture.id} onDeleted={onClose} />
+                  <button
+                    type="button"
+                    onClick={handleUndoTap}
+                    disabled={!capture.previousState}
+                    aria-label="Undo last change"
+                    className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1.5 rounded-full transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    ↩️ Undo
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>

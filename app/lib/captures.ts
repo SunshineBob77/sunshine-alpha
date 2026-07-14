@@ -34,6 +34,12 @@ export function hasUncheckedChecklistItems(items: ChecklistItem[]): boolean {
   return items.length > 0 && items.some((item) => !item.checked);
 }
 
+export type PreviousState = {
+  status: "active" | "completed";
+  hiddenUntil: string | null;
+  userArchivedAt: string | null;
+};
+
 export type Capture = {
   id: number;
   text: string;
@@ -68,6 +74,9 @@ export type Capture = {
   recurrenceType: "yearly" | null;
   recurrenceRawText: string | null;
   checklistItems: ChecklistItem[];
+  hiddenUntil: string | null;
+  userArchivedAt: string | null;
+  previousState: PreviousState | null;
 };
 
 export type CaptureRow = {
@@ -104,6 +113,9 @@ export type CaptureRow = {
   recurrence_type: "yearly" | null;
   recurrence_raw_text: string | null;
   checklist_items: ChecklistItem[] | null;
+  hidden_until: string | null;
+  user_archived_at: string | null;
+  previous_state: PreviousState | null;
 };
 
 export function mapRowToCapture(row: CaptureRow): Capture {
@@ -141,6 +153,9 @@ export function mapRowToCapture(row: CaptureRow): Capture {
     recurrenceType: row.recurrence_type ?? null,
     recurrenceRawText: row.recurrence_raw_text ?? null,
     checklistItems: row.checklist_items ?? [],
+    hiddenUntil: row.hidden_until ?? null,
+    userArchivedAt: row.user_archived_at ?? null,
+    previousState: row.previous_state ?? null,
   };
 }
 
@@ -274,9 +289,65 @@ export async function updateCaptureText(id: number, text: string): Promise<void>
 
 export async function updateCaptureStatus(
   id: number,
-  status: "active" | "completed"
+  status: "active" | "completed",
+  previousState?: PreviousState | null
 ): Promise<void> {
-  const { error } = await supabase.from("captures").update({ status }).eq("id", id);
+  const payload: Record<string, unknown> = { status };
+  // Only touched when transitioning TO completed (see DashboardContext.updateStatus)
+  // - un-completing is already its own direct undo-equivalent action and
+  // never needs a snapshot.
+  if (previousState !== undefined) payload.previous_state = previousState;
+
+  const { error } = await supabase.from("captures").update(payload).eq("id", id);
+  if (error) throw error;
+}
+
+export async function updateCaptureHide(
+  id: number,
+  hiddenUntil: string | null,
+  previousState: PreviousState | null
+): Promise<void> {
+  const { error } = await supabase
+    .from("captures")
+    .update({ hidden_until: hiddenUntil, previous_state: previousState })
+    .eq("id", id);
+
+  if (error) throw error;
+}
+
+export async function updateCaptureArchive(
+  id: number,
+  archived: boolean,
+  previousState: PreviousState | null
+): Promise<void> {
+  const { error } = await supabase
+    .from("captures")
+    .update({
+      user_archived_at: archived ? new Date().toISOString() : null,
+      previous_state: previousState,
+    })
+    .eq("id", id);
+
+  if (error) throw error;
+}
+
+// Single-level undo: restores exactly the three fields Complete/Hide/
+// Archive touch, then clears previous_state - no redo chain, matching
+// the "single-level, not a full history stack" scope.
+export async function updateCaptureUndo(
+  id: number,
+  previousState: PreviousState
+): Promise<void> {
+  const { error } = await supabase
+    .from("captures")
+    .update({
+      status: previousState.status,
+      hidden_until: previousState.hiddenUntil,
+      user_archived_at: previousState.userArchivedAt,
+      previous_state: null,
+    })
+    .eq("id", id);
+
   if (error) throw error;
 }
 

@@ -3,7 +3,6 @@
 import DropCard from "./DropCard";
 import ShareButton from "./ShareButton";
 import DeleteDropButton from "./DeleteDropButton";
-import HidePlaceholderButton from "./HidePlaceholderButton";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import type { Capture } from "@/app/lib/captures";
 
@@ -14,6 +13,10 @@ export default function LifelineDropCard({
   onAccept,
   onDismiss,
   onToggleStatus,
+  onHideToday,
+  onHideWeek,
+  onArchive,
+  onUndo,
 }: {
   capture: Capture;
   onSelect: (id: number) => void;
@@ -21,9 +24,14 @@ export default function LifelineDropCard({
   onAccept?: () => void;
   onDismiss?: () => void;
   onToggleStatus?: () => void;
+  onHideToday?: () => void;
+  onHideWeek?: () => void;
+  onArchive?: () => void;
+  onUndo?: () => void;
 }) {
   const { updatePinned, updateChecklistItems } = useCaptures();
   const isUrgent = capture.tags?.includes("urgent") ?? false;
+  const isDrop = kind === "drop";
 
   function handleTogglePin() {
     updatePinned(capture.id, !capture.pinned);
@@ -45,13 +53,16 @@ export default function LifelineDropCard({
       isUrgent={isUrgent}
       isActionable={capture.isActionable}
       status={capture.status}
-      onToggleStatus={kind === "drop" ? onToggleStatus : undefined}
+      onToggleStatus={isDrop ? onToggleStatus : undefined}
       onTitleTap={() => onSelect(capture.id)}
       isPinned={capture.pinned}
-      onTogglePin={kind === "drop" ? handleTogglePin : undefined}
+      onTogglePin={isDrop ? handleTogglePin : undefined}
       checklistItems={capture.checklistItems}
       onToggleChecklistItem={handleToggleChecklistItem}
-      actions={
+      onHideToday={isDrop ? onHideToday : undefined}
+      onHideWeek={isDrop ? onHideWeek : undefined}
+      onArchive={isDrop ? onArchive : undefined}
+      extraPrimaryActions={
         kind === "suggestion" ? (
           <>
             <button
@@ -70,6 +81,11 @@ export default function LifelineDropCard({
             </button>
           </>
         ) : (
+          <ShareButton capture={capture} />
+        )
+      }
+      moreActions={
+        isDrop ? (
           <>
             <button
               type="button"
@@ -79,13 +95,19 @@ export default function LifelineDropCard({
               ✏️ Edit
             </button>
 
-            <ShareButton capture={capture} />
-
-            <HidePlaceholderButton />
-
             <DeleteDropButton captureId={capture.id} />
+
+            <button
+              type="button"
+              onClick={onUndo}
+              disabled={!capture.previousState}
+              aria-label="Undo last change"
+              className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1.5 rounded-full transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              ↩️ Undo
+            </button>
           </>
-        )
+        ) : undefined
       }
     />
   );

@@ -19,26 +19,40 @@ export default function LifelineFeed({
   activeFilter: string;
   onSelectCapture: (id: number) => void;
 }) {
-  const { updateStatus } = useCaptures();
+  const { updateStatus, hideCapture, archiveCapture, undoCaptureState } = useCaptures();
   const [pendingRemovalIds, setPendingRemovalIds] = useState<Set<number>>(new Set());
 
+  // Archived is checked first and short-circuits every other branch (tucked
+  // away everywhere except its own Space) except the Archived filter
+  // itself. hiddenUntil only ever gates the literal "all" Lifeline view -
+  // a hidden Drop stays fully visible in its own Space, and in the
+  // Completed/Pinned cross-cutting views, per spec.
   const filteredCaptures = useMemo(() => {
     return captures.filter((capture) => {
       if (pendingRemovalIds.has(capture.id)) return true;
 
+      const isArchived = capture.userArchivedAt !== null;
+      if (activeFilter === "archived") return isArchived;
+      if (isArchived) return false;
+
       if (activeFilter === "completed") return capture.status === "completed";
       if (activeFilter === "pinned") return capture.pinned === true;
+
+      const isHiddenNow = Boolean(capture.hiddenUntil && new Date(capture.hiddenUntil) > new Date());
+      if (activeFilter === "all" && isHiddenNow) return false;
+
       if (capture.status === "completed") return false;
 
       return activeFilter === "all" || capture.spaceIds?.includes(activeFilter);
     });
   }, [captures, activeFilter, pendingRemovalIds]);
 
-  async function handleToggleStatus(id: number, currentStatus: Capture["status"]) {
-    const nextStatus = currentStatus === "completed" ? "active" : "completed";
-
-    // Whichever direction, this item is about to leave the currently visible
-    // filtered view - hold it visible through its own settle animation first.
+  // Shared settle-then-remove helper - whichever action just fired, the
+  // item may be about to leave the currently visible filtered view (or
+  // move to a different one), so it stays visible through its own settle
+  // animation first, same window DropCard's own internal collapse
+  // animation uses (see DropCard.tsx's SETTLE_MS).
+  function holdThroughSettle(id: number) {
     setPendingRemovalIds((prev) => new Set(prev).add(id));
     setTimeout(() => {
       setPendingRemovalIds((prev) => {
@@ -47,8 +61,27 @@ export default function LifelineFeed({
         return next;
       });
     }, SETTLE_MS);
+  }
 
+  async function handleToggleStatus(id: number, currentStatus: Capture["status"]) {
+    const nextStatus = currentStatus === "completed" ? "active" : "completed";
+    holdThroughSettle(id);
     await updateStatus(id, nextStatus);
+  }
+
+  async function handleHide(id: number, duration: "today" | "week") {
+    holdThroughSettle(id);
+    await hideCapture(id, duration);
+  }
+
+  async function handleArchive(id: number) {
+    holdThroughSettle(id);
+    await archiveCapture(id);
+  }
+
+  async function handleUndo(id: number) {
+    holdThroughSettle(id);
+    await undoCaptureState(id);
   }
 
   if (filteredCaptures.length === 0) {
@@ -56,9 +89,11 @@ export default function LifelineFeed({
       <p className="text-gray-500 text-center mt-6">
         {activeFilter === "completed"
           ? "No completed Drops yet."
-          : activeFilter === "all"
-            ? "No Drops yet."
-            : "No Drops in this Space yet."}
+          : activeFilter === "archived"
+            ? "No archived Drops yet."
+            : activeFilter === "all"
+              ? "No Drops yet."
+              : "No Drops in this Space yet."}
       </p>
     );
   }
@@ -71,6 +106,10 @@ export default function LifelineFeed({
           capture={capture}
           onSelect={onSelectCapture}
           onToggleStatus={() => handleToggleStatus(capture.id, capture.status)}
+          onHideToday={() => handleHide(capture.id, "today")}
+          onHideWeek={() => handleHide(capture.id, "week")}
+          onArchive={() => handleArchive(capture.id)}
+          onUndo={() => handleUndo(capture.id)}
         />
       ))}
     </div>

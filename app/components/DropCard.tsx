@@ -3,14 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import DropContent from "./DropContent";
 import ChecklistContent from "./ChecklistContent";
+import HidePanel from "./HidePanel";
 import { getSpaceTone } from "@/app/lib/spaceTone";
 import { formatRelativeTime } from "@/app/lib/relativeTime";
 import { hasUncheckedChecklistItems, type ChecklistItem } from "@/app/lib/captures";
 
 const MAX_COLLAPSED_HEIGHT = 160;
-// Card stays fully visible in its filled "Completed" state before it starts
-// leaving the current view - long enough to read as a deliberate status
-// change, not a disappearance.
+// Card stays fully visible in its new state (Completed/Hidden/Archived)
+// before it starts leaving the current view - long enough to read as a
+// deliberate change, not a disappearance.
 const SETTLE_MS = 2800;
 
 export default function DropCard({
@@ -21,10 +22,14 @@ export default function DropCard({
   isUrgent = false,
   clipped = true,
   onTitleTap,
-  actions,
+  extraPrimaryActions,
+  moreActions,
   isActionable = false,
   status = "active",
   onToggleStatus,
+  onHideToday,
+  onHideWeek,
+  onArchive,
   size = "default",
   isPinned = false,
   onTogglePin,
@@ -38,10 +43,23 @@ export default function DropCard({
   isUrgent?: boolean;
   clipped?: boolean;
   onTitleTap?: () => void;
-  actions?: React.ReactNode;
+  // Always-visible row content beyond the Completed toggle, distinct from
+  // moreActions below (Share stays in the primary row per Action Row v2;
+  // Edit/Delete/Undo move into the collapsible More panel). Also doubles
+  // as the suggestion-kind card's Accept/Dismiss buttons, which don't fit
+  // the Complete/Share/Hide/More shape at all and need to stay directly
+  // visible rather than tucked behind a trigger.
+  extraPrimaryActions?: React.ReactNode;
+  // Generically extensible - whatever's passed here renders inside the
+  // collapsible "More" panel as-is (currently Edit/Delete/Undo; future
+  // items like Duplicate/Move-to-Space just get added by the caller).
+  moreActions?: React.ReactNode;
   isActionable?: boolean;
   status?: "active" | "completed" | "deleted";
   onToggleStatus?: () => void;
+  onHideToday?: () => void;
+  onHideWeek?: () => void;
+  onArchive?: () => void;
   size?: "default" | "hero";
   isPinned?: boolean;
   onTogglePin?: () => void;
@@ -51,10 +69,12 @@ export default function DropCard({
   const tone = getSpaceTone(spaceId);
   const isHero = size === "hero";
   const contentRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [isOverflowing, setIsOverflowing] = useState(false);
   const [collapsing, setCollapsing] = useState(false);
   const [confirmingComplete, setConfirmingComplete] = useState(false);
+  const [expandedPanel, setExpandedPanel] = useState<"hide" | "more" | null>(null);
 
   useEffect(() => {
     const el = contentRef.current;
@@ -62,9 +82,32 @@ export default function DropCard({
     setIsOverflowing(el.scrollHeight > MAX_COLLAPSED_HEIGHT);
   }, [content]);
 
+  // Tapping elsewhere collapses whichever panel is open - scoped to this
+  // card's own root (via rootRef.contains), not a global "any click
+  // anywhere closes every card's panel" listener. In-flow content, not an
+  // absolutely-positioned popover, so it isn't subject to the overflow-
+  // hidden clipping issue the earlier standalone overflow-menu attempt hit.
+  useEffect(() => {
+    if (!expandedPanel) return;
+
+    function handleOutsideClick(event: MouseEvent) {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
+        setExpandedPanel(null);
+      }
+    }
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [expandedPanel]);
+
   const isClippedNow = clipped && !expanded;
   const isCompleted = status === "completed";
   const showCompletedToggle = isActionable && onToggleStatus;
+  const showHideTrigger = Boolean(onHideToday || onHideWeek || onArchive);
+
+  function togglePanel(panel: "hide" | "more") {
+    setExpandedPanel((prev) => (prev === panel ? null : panel));
+  }
 
   function handleToggleTap() {
     if (!onToggleStatus) return;
@@ -84,16 +127,38 @@ export default function DropCard({
   function commitToggleStatus() {
     setConfirmingComplete(false);
     onToggleStatus?.();
+    settle();
+  }
 
-    // Whichever direction this just toggled, the card is about to leave the
-    // current view (default Lifeline when completing, the Completed Space
-    // when un-completing) - hold it visible in its new state briefly first.
+  // Shared settle-then-leave for any action that moves this Drop out of
+  // the current view (Complete, Hide, Archive) - holds the card visible
+  // in its new state briefly before the parent list's own filter drops it.
+  function settle() {
     setCollapsing(false);
     setTimeout(() => setCollapsing(true), SETTLE_MS);
   }
 
+  function handleHideToday() {
+    setExpandedPanel(null);
+    onHideToday?.();
+    settle();
+  }
+
+  function handleHideWeek() {
+    setExpandedPanel(null);
+    onHideWeek?.();
+    settle();
+  }
+
+  function handleArchive() {
+    setExpandedPanel(null);
+    onArchive?.();
+    settle();
+  }
+
   return (
     <div
+      ref={rootRef}
       className={`bg-white rounded-2xl border-[5px] ${tone.border} shadow-sm transition-all duration-500 ease-in-out overflow-hidden ${
         collapsing
           ? "max-h-0 opacity-0 !p-0 !border-0"
@@ -104,9 +169,7 @@ export default function DropCard({
         <div className="min-w-0 flex-1">
           {onTitleTap ? (
             <button type="button" onClick={onTitleTap} className="block w-full text-left">
-              <p
-                className={`font-bold text-gray-900 ${isHero ? "text-2xl" : "text-lg"}`}
-              >
+              <p className={`font-bold text-gray-900 ${isHero ? "text-2xl" : "text-lg"}`}>
                 {title}
               </p>
             </button>
@@ -177,44 +240,91 @@ export default function DropCard({
 
       <p className="text-sm text-gray-500 mt-2">{formatRelativeTime(createdAt)}</p>
 
-      {(actions || showCompletedToggle) && (
-        <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-gray-100 flex-wrap">
-          {showCompletedToggle &&
-            (confirmingComplete ? (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-gray-600">
-                  This checklist still has unchecked items. Complete anyway?
-                </span>
+      {(extraPrimaryActions || moreActions || showCompletedToggle || showHideTrigger) && (
+        <div className="mt-2 pt-2 border-t border-gray-100">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {showCompletedToggle &&
+              (confirmingComplete ? (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-gray-600">
+                    This checklist still has unchecked items. Complete anyway?
+                  </span>
+                  <button
+                    type="button"
+                    onClick={commitToggleStatus}
+                    className="text-xs font-semibold bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded-full transition-all"
+                  >
+                    Complete anyway
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingComplete(false)}
+                    className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-all"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
                 <button
                   type="button"
-                  onClick={commitToggleStatus}
-                  className="text-xs font-semibold bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded-full transition-all"
+                  onClick={handleToggleTap}
+                  aria-label={isCompleted ? "Mark as active" : "Mark as completed"}
+                  className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
+                    isCompleted
+                      ? "bg-orange-500 text-white"
+                      : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+                  }`}
                 >
-                  Complete anyway
+                  {isCompleted ? "● Completed" : "○ Completed"}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmingComplete(false)}
-                  className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-all"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
+              ))}
+
+            {extraPrimaryActions}
+
+            {showHideTrigger && (
               <button
                 type="button"
-                onClick={handleToggleTap}
-                aria-label={isCompleted ? "Mark as active" : "Mark as completed"}
+                onClick={() => togglePanel("hide")}
+                aria-expanded={expandedPanel === "hide"}
                 className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
-                  isCompleted
-                    ? "bg-orange-500 text-white"
+                  expandedPanel === "hide"
+                    ? "bg-gray-800 text-white"
                     : "bg-gray-100 hover:bg-gray-200 text-gray-600"
                 }`}
               >
-                {isCompleted ? "● Completed" : "○ Completed"}
+                🙈 Hide
               </button>
-            ))}
-          {actions}
+            )}
+
+            {moreActions && (
+              <button
+                type="button"
+                onClick={() => togglePanel("more")}
+                aria-expanded={expandedPanel === "more"}
+                className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
+                  expandedPanel === "more"
+                    ? "bg-gray-800 text-white"
+                    : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+                }`}
+              >
+                ⋯ More
+              </button>
+            )}
+          </div>
+
+          {expandedPanel && (
+            <div className="mt-2 pt-2 border-t border-gray-100">
+              {expandedPanel === "hide" ? (
+                <HidePanel
+                  onToday={handleHideToday}
+                  onWeek={handleHideWeek}
+                  onArchive={handleArchive}
+                />
+              ) : (
+                moreActions
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

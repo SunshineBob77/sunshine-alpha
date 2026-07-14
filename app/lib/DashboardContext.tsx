@@ -13,10 +13,14 @@ import {
   dismissCaptureTemporal,
   updateCapturePinned,
   updateCaptureChecklistItems,
+  updateCaptureHide,
+  updateCaptureArchive,
+  updateCaptureUndo,
   mapRowToCapture,
   type Capture,
   type CaptureRow,
   type ChecklistItem,
+  type PreviousState,
 } from "./captures";
 import { analyzeCapture } from "./analyzeCapture";
 import { recognizeEntities } from "./recognizeEntities";
@@ -62,6 +66,9 @@ type DashboardContextValue = {
   updateStatus: (id: number, status: "active" | "completed") => Promise<void>;
   updatePinned: (id: number, pinned: boolean) => Promise<void>;
   updateChecklistItems: (id: number, items: ChecklistItem[]) => Promise<void>;
+  hideCapture: (id: number, duration: "today" | "week") => Promise<void>;
+  archiveCapture: (id: number) => Promise<void>;
+  undoCaptureState: (id: number) => Promise<void>;
   updateTemporal: (
     id: number,
     input: { eventAt: string; eventHasTime: boolean; eventTimezone: string }
@@ -385,9 +392,96 @@ export function DashboardProvider({
   }
 
   async function updateStatus(id: number, status: "active" | "completed") {
-    await updateCaptureStatus(id, status);
+    // Only the active -> completed direction snapshots previous_state for
+    // Undo - un-completing via this same toggle is already a direct
+    // undo-equivalent action, not something Undo itself needs to cover.
+    let previousState: PreviousState | undefined;
+    if (status === "completed") {
+      const existing = captures.find((capture) => capture.id === id);
+      if (existing) {
+        previousState = {
+          status: existing.status === "completed" ? "completed" : "active",
+          hiddenUntil: existing.hiddenUntil,
+          userArchivedAt: existing.userArchivedAt,
+        };
+      }
+    }
+
+    await updateCaptureStatus(id, status, previousState);
     setCaptures((prev) =>
-      prev.map((capture) => (capture.id === id ? { ...capture, status } : capture))
+      prev.map((capture) =>
+        capture.id === id
+          ? { ...capture, status, ...(previousState !== undefined ? { previousState } : {}) }
+          : capture
+      )
+    );
+  }
+
+  async function hideCapture(id: number, duration: "today" | "week") {
+    const existing = captures.find((capture) => capture.id === id);
+    if (!existing) return;
+
+    // "Remainder of the current day" ends at local midnight tonight, in
+    // the viewer's own timezone - same Intl-based pattern already used
+    // elsewhere in this file (e.g. the morning-brief localDate/localHour
+    // computation above) rather than a raw "+24h"/"+7*24h" offset, which
+    // would drift depending on what time of day the action was taken.
+    const endOfToday = new Date();
+    endOfToday.setHours(24, 0, 0, 0);
+    const hiddenUntil =
+      duration === "today"
+        ? endOfToday.toISOString()
+        : new Date(endOfToday.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const previousState: PreviousState = {
+      status: existing.status === "completed" ? "completed" : "active",
+      hiddenUntil: existing.hiddenUntil,
+      userArchivedAt: existing.userArchivedAt,
+    };
+
+    await updateCaptureHide(id, hiddenUntil, previousState);
+    setCaptures((prev) =>
+      prev.map((capture) => (capture.id === id ? { ...capture, hiddenUntil, previousState } : capture))
+    );
+  }
+
+  async function archiveCapture(id: number) {
+    const existing = captures.find((capture) => capture.id === id);
+    if (!existing) return;
+
+    const previousState: PreviousState = {
+      status: existing.status === "completed" ? "completed" : "active",
+      hiddenUntil: existing.hiddenUntil,
+      userArchivedAt: existing.userArchivedAt,
+    };
+    const userArchivedAt = new Date().toISOString();
+
+    await updateCaptureArchive(id, true, previousState);
+    setCaptures((prev) =>
+      prev.map((capture) =>
+        capture.id === id ? { ...capture, userArchivedAt, previousState } : capture
+      )
+    );
+  }
+
+  async function undoCaptureState(id: number) {
+    const existing = captures.find((capture) => capture.id === id);
+    if (!existing || !existing.previousState) return;
+
+    const { previousState } = existing;
+    await updateCaptureUndo(id, previousState);
+    setCaptures((prev) =>
+      prev.map((capture) =>
+        capture.id === id
+          ? {
+              ...capture,
+              status: previousState.status,
+              hiddenUntil: previousState.hiddenUntil,
+              userArchivedAt: previousState.userArchivedAt,
+              previousState: null,
+            }
+          : capture
+      )
     );
   }
 
@@ -464,6 +558,9 @@ export function DashboardProvider({
         updateStatus,
         updatePinned,
         updateChecklistItems,
+        hideCapture,
+        archiveCapture,
+        undoCaptureState,
         updateTemporal,
         dismissTemporal,
         temporalSuggestions,
