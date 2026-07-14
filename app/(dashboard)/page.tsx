@@ -67,7 +67,7 @@ export default function Home() {
           global 56px DashboardHeader. */}
       <header
         ref={headerRef}
-        className="fixed top-14 inset-x-0 z-30 bg-amber-50/95 backdrop-blur-md border-b border-black/5 px-4 sm:px-8 py-2"
+        className="fixed top-14 inset-x-0 z-30 bg-night/90 backdrop-blur-md border-b border-ink/10 px-4 sm:px-8 py-2"
       >
         <div className="w-full max-w-2xl mx-auto flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {filterOptions.map((option) => (
@@ -77,8 +77,8 @@ export default function Home() {
               onClick={() => setActiveFilter(option.id)}
               className={`shrink-0 whitespace-nowrap text-xs font-semibold px-3 py-1.5 rounded-full transition-all ${
                 activeFilter === option.id
-                  ? "bg-gray-900 text-white"
-                  : "bg-white text-gray-600 ring-1 ring-black/5 hover:ring-black/10"
+                  ? "bg-gold text-night"
+                  : "bg-ink/5 text-ink-dim ring-1 ring-ink/10 hover:ring-ink/20"
               }`}
             >
               {option.name}
@@ -88,16 +88,16 @@ export default function Home() {
       </header>
 
       <main
-        className="flex flex-col items-center p-4 sm:p-8"
+        className="flex flex-col items-center p-4 sm:p-8 min-h-screen bg-gradient-to-b from-night to-dusk"
         style={{ paddingTop: headerHeight + 16 }}
       >
         <div className="w-full max-w-2xl">
           {capturesError && (
-            <p className="text-sm text-red-600 mb-6 text-center">{capturesError}</p>
+            <p className="text-sm text-red-400 mb-6 text-center">{capturesError}</p>
           )}
 
           {capturesLoading ? (
-            <p className="text-gray-500 text-center">Loading your day…</p>
+            <p className="text-ink-dim text-center">Loading your day…</p>
           ) : (
             <section>
               <LifelineFeed

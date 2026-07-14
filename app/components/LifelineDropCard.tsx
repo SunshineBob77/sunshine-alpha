@@ -46,6 +46,7 @@ export default function LifelineDropCard({
 
   return (
     <DropCard
+      variant="dark"
       title={capture.title ?? capture.sunshineSummary}
       spaceId={capture.spaceIds?.[0]}
       content={capture.formattedText ?? capture.text}
@@ -68,20 +69,20 @@ export default function LifelineDropCard({
             <button
               type="button"
               onClick={onAccept}
-              className="text-xs font-semibold bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-3 py-1.5 rounded-full transition-all"
+              className="text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 px-3 py-1.5 rounded-full transition-all"
             >
               ✓ Accept
             </button>
             <button
               type="button"
               onClick={onDismiss}
-              className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1.5 rounded-full transition-all"
+              className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-3 py-1.5 rounded-full transition-all"
             >
               ✕ Dismiss
             </button>
           </>
         ) : (
-          <ShareButton capture={capture} />
+          <ShareButton capture={capture} variant="dark" />
         )
       }
       moreActions={
@@ -90,19 +91,19 @@ export default function LifelineDropCard({
             <button
               type="button"
               onClick={() => onSelect(capture.id)}
-              className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1.5 rounded-full transition-all"
+              className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-2 py-1.5 rounded-full transition-all"
             >
               ✏️ Edit
             </button>
 
-            <DeleteDropButton captureId={capture.id} />
+            <DeleteDropButton captureId={capture.id} variant="dark" />
 
             <button
               type="button"
               onClick={onUndo}
               disabled={!capture.previousState}
               aria-label="Undo last change"
-              className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1.5 rounded-full transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-2 py-1.5 rounded-full transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             >
               ↩️ Undo
             </button>

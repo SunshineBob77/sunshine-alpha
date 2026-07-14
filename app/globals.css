@@ -10,6 +10,19 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Palette for the Lifeline feed screen's dark restyle - exposed as
+     Tailwind utilities (bg-night, text-gold, border-ink/12, etc.) so
+     Lifeline-scoped components style off one shared source instead of
+     repeating hex values inline. Tokens are global (any screen could
+     technically use bg-night), but only Lifeline components currently
+     do - other screens are untouched by this change. */
+  --color-night: #1C1A33;
+  --color-dusk: #2E2750;
+  --color-gold: #F0A339;
+  --color-peach: #FFD8A6;
+  --color-ink: #F6F1E9;
+  --color-ink-dim: #C4BADA;
 }
 
 @media (prefers-color-scheme: dark) {

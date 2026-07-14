@@ -86,7 +86,7 @@ export default function LifelineFeed({
 
   if (filteredCaptures.length === 0) {
     return (
-      <p className="text-gray-500 text-center mt-6">
+      <p className="text-ink-dim text-center mt-6">
         {activeFilter === "completed"
           ? "No completed Drops yet."
           : activeFilter === "archived"

@@ -7,6 +7,7 @@ import HidePanel from "./HidePanel";
 import { getSpaceTone } from "@/app/lib/spaceTone";
 import { formatRelativeTime } from "@/app/lib/relativeTime";
 import { hasUncheckedChecklistItems, type ChecklistItem } from "@/app/lib/captures";
+import { fraunces } from "@/app/lib/fonts";
 
 const MAX_COLLAPSED_HEIGHT = 160;
 // Card stays fully visible in its new state (Completed/Hidden/Archived)
@@ -35,6 +36,7 @@ export default function DropCard({
   onTogglePin,
   checklistItems,
   onToggleChecklistItem,
+  variant = "light",
 }: {
   title: string;
   spaceId: string | null | undefined;
@@ -65,9 +67,14 @@ export default function DropCard({
   onTogglePin?: () => void;
   checklistItems?: ChecklistItem[];
   onToggleChecklistItem?: (itemId: string) => void;
+  // "light" (default) is the existing, unchanged appearance - used by the
+  // public share page (app/s/[id]/page.tsx), which doesn't pass this
+  // prop. "dark" is scoped to the Lifeline feed screen's restyle only.
+  variant?: "light" | "dark";
 }) {
   const tone = getSpaceTone(spaceId);
   const isHero = size === "hero";
+  const isDark = variant === "dark";
   const contentRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
@@ -156,10 +163,25 @@ export default function DropCard({
     settle();
   }
 
+  // Dark variant: soft rounded card, low-opacity ink border/background, no
+  // hard shadow - space-tone color is carried by the icon chip below
+  // instead of the light variant's thick 5px tone.border, and a soft gold
+  // ambient glow marks the pinned emphasis state instead of a shadow.
+  const cardToneClass = isDark
+    ? `border ${isPinned ? "border-gold/40" : "border-ink/[0.12]"}`
+    : `border-[5px] ${tone.border}`;
+  const cardShadowClass = isDark
+    ? isPinned
+      ? "shadow-[0_0_24px_rgba(240,163,57,0.18)]"
+      : ""
+    : "shadow-sm";
+
   return (
     <div
       ref={rootRef}
-      className={`bg-white rounded-2xl border-[5px] ${tone.border} shadow-sm transition-all duration-500 ease-in-out overflow-hidden ${
+      className={`rounded-2xl transition-all duration-500 ease-in-out overflow-hidden ${
+        isDark ? "bg-ink/[0.05]" : "bg-white"
+      } ${cardToneClass} ${cardShadowClass} ${
         collapsing
           ? "max-h-0 opacity-0 !p-0 !border-0"
           : `max-h-[20000px] opacity-100 ${isHero ? "p-8" : "p-4"}`
@@ -169,12 +191,16 @@ export default function DropCard({
         <div className="min-w-0 flex-1">
           {onTitleTap ? (
             <button type="button" onClick={onTitleTap} className="block w-full text-left">
-              <p className={`font-bold text-gray-900 ${isHero ? "text-2xl" : "text-lg"}`}>
+              <p
+                className={`font-bold ${isDark ? `${fraunces.className} text-ink` : "text-gray-900"} ${isHero ? "text-2xl" : "text-lg"}`}
+              >
                 {title}
               </p>
             </button>
           ) : (
-            <p className={`font-bold text-gray-900 ${isHero ? "text-2xl" : "text-lg"}`}>
+            <p
+              className={`font-bold ${isDark ? `${fraunces.className} text-ink` : "text-gray-900"} ${isHero ? "text-2xl" : "text-lg"}`}
+            >
               {title}
             </p>
           )}
@@ -187,8 +213,14 @@ export default function DropCard({
               onClick={onTogglePin}
               aria-label={isPinned ? "Unpin" : "Pin"}
               title={isPinned ? "Unpin" : "Pin"}
-              className={`flex shrink-0 items-center justify-center rounded-full transition-all hover:bg-black/5 ${
-                isPinned ? "opacity-100 bg-amber-100" : "opacity-35 hover:opacity-70"
+              className={`flex shrink-0 items-center justify-center rounded-full transition-all ${
+                isDark ? "hover:bg-ink/10" : "hover:bg-black/5"
+              } ${
+                isPinned
+                  ? isDark
+                    ? "opacity-100 bg-gold/20"
+                    : "opacity-100 bg-amber-100"
+                  : "opacity-35 hover:opacity-70"
               } ${isHero ? "h-9 w-9 text-base" : "h-6 w-6 text-xs"}`}
             >
               📌
@@ -208,7 +240,9 @@ export default function DropCard({
             </span>
             {isUrgent && (
               <span
-                className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-500 ring-1 ring-white"
+                className={`absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-500 ring-1 ${
+                  isDark ? "ring-night" : "ring-white"
+                }`}
                 title="Urgent"
               />
             )}
@@ -218,13 +252,15 @@ export default function DropCard({
 
       <div
         ref={contentRef}
-        className={`mt-1.5 text-gray-800 overflow-hidden ${isHero ? "text-xl" : "text-base"}`}
+        className={`mt-1.5 overflow-hidden ${isDark ? "text-ink" : "text-gray-800"} ${
+          isHero ? "text-xl" : "text-base"
+        }`}
         style={isClippedNow ? { maxHeight: MAX_COLLAPSED_HEIGHT } : undefined}
       >
         {checklistItems && checklistItems.length > 0 ? (
           <ChecklistContent items={checklistItems} onToggle={onToggleChecklistItem ?? (() => {})} />
         ) : (
-          <DropContent content={content} />
+          <DropContent content={content} variant={variant} />
         )}
       </div>
 
@@ -232,34 +268,44 @@ export default function DropCard({
         <button
           type="button"
           onClick={() => setExpanded((prev) => !prev)}
-          className="text-sm font-semibold text-amber-700 mt-1"
+          className={`text-sm font-semibold mt-1 ${isDark ? "text-gold" : "text-amber-700"}`}
         >
           {expanded ? "Show less" : "Show more"}
         </button>
       )}
 
-      <p className="text-sm text-gray-500 mt-2">{formatRelativeTime(createdAt)}</p>
+      <p className={`text-sm mt-2 ${isDark ? "text-ink-dim" : "text-gray-500"}`}>
+        {formatRelativeTime(createdAt)}
+      </p>
 
       {(extraPrimaryActions || moreActions || showCompletedToggle || showHideTrigger) && (
-        <div className="mt-2 pt-2 border-t border-gray-100">
+        <div className={`mt-2 pt-2 border-t ${isDark ? "border-ink/10" : "border-gray-100"}`}>
           <div className="flex items-center gap-1.5 flex-wrap">
             {showCompletedToggle &&
               (confirmingComplete ? (
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs text-gray-600">
+                  <span className={`text-xs ${isDark ? "text-ink-dim" : "text-gray-600"}`}>
                     This checklist still has unchecked items. Complete anyway?
                   </span>
                   <button
                     type="button"
                     onClick={commitToggleStatus}
-                    className="text-xs font-semibold bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded-full transition-all"
+                    className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all ${
+                      isDark
+                        ? "bg-gold hover:bg-gold/90 text-night"
+                        : "bg-orange-500 hover:bg-orange-600 text-white"
+                    }`}
                   >
                     Complete anyway
                   </button>
                   <button
                     type="button"
                     onClick={() => setConfirmingComplete(false)}
-                    className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-all"
+                    className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all ${
+                      isDark
+                        ? "bg-ink/5 hover:bg-ink/10 text-ink-dim"
+                        : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                    }`}
                   >
                     Cancel
                   </button>
@@ -270,9 +316,13 @@ export default function DropCard({
                   onClick={handleToggleTap}
                   aria-label={isCompleted ? "Mark as active" : "Mark as completed"}
                   className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
-                    isCompleted
-                      ? "bg-orange-500 text-white"
-                      : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+                    isDark
+                      ? isCompleted
+                        ? "bg-gold text-night"
+                        : "bg-ink/5 hover:bg-ink/10 text-ink-dim"
+                      : isCompleted
+                        ? "bg-orange-500 text-white"
+                        : "bg-gray-100 hover:bg-gray-200 text-gray-600"
                   }`}
                 >
                   {isCompleted ? "● Completed" : "○ Completed"}
@@ -287,9 +337,13 @@ export default function DropCard({
                 onClick={() => togglePanel("hide")}
                 aria-expanded={expandedPanel === "hide"}
                 className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
-                  expandedPanel === "hide"
-                    ? "bg-gray-800 text-white"
-                    : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+                  isDark
+                    ? expandedPanel === "hide"
+                      ? "bg-gold text-night"
+                      : "bg-ink/5 hover:bg-ink/10 text-ink-dim"
+                    : expandedPanel === "hide"
+                      ? "bg-gray-800 text-white"
+                      : "bg-gray-100 hover:bg-gray-200 text-gray-600"
                 }`}
               >
                 🙈 Hide
@@ -302,9 +356,13 @@ export default function DropCard({
                 onClick={() => togglePanel("more")}
                 aria-expanded={expandedPanel === "more"}
                 className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
-                  expandedPanel === "more"
-                    ? "bg-gray-800 text-white"
-                    : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+                  isDark
+                    ? expandedPanel === "more"
+                      ? "bg-gold text-night"
+                      : "bg-ink/5 hover:bg-ink/10 text-ink-dim"
+                    : expandedPanel === "more"
+                      ? "bg-gray-800 text-white"
+                      : "bg-gray-100 hover:bg-gray-200 text-gray-600"
                 }`}
               >
                 ⋯ More
@@ -313,12 +371,13 @@ export default function DropCard({
           </div>
 
           {expandedPanel && (
-            <div className="mt-2 pt-2 border-t border-gray-100">
+            <div className={`mt-2 pt-2 border-t ${isDark ? "border-ink/10" : "border-gray-100"}`}>
               {expandedPanel === "hide" ? (
                 <HidePanel
                   onToday={handleHideToday}
                   onWeek={handleHideWeek}
                   onArchive={handleArchive}
+                  variant={variant}
                 />
               ) : (
                 moreActions

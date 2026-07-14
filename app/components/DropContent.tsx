@@ -4,10 +4,17 @@ import remarkGfm from "remark-gfm";
 export default function DropContent({
   content,
   className = "",
+  variant = "light",
 }: {
   content: string;
   className?: string;
+  // "light" (default) is the existing, unchanged appearance - used by
+  // DropDetailModal and anything else that doesn't pass this prop. "dark"
+  // is scoped to the Lifeline feed screen's restyle only.
+  variant?: "light" | "dark";
 }) {
+  const isDark = variant === "dark";
+
   return (
     <div className={className}>
       <ReactMarkdown
@@ -23,7 +30,7 @@ export default function DropContent({
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-amber-700 underline"
+              className={isDark ? "text-gold underline" : "text-amber-700 underline"}
             >
               {children}
             </a>
@@ -33,13 +40,23 @@ export default function DropContent({
               <table className="min-w-full text-sm border-collapse">{children}</table>
             </div>
           ),
-          thead: ({ children }) => <thead className="bg-gray-100">{children}</thead>,
+          thead: ({ children }) => (
+            <thead className={isDark ? "bg-ink/10" : "bg-gray-100"}>{children}</thead>
+          ),
           th: ({ children }) => (
-            <th className="border border-gray-200 px-2 py-1 text-left font-semibold">
+            <th
+              className={`px-2 py-1 text-left font-semibold border ${
+                isDark ? "border-ink/10" : "border-gray-200"
+              }`}
+            >
               {children}
             </th>
           ),
-          td: ({ children }) => <td className="border border-gray-200 px-2 py-1">{children}</td>,
+          td: ({ children }) => (
+            <td className={`px-2 py-1 border ${isDark ? "border-ink/10" : "border-gray-200"}`}>
+              {children}
+            </td>
+          ),
         }}
       >
         {content}
