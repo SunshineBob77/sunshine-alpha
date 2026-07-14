@@ -4,6 +4,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/app/lib/supabaseAdmin";
 import { getQuoteOfTheDay } from "@/app/lib/quotes";
+import { SUNSHINE_DROP_CATEGORY } from "@/app/lib/systemDrops";
 
 const WAKEFIELD_LAT = 42.5042;
 const WAKEFIELD_LON = -71.0728;
@@ -203,7 +204,7 @@ export async function POST(request: Request) {
         text: content,
         formatted_text: content,
         title,
-        category: "Memory",
+        category: SUNSHINE_DROP_CATEGORY,
         project: "",
         tags: [],
         mood: "",

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/app/lib/supabaseAdmin";
 import { recognizeEntities, type RecognizedDate } from "@/app/lib/recognizeEntities";
 import type { ChecklistItem } from "@/app/lib/captures";
+import { SUNSHINE_DROP_CATEGORY } from "@/app/lib/systemDrops";
 import {
   detectRiskFlags,
   resolveTemporal,
@@ -406,12 +407,36 @@ export async function POST(request: Request) {
     const { data: captureRow, error: captureLookupError } = await supabaseAdmin
       .from("captures")
       .select(
-        "user_id, created_at, space_ids, space_manually_set, temporal_locked, checklist_items"
+        "user_id, created_at, space_ids, space_manually_set, temporal_locked, checklist_items, source"
       )
       .eq("id", id)
       .single();
 
     if (captureLookupError) throw captureLookupError;
+
+    // Sunshine Drop cards (system-generated, e.g. Morning Brief) are never
+    // content-classified by AI - their category/Space identity is fixed
+    // regardless of what's in their body text. This is the authoritative
+    // skip: whatever caller hit this route (an edit, a future re-analysis
+    // job, anything) can never reclassify a system Drop into a real
+    // content Space. DropCard's own isSunshineDrop rendering guard is a
+    // display-only backstop on top of this, not the source of truth.
+    // Deliberately placed before the temporalPreviewOnly branch too, so
+    // no path through this route can touch a system Drop's identity.
+    if (captureRow.source === "system") {
+      const { error: systemUpdateError } = await supabaseAdmin
+        .from("captures")
+        .update({ category: SUNSHINE_DROP_CATEGORY, space_ids: [] })
+        .eq("id", id);
+
+      if (systemUpdateError) throw systemUpdateError;
+
+      return NextResponse.json({
+        skipped: true,
+        category: SUNSHINE_DROP_CATEGORY,
+        spaceIds: [],
+      });
+    }
 
     // Always computed fresh from the current text rather than trusted from
     // the stored entities column, which updateCaptureText never refreshes -

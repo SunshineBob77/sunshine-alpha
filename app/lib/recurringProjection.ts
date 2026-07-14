@@ -7,21 +7,20 @@ function daysBetween(fromKey: string, toKey: string): number {
   return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / 86400000);
 }
 
-// Always computes the calendar day in the capture's own recorded
-// event_timezone, never the viewer's local zone or raw UTC - a date-only
-// event (event_has_time: false) must land on the same day for every
-// viewer regardless of where they're looking from. Falls back to UTC only
-// if event_timezone is missing or isn't a value Intl recognizes. Moved
-// here (was inline in the original AgendaGrid) so both the month view and
-// the timeline share one source of truth.
-export function getEventDateKey(capture: Capture): string | null {
-  if (!capture.eventAt) return null;
-  const date = new Date(capture.eventAt);
-  const timezone = capture.eventTimezone || "UTC";
+// Always computes the calendar day in the given timezone, never the
+// viewer's local zone or raw UTC - a date-only event (event_has_time:
+// false) must land on the same day for every viewer regardless of where
+// they're looking from. Falls back to UTC only if the timezone is missing
+// or isn't a value Intl recognizes. Takes a raw ISO string rather than a
+// Capture so it also works on a projected/synthetic occurrence date (see
+// buildOccurrences below), not just a capture's own stored event_at.
+export function dateKeyInZone(iso: string, timezone: string | null): string {
+  const date = new Date(iso);
+  const zone = timezone || "UTC";
 
   try {
     return new Intl.DateTimeFormat("en-CA", {
-      timeZone: timezone,
+      timeZone: zone,
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
@@ -34,6 +33,13 @@ export function getEventDateKey(capture: Capture): string | null {
       day: "2-digit",
     }).format(date);
   }
+}
+
+// Moved here (was inline in the original AgendaGrid) so both the month
+// view and the timeline share one source of truth.
+export function getEventDateKey(capture: Capture): string | null {
+  if (!capture.eventAt) return null;
+  return dateKeyInZone(capture.eventAt, capture.eventTimezone);
 }
 
 // Does this capture occur on `dayKey` (YYYY-MM-DD)? True for an exact

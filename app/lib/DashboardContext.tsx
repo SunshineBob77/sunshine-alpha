@@ -16,6 +16,7 @@ import {
   updateCaptureHide,
   updateCaptureArchive,
   updateCaptureUndo,
+  updateCaptureReminderDismissals,
   mapRowToCapture,
   type Capture,
   type CaptureRow,
@@ -66,6 +67,7 @@ type DashboardContextValue = {
   updateStatus: (id: number, status: "active" | "completed") => Promise<void>;
   updatePinned: (id: number, pinned: boolean) => Promise<void>;
   updateChecklistItems: (id: number, items: ChecklistItem[]) => Promise<void>;
+  toggleReminderOccurrence: (captureId: number, occurrenceDate: string) => Promise<void>;
   hideCapture: (id: number, duration: "today" | "week") => Promise<void>;
   archiveCapture: (id: number) => Promise<void>;
   undoCaptureState: (id: number) => Promise<void>;
@@ -524,6 +526,37 @@ export function DashboardProvider({
     );
   }
 
+  // Toggles a single occurrence's dismissal - checking greys it out for
+  // the rest of today (see buildReminderGroups), unchecking within that
+  // same window just removes the record again. Keyed by occurrenceDate
+  // (not captureId alone) so a recurring Drop's separate future dates
+  // stay independently dismissible.
+  async function toggleReminderOccurrence(captureId: number, occurrenceDate: string) {
+    const existing = captures.find((capture) => capture.id === captureId);
+    if (!existing) return;
+
+    const todayKey = new Date().toLocaleDateString("en-CA");
+    const alreadyDismissedToday = existing.reminderDismissedDates.some(
+      (entry) => entry.occurrenceDate === occurrenceDate && entry.dismissedOn === todayKey
+    );
+
+    const dismissals = alreadyDismissedToday
+      ? existing.reminderDismissedDates.filter((entry) => entry.occurrenceDate !== occurrenceDate)
+      : [
+          ...existing.reminderDismissedDates.filter(
+            (entry) => entry.occurrenceDate !== occurrenceDate
+          ),
+          { occurrenceDate, dismissedOn: todayKey },
+        ];
+
+    await updateCaptureReminderDismissals(captureId, dismissals);
+    setCaptures((prev) =>
+      prev.map((capture) =>
+        capture.id === captureId ? { ...capture, reminderDismissedDates: dismissals } : capture
+      )
+    );
+  }
+
   async function updateTemporal(
     id: number,
     input: { eventAt: string; eventHasTime: boolean; eventTimezone: string }
@@ -565,6 +598,7 @@ export function DashboardProvider({
         updateStatus,
         updatePinned,
         updateChecklistItems,
+        toggleReminderOccurrence,
         hideCapture,
         archiveCapture,
         undoCaptureState,

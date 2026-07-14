@@ -49,6 +49,7 @@ export default function LifelineDropCard({
       variant="dark"
       title={capture.title ?? capture.sunshineSummary}
       spaceId={capture.spaceIds?.[0]}
+      isSunshineDrop={capture.source === "system"}
       content={capture.formattedText ?? capture.text}
       createdAt={capture.createdAt}
       isUrgent={isUrgent}

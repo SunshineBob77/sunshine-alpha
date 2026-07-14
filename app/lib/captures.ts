@@ -40,6 +40,17 @@ export type PreviousState = {
   userArchivedAt: string | null;
 };
 
+// One entry per checked-off Reminders occurrence. occurrenceDate is which
+// calendar-day occurrence was dismissed (distinguishes one recurring
+// Drop's separate future dates from each other); dismissedOn is the day
+// the checkbox was actually tapped, which is what lets the Reminders card
+// keep it visible-but-greyed for the rest of that day and then drop it
+// entirely from the next day on - see buildReminderGroups in reminders.ts.
+export type ReminderDismissal = {
+  occurrenceDate: string;
+  dismissedOn: string;
+};
+
 export type Capture = {
   id: number;
   text: string;
@@ -78,6 +89,7 @@ export type Capture = {
   hiddenUntil: string | null;
   userArchivedAt: string | null;
   previousState: PreviousState | null;
+  reminderDismissedDates: ReminderDismissal[];
 };
 
 export type CaptureRow = {
@@ -118,6 +130,7 @@ export type CaptureRow = {
   hidden_until: string | null;
   user_archived_at: string | null;
   previous_state: PreviousState | null;
+  reminder_dismissed_dates: ReminderDismissal[] | null;
 };
 
 export function mapRowToCapture(row: CaptureRow): Capture {
@@ -159,6 +172,7 @@ export function mapRowToCapture(row: CaptureRow): Capture {
     hiddenUntil: row.hidden_until ?? null,
     userArchivedAt: row.user_archived_at ?? null,
     previousState: row.previous_state ?? null,
+    reminderDismissedDates: row.reminder_dismissed_dates ?? [],
   };
 }
 
@@ -368,6 +382,18 @@ export async function updateCaptureChecklistItems(
   const { error } = await supabase
     .from("captures")
     .update({ checklist_items: items })
+    .eq("id", id);
+
+  if (error) throw error;
+}
+
+export async function updateCaptureReminderDismissals(
+  id: number,
+  dismissals: ReminderDismissal[]
+): Promise<void> {
+  const { error } = await supabase
+    .from("captures")
+    .update({ reminder_dismissed_dates: dismissals })
     .eq("id", id);
 
   if (error) throw error;

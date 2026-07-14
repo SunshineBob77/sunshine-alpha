@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import DropContent from "./DropContent";
 import ChecklistContent from "./ChecklistContent";
 import HidePanel from "./HidePanel";
-import { getSpaceTone, getSpaceAccentColor } from "@/app/lib/spaceTone";
+import { getSpaceTone, getSpaceAccentColor, sunshineDropTone, sunshineDropAccentColor } from "@/app/lib/spaceTone";
 import { formatRelativeTime } from "@/app/lib/relativeTime";
 import { hasUncheckedChecklistItems, type ChecklistItem } from "@/app/lib/captures";
 import { fraunces } from "@/app/lib/fonts";
@@ -36,6 +36,9 @@ export default function DropCard({
   onTogglePin,
   checklistItems,
   onToggleChecklistItem,
+  customContent,
+  hideTimestamp = false,
+  isSunshineDrop = false,
   variant = "light",
 }: {
   title: string;
@@ -67,13 +70,32 @@ export default function DropCard({
   onTogglePin?: () => void;
   checklistItems?: ChecklistItem[];
   onToggleChecklistItem?: (itemId: string) => void;
+  // Escape hatch for structured content that isn't a flat checklist (the
+  // Reminders card's two collapsible sections) - takes precedence over
+  // both checklistItems and content when present.
+  customContent?: React.ReactNode;
+  // The Reminders card isn't a real capture, so "created 2h ago" wouldn't
+  // mean anything - lets a caller opt out of that line entirely rather
+  // than passing a misleading createdAt.
+  hideTimestamp?: boolean;
+  // True for system-generated Drops (capture.source === "system", e.g.
+  // Morning Brief). Content-based category/Space classification must
+  // never determine how a Sunshine Drop card looks - this is a rendering
+  // backstop, independent of whatever spaceId/category actually got
+  // passed in, so a gap upstream (AI classification touching a system
+  // Drop it shouldn't have) can never surface as a wrong-colored card.
+  // See spaceTone.ts's sunshineDropTone/sunshineDropAccentColor.
+  isSunshineDrop?: boolean;
   // "light" (default) is the existing, unchanged appearance - used by the
   // public share page (app/s/[id]/page.tsx), which doesn't pass this
   // prop. "dark" is scoped to the Lifeline feed screen's restyle only.
   variant?: "light" | "dark";
 }) {
-  const tone = getSpaceTone(spaceId);
-  const accentColor = getSpaceAccentColor(spaceId);
+  // spaceId is intentionally ignored entirely when isSunshineDrop is true -
+  // not just overridden after the fact - so a corrupted/stale spaceId can
+  // never leak through even transiently.
+  const tone = isSunshineDrop ? sunshineDropTone : getSpaceTone(spaceId);
+  const accentColor = isSunshineDrop ? sunshineDropAccentColor : getSpaceAccentColor(spaceId);
   const isHero = size === "hero";
   const isDark = variant === "dark";
   const contentRef = useRef<HTMLDivElement>(null);
@@ -275,7 +297,9 @@ export default function DropCard({
         }`}
         style={isClippedNow ? { maxHeight: MAX_COLLAPSED_HEIGHT } : undefined}
       >
-        {checklistItems && checklistItems.length > 0 ? (
+        {customContent ? (
+          customContent
+        ) : checklistItems && checklistItems.length > 0 ? (
           <ChecklistContent items={checklistItems} onToggle={onToggleChecklistItem ?? (() => {})} />
         ) : (
           <DropContent content={content} variant={variant} />
@@ -292,9 +316,11 @@ export default function DropCard({
         </button>
       )}
 
-      <p className={`text-sm mt-2 ${isDark ? "text-ink-dim" : "text-gray-500"}`}>
-        {formatRelativeTime(createdAt)}
-      </p>
+      {!hideTimestamp && (
+        <p className={`text-sm mt-2 ${isDark ? "text-ink-dim" : "text-gray-500"}`}>
+          {formatRelativeTime(createdAt)}
+        </p>
+      )}
 
       {(extraPrimaryActions || moreActions || showCompletedToggle || showHideTrigger) && (
         <div className={`mt-2 pt-2 border-t ${isDark ? "border-ink/10" : "border-gray-100"}`}>

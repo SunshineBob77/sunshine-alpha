@@ -7,6 +7,22 @@ export const unassignedSpaceTone = {
   border: "border-gray-300",
 };
 
+// Fixed visual identity for Sunshine Drop cards (system-generated Drops -
+// capture.source === "system", e.g. Morning Brief) - deliberately NOT
+// derived from spaceAccentColors/defaultSpaces at all, so it can never
+// collide with a real Space's color even by coincidence. #FFC940 doesn't
+// appear anywhere in spaceAccentColors below. DropCard is responsible for
+// using this instead of getSpaceTone/getSpaceAccentColor whenever
+// isSunshineDrop is true - see DropCard.tsx.
+export const sunshineDropTone = {
+  name: "SUNSHINE",
+  icon: "☀️",
+  color: "bg-amber-50",
+  border: "border-amber-300",
+};
+
+export const sunshineDropAccentColor = "#FFC940";
+
 export function getSpaceTone(spaceId: string | null | undefined) {
   const space = defaultSpaces.find((candidate) => candidate.id === spaceId);
   return space ?? unassignedSpaceTone;

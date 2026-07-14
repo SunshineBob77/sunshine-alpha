@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import LifelineDropCard from "./LifelineDropCard";
+import RemindersCard from "./RemindersCard";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import type { Capture } from "@/app/lib/captures";
 
@@ -84,34 +85,51 @@ export default function LifelineFeed({
     await undoCaptureState(id);
   }
 
-  if (filteredCaptures.length === 0) {
+  // Reminders is a synthetic card, not a capture in this list - it's kept
+  // out of the "no Drops yet" empty-state decision entirely and rendered
+  // right after any system captures (Morning Brief) so a day with no real
+  // Drops but upcoming reminders still shows something useful. Only shown
+  // on the literal "all" Lifeline view, same scope Morning Brief itself
+  // isn't restricted to but Reminders deliberately is, since a per-Space
+  // or Completed/Archived/Pinned view has no "upcoming" framing that
+  // makes sense.
+  const systemCaptures = filteredCaptures.filter((capture) => capture.source === "system");
+  const restCaptures = filteredCaptures.filter((capture) => capture.source !== "system");
+
+  function renderCard(capture: Capture) {
     return (
-      <p className="text-ink-dim text-center mt-6">
-        {activeFilter === "completed"
-          ? "No completed Drops yet."
-          : activeFilter === "archived"
-            ? "No archived Drops yet."
-            : activeFilter === "all"
-              ? "No Drops yet."
-              : "No Drops in this Space yet."}
-      </p>
+      <LifelineDropCard
+        key={capture.id}
+        capture={capture}
+        onSelect={onSelectCapture}
+        onToggleStatus={() => handleToggleStatus(capture.id, capture.status)}
+        onHideToday={() => handleHide(capture.id, "today")}
+        onHideWeek={() => handleHide(capture.id, "week")}
+        onArchive={() => handleArchive(capture.id)}
+        onUndo={() => handleUndo(capture.id)}
+      />
     );
   }
 
   return (
     <div className="space-y-3">
-      {filteredCaptures.map((capture) => (
-        <LifelineDropCard
-          key={capture.id}
-          capture={capture}
-          onSelect={onSelectCapture}
-          onToggleStatus={() => handleToggleStatus(capture.id, capture.status)}
-          onHideToday={() => handleHide(capture.id, "today")}
-          onHideWeek={() => handleHide(capture.id, "week")}
-          onArchive={() => handleArchive(capture.id)}
-          onUndo={() => handleUndo(capture.id)}
-        />
-      ))}
+      {systemCaptures.map(renderCard)}
+
+      {activeFilter === "all" && <RemindersCard onSelectCapture={onSelectCapture} />}
+
+      {filteredCaptures.length === 0 ? (
+        <p className="text-ink-dim text-center mt-6">
+          {activeFilter === "completed"
+            ? "No completed Drops yet."
+            : activeFilter === "archived"
+              ? "No archived Drops yet."
+              : activeFilter === "all"
+                ? "No Drops yet."
+                : "No Drops in this Space yet."}
+        </p>
+      ) : (
+        restCaptures.map(renderCard)
+      )}
     </div>
   );
 }
