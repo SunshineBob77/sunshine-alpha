@@ -64,10 +64,14 @@ async function fetchWeather() {
   };
 }
 
+// No "Good night" bucket - a midnight-wrapping late-night window (e.g.
+// 9pm-5am) is the more bug-prone way to express this and was the actual
+// cause of the "Goodnight" mismatch this replaces (see below): anything
+// outside morning/afternoon just reads as evening, all the way through
+// to 5am.
 function greetingForHour(hour: number): string {
-  if (hour < 5) return "Good night";
-  if (hour < 12) return "Good morning";
-  if (hour < 17) return "Good afternoon";
+  if (hour >= 5 && hour < 12) return "Good morning";
+  if (hour >= 12 && hour < 17) return "Good afternoon";
   return "Good evening";
 }
 
@@ -85,6 +89,11 @@ function formatDisplayDate(localDate: string): string {
     month: "long",
     day: "numeric",
   });
+}
+
+function buildBriefTitle(localHour: number, localDate: string, displayName: string | undefined): string {
+  const namePart = displayName ? `, ${displayName}` : "";
+  return `${greetingForHour(localHour)}${namePart} · ${formatDisplayDate(localDate)} ☀️`;
 }
 
 function buildBriefContent(
@@ -157,13 +166,34 @@ export async function POST(request: Request) {
 
     if (existingError) throw existingError;
     if (existing) {
+      // The greeting is time-of-day-dependent but the brief itself is
+      // only generated once per calendar day (gated on generated_for_date
+      // above) - without this, whatever hour happened to be current at
+      // FIRST generation gets frozen into the stored title for the rest
+      // of the day. The client sends a fresh, correct localHour on every
+      // app load (see DashboardContext.tsx), so recompute against that on
+      // every fetch and update the row if the greeting's gone stale,
+      // rather than only ever setting it once at generation time.
+      const freshTitle = buildBriefTitle(localHour, localDate, displayName);
+
+      if (existing.title !== freshTitle) {
+        const { data: refreshed, error: refreshError } = await supabaseAdmin
+          .from("captures")
+          .update({ title: freshTitle, sunshine_summary: freshTitle })
+          .eq("id", existing.id)
+          .select()
+          .single();
+
+        if (refreshError) throw refreshError;
+        return NextResponse.json({ capture: refreshed });
+      }
+
       return NextResponse.json({ capture: existing });
     }
 
     const weather = await fetchWeather();
     const quote = quoteEnabled ? getQuoteOfTheDay(new Date(localDate)) : null;
-    const namePart = displayName ? `, ${displayName}` : "";
-    const title = `${greetingForHour(localHour)}${namePart} · ${formatDisplayDate(localDate)} ☀️`;
+    const title = buildBriefTitle(localHour, localDate, displayName);
     const content = buildBriefContent(weather, quote);
 
     const { data: inserted, error: insertError } = await supabaseAdmin
