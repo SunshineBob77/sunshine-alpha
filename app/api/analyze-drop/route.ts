@@ -379,6 +379,7 @@ function buildAiTemporalResult(
     recurring: false,
     recurrenceType: null,
     recurrenceRawText: null,
+    recurrenceInterval: null,
   };
 }
 
@@ -534,6 +535,7 @@ export async function POST(request: Request) {
       updatePayload.recurring = temporalResolution.recurring;
       updatePayload.recurrence_type = temporalResolution.recurrenceType;
       updatePayload.recurrence_raw_text = temporalResolution.recurrenceRawText;
+      updatePayload.recurrence_interval = temporalResolution.recurrenceInterval;
     }
     // else: temporal columns are simply omitted from the update - locked,
     // untouched, exactly as they were before this edit.
@@ -589,6 +591,7 @@ export async function POST(request: Request) {
             recurring: temporalResolution.recurring,
             recurrenceType: temporalResolution.recurrenceType,
             recurrenceRawText: temporalResolution.recurrenceRawText,
+            recurrenceInterval: temporalResolution.recurrenceInterval,
           }
         : {}),
     });

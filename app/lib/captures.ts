@@ -71,8 +71,9 @@ export type Capture = {
   archivedAt: string | null;
   pinned: boolean;
   recurring: boolean;
-  recurrenceType: "yearly" | null;
+  recurrenceType: "yearly" | "day" | "week" | "month" | "year" | null;
   recurrenceRawText: string | null;
+  recurrenceInterval: number | null;
   checklistItems: ChecklistItem[];
   hiddenUntil: string | null;
   userArchivedAt: string | null;
@@ -110,8 +111,9 @@ export type CaptureRow = {
   archived_at: string | null;
   pinned: boolean;
   recurring: boolean;
-  recurrence_type: "yearly" | null;
+  recurrence_type: "yearly" | "day" | "week" | "month" | "year" | null;
   recurrence_raw_text: string | null;
+  recurrence_interval: number | null;
   checklist_items: ChecklistItem[] | null;
   hidden_until: string | null;
   user_archived_at: string | null;
@@ -152,6 +154,7 @@ export function mapRowToCapture(row: CaptureRow): Capture {
     recurring: row.recurring ?? false,
     recurrenceType: row.recurrence_type ?? null,
     recurrenceRawText: row.recurrence_raw_text ?? null,
+    recurrenceInterval: row.recurrence_interval ?? null,
     checklistItems: row.checklist_items ?? [],
     hiddenUntil: row.hidden_until ?? null,
     userArchivedAt: row.user_archived_at ?? null,
@@ -252,6 +255,7 @@ export async function updateCaptureTemporal(
       recurring: false,
       recurrence_type: null,
       recurrence_raw_text: null,
+      recurrence_interval: null,
       temporal_locked: true,
     })
     .eq("id", id);
@@ -265,9 +269,9 @@ export async function dismissCaptureTemporal(id: number): Promise<void> {
   // on (analyze-drop/route.ts already unconditionally skips the temporal
   // task and all temporal writes for a locked Drop) - no new gating logic
   // needed for a future edit/re-analysis to leave this alone. Also clears
-  // recurring/recurrence_type/recurrence_raw_text - a Drop the user says
-  // isn't a calendar item at all shouldn't keep floating a recurrence flag
-  // either.
+  // recurring/recurrence_type/recurrence_raw_text/recurrence_interval - a
+  // Drop the user says isn't a calendar item at all shouldn't keep
+  // floating a recurrence flag either.
   const { error } = await supabase
     .from("captures")
     .update({
@@ -276,6 +280,7 @@ export async function dismissCaptureTemporal(id: number): Promise<void> {
       recurring: false,
       recurrence_type: null,
       recurrence_raw_text: null,
+      recurrence_interval: null,
     })
     .eq("id", id);
 

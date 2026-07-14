@@ -214,8 +214,9 @@ export function DashboardProvider({
           temporalConfidence?: "high" | "low" | null;
           temporalRawText?: string | null;
           recurring?: boolean;
-          recurrenceType?: "yearly" | null;
+          recurrenceType?: "yearly" | "day" | "week" | "month" | "year" | null;
           recurrenceRawText?: string | null;
+          recurrenceInterval?: number | null;
           checklistItems?: ChecklistItem[];
         }) => {
           if (data.result === undefined) return;
@@ -257,6 +258,10 @@ export function DashboardProvider({
                       data.recurrenceRawText !== undefined
                         ? data.recurrenceRawText
                         : capture.recurrenceRawText,
+                    recurrenceInterval:
+                      data.recurrenceInterval !== undefined
+                        ? data.recurrenceInterval
+                        : capture.recurrenceInterval,
                     checklistItems: data.checklistItems ?? [],
                   }
                 : capture
@@ -497,6 +502,7 @@ export function DashboardProvider({
               recurring: false,
               recurrenceType: null,
               recurrenceRawText: null,
+              recurrenceInterval: null,
             }
           : capture
       )
@@ -537,6 +543,7 @@ export function DashboardProvider({
               recurring: false,
               recurrenceType: null,
               recurrenceRawText: null,
+              recurrenceInterval: null,
             }
           : capture
       )

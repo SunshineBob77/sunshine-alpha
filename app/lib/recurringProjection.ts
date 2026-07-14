@@ -38,47 +38,55 @@ export function getEventDateKey(capture: Capture): string | null {
 
 // Does this capture occur on `dayKey` (YYYY-MM-DD)? True for an exact
 // stored event_at match, or - for a recurring capture - a projection
-// forward from the first occurrence at its classified cadence (see
-// classifyRecurrenceCadence): yearly keeps the original month/day-match-
-// in-any-year-at/after-creation behavior (the event only started being
-// tracked from creation, it didn't retroactively happen every year
-// before that); monthly matches the same day-of-month in any month
-// at/after the first occurrence; weekly/biweekly/daily match a day-count
-// multiple of 7/14/1 forward from the first occurrence. A cadence
-// classifyRecurrenceCadence can't project (null) falls back to the exact-
-// match check above only.
+// forward from the first occurrence at its classified step (see
+// classifyRecurrenceCadence): year-unit keeps the original month/day-
+// match-in-any-year-at/after-creation behavior for interval<=1 (the
+// event only started being tracked from creation, it didn't
+// retroactively happen every year before that) - byte-equivalent to the
+// old fixed "yearly" cadence - and adds a modulo-interval check only for
+// interval>1 (numeric "every N years"). month-unit matches the same day-
+// of-month at a monthDiff that's both >=0 and a multiple of interval
+// (interval defaults to 1, so this is equivalent to the old "monthly"
+// cadence when unset). week/day-unit match a day-count multiple of
+// interval*(7 for week, 1 for day) forward from the first occurrence -
+// this single formula covers what used to be three separate cadences
+// (weekly/biweekly/daily). A step classifyRecurrenceCadence can't
+// produce (null) falls back to the exact-match check above only.
 export function occursOnDay(capture: Capture, dayKey: string): boolean {
   const eventKey = getEventDateKey(capture);
   if (eventKey === dayKey) return true;
   if (!capture.recurring || !eventKey) return false;
 
-  const cadence = classifyRecurrenceCadence(
+  const step = classifyRecurrenceCadence(
     capture.recurring,
     capture.recurrenceType,
-    capture.recurrenceRawText
+    capture.recurrenceRawText,
+    capture.recurrenceInterval
   );
-  if (!cadence) return false;
+  if (!step) return false;
 
-  if (cadence === "yearly") {
+  if (step.unit === "year") {
     const dayMonthDay = dayKey.slice(5);
     const dayYear = Number(dayKey.slice(0, 4));
     const createdYear = new Date(capture.createdAt).getFullYear();
-    return eventKey.slice(5) === dayMonthDay && dayYear >= createdYear;
+    if (eventKey.slice(5) !== dayMonthDay || dayYear < createdYear) return false;
+    if (step.interval <= 1) return true;
+    const eventYear = Number(eventKey.slice(0, 4));
+    return (dayYear - eventYear) % step.interval === 0;
   }
 
-  if (cadence === "monthly") {
+  if (step.unit === "month") {
     const [eventYear, eventMonth, eventDay] = eventKey.split("-").map(Number);
     const [dayYear, dayMonth, dayOfMonth] = dayKey.split("-").map(Number);
     if (eventDay !== dayOfMonth) return false;
     const monthDiff = (dayYear - eventYear) * 12 + (dayMonth - eventMonth);
-    return monthDiff >= 0;
+    return monthDiff >= 0 && monthDiff % step.interval === 0;
   }
 
   const diffDays = daysBetween(eventKey, dayKey);
   if (diffDays < 0) return false;
-  if (cadence === "daily") return true;
-  if (cadence === "weekly") return diffDays % 7 === 0;
-  return diffDays % 14 === 0; // biweekly
+  const stepDays = step.unit === "week" ? 7 * step.interval : step.interval;
+  return diffDays % stepDays === 0;
 }
 
 // Re-projects a recurring capture's stored event_at onto a different
@@ -163,14 +171,15 @@ export function buildOccurrences(captures: Capture[], throughYear: number): Time
       continue;
     }
 
-    const cadence = classifyRecurrenceCadence(
+    const step = classifyRecurrenceCadence(
       capture.recurring,
       capture.recurrenceType,
-      capture.recurrenceRawText
+      capture.recurrenceRawText,
+      capture.recurrenceInterval
     );
 
-    if (!cadence) {
-      // Recurring, but at a cadence classifyRecurrenceCadence deliberately
+    if (!step) {
+      // Recurring, but at a step classifyRecurrenceCadence deliberately
       // doesn't project (e.g. "every weekday"/"every weekend" - see its own
       // doc comment) - still show the single resolved occurrence, same as
       // a non-recurring Drop, rather than silently dropping it.
@@ -178,12 +187,15 @@ export function buildOccurrences(captures: Capture[], throughYear: number): Time
       continue;
     }
 
-    if (cadence === "yearly") {
+    if (step.unit === "year") {
       const createdYear = new Date(capture.createdAt).getFullYear();
       const firstYear = new Date(capture.eventAt).getFullYear();
       const startYear = Math.max(createdYear, firstYear);
 
+      // interval defaults to 1, in which case (year - firstYear) % 1 is
+      // always 0 - byte-equivalent to the old unconditional yearly loop.
       for (let year = startYear; year <= throughYear; year++) {
+        if ((year - firstYear) % step.interval !== 0) continue;
         const iso = year === firstYear ? capture.eventAt : projectToYear(capture, year);
         if (!iso) continue;
         occurrences.push({ capture, occurrenceDate: iso, isProjected: year !== firstYear });
@@ -191,8 +203,8 @@ export function buildOccurrences(captures: Capture[], throughYear: number): Time
       continue;
     }
 
-    if (cadence === "monthly") {
-      for (let i = 0; i < MAX_PROJECTED_OCCURRENCES_PER_CAPTURE; i++) {
+    if (step.unit === "month") {
+      for (let i = 0; i < MAX_PROJECTED_OCCURRENCES_PER_CAPTURE; i += step.interval) {
         const iso = i === 0 ? capture.eventAt : projectByMonths(capture, i);
         if (iso === null) continue;
         if (new Date(iso).getTime() > throughMs) break;
@@ -201,7 +213,7 @@ export function buildOccurrences(captures: Capture[], throughYear: number): Time
       continue;
     }
 
-    const stepDays = cadence === "daily" ? 1 : cadence === "weekly" ? 7 : 14;
+    const stepDays = step.unit === "week" ? 7 * step.interval : step.interval;
     for (let i = 0; i < MAX_PROJECTED_OCCURRENCES_PER_CAPTURE; i++) {
       const iso = i === 0 ? capture.eventAt : projectByDays(capture, i * stepDays);
       if (iso === null) continue;

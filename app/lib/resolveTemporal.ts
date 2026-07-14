@@ -27,14 +27,22 @@ export type TemporalResolutionOutput = {
   temporalConfidence: "high" | "low" | null;
   temporalRawText: string | null;
   recurring: boolean;
-  recurrenceType: "yearly" | null;
+  // "yearly" is the narrow structured birthday/anniversary path below.
+  // "day"/"week"/"month"/"year" are the general NUMERIC-INTERVAL path
+  // (detectNumericRecurrence) - always paired with recurrenceInterval.
+  // Non-numeric general recurrence ("every Monday", "monthly") leaves
+  // this null and describes itself via recurrenceRawText alone, same as
+  // before - it never had structured recurrenceType data to begin with.
+  recurrenceType: "yearly" | "day" | "week" | "month" | "year" | null;
   // Raw recurring phrase for the GENERAL case ("every Monday", "monthly",
-  // "every other week") - separate from recurrenceType, which is a
-  // structured enum reserved for the narrow birthday/anniversary
-  // "yearly" detection below. No structured rule parsing in v1 - this is
-  // free text only. Null whenever recurring came from the yearly path
-  // instead (that path is already fully described by recurrenceType).
+  // "every other week", "every 3 months") - separate from recurrenceType.
+  // Still populated for the numeric-interval path too (display source for
+  // describeRecurrence), even though that path also gets structured data.
   recurrenceRawText: string | null;
+  // Multiplier for the numeric-interval path only (e.g. 3 for "every 3
+  // months"). Null for every other path, including the "yearly" birthday
+  // path (which has no interval concept) and non-numeric general phrases.
+  recurrenceInterval: number | null;
 };
 
 // ---- Risk flag detection -------------------------------------------------
@@ -125,18 +133,56 @@ export function detectRecurrencePhrase(rawText: string): string | null {
   return match ? match[0] : null;
 }
 
+export type NumericRecurrence = {
+  phrase: string;
+  unit: "day" | "week" | "month" | "year";
+  interval: number;
+};
+
+// "every N day(s)/week(s)/month(s)/year(s)" - a digit followed by a unit
+// noun is syntactically unambiguous, so this is handled by regex rather
+// than the AI escalation path (unlike date resolution, which genuinely
+// needs semantic judgment about vague/relative phrasing). Deliberately
+// digit-only (no "every three months") and anchored to this one word
+// order, same "narrow, named pattern, scope up later if real captures
+// show more" discipline as every other term list in this file - a miss
+// here just means recurrence isn't detected, the same safe failure mode
+// the non-numeric RECURRENCE_PHRASE_PATTERN already has for phrasings it
+// doesn't cover either.
+const NUMERIC_INTERVAL_PATTERN = /\bevery\s+(\d+)\s+(day|week|month|year)s?\b/i;
+
+export function detectNumericRecurrence(rawText: string): NumericRecurrence | null {
+  const match = rawText.match(NUMERIC_INTERVAL_PATTERN);
+  if (!match) return null;
+
+  const interval = Number(match[1]);
+  if (!Number.isFinite(interval) || interval < 1) return null;
+
+  return {
+    phrase: match[0],
+    unit: match[2].toLowerCase() as "day" | "week" | "month" | "year",
+    interval,
+  };
+}
+
 // Display-only categorization of an already-detected recurrenceRawText
-// phrase, exhaustive over every shape RECURRENCE_PHRASE_PATTERN can
-// produce. This intentionally does NOT write to recurrenceType - that
-// field is a DB-level enum constrained to `check (recurrence_type in
-// ('yearly'))` (see docs/recurring-events-schema.sql), reserved for the
-// structured birthday/anniversary path above. Widening that constraint to
-// weekly/monthly/daily is a real schema decision (What enum values? Does
-// anything besides display need to consume it structurally?) that hasn't
-// been confirmed - so this only derives friendly text from the raw
-// phrase at render time, never touches the DB.
+// phrase - exhaustive over every shape RECURRENCE_PHRASE_PATTERN can
+// produce, plus the numeric-interval phrases NUMERIC_INTERVAL_PATTERN
+// produces (see docs/recurrence-interval-schema.sql for the schema side
+// of that). Non-numeric phrases still derive display text purely from
+// the raw phrase, matching describeRecurrence's original design; the
+// numeric case is checked first below since it needs to preserve the
+// count in the output ("Every 3 months", not just "Every month").
 export function describeRecurrence(phrase: string): string {
   const lower = phrase.toLowerCase();
+
+  const numericMatch = lower.match(/^every\s+(\d+)\s+(day|week|month|year)s?\b/);
+  if (numericMatch) {
+    const count = Number(numericMatch[1]);
+    const unit = numericMatch[2];
+    return count === 1 ? `Every ${unit}` : `Every ${count} ${unit}s`;
+  }
+
   const isOther = /\bother\b/.test(lower);
   const suffix = isOther ? "other " : "";
 
@@ -169,28 +215,44 @@ export function describeRecurrence(phrase: string): string {
   return phrase;
 }
 
-export type RecurrenceCadence = "yearly" | "monthly" | "biweekly" | "weekly" | "daily";
+// Structured step for CALENDAR PROJECTION (month-view dots, timeline
+// occurrences) - a generalization of what used to be a fixed cadence
+// enum (yearly/monthly/biweekly/weekly/daily). "biweekly" is now just
+// {unit:"week", interval:2}; the old fixed cadences are all
+// {unit:X, interval:1}. Numeric-interval recurrence ("every 3 months")
+// produces {unit:"month", interval:3} directly from structured data
+// instead of re-parsing text.
+export type RecurrenceStep = {
+  unit: "year" | "month" | "week" | "day";
+  interval: number;
+};
 
-// Coarse cadence classification for CALENDAR PROJECTION (month-view dots,
-// timeline occurrences) - distinct from describeRecurrence's DISPLAY text
-// above, though both read the same underlying signal. Deliberately
-// excludes "every weekday"/"every weekend": projecting those correctly
-// needs real day-of-week filtering (skip Sat/Sun, or skip Mon-Fri), which
-// is exactly the "day-of-week array" logic detectRecurrencePhrase's own
-// doc comment rules out - a Drop with one of those phrases still shows
-// correctly on its own resolved date, it just doesn't project forward.
-// "every other X" beyond week (e.g. "every other month") isn't doubled
-// into its own interval either - a documented simplification: those
-// phrasings are far rarer than weekly, and doubling every cadence's
-// interval multiplies the branches here without a real capture to
-// validate it against.
+// Coarse cadence classification for CALENDAR PROJECTION - distinct from
+// describeRecurrence's DISPLAY text above, though both read the same
+// underlying signal. Deliberately excludes "every weekday"/"every
+// weekend": projecting those correctly needs real day-of-week filtering
+// (skip Sat/Sun, or skip Mon-Fri), which is exactly the "day-of-week
+// array" logic detectRecurrencePhrase's own doc comment rules out - a
+// Drop with one of those phrases still shows correctly on its own
+// resolved date, it just doesn't project forward.
 export function classifyRecurrenceCadence(
   recurring: boolean,
-  recurrenceType: "yearly" | null,
-  recurrenceRawText: string | null
-): RecurrenceCadence | null {
+  recurrenceType: "yearly" | "day" | "week" | "month" | "year" | null,
+  recurrenceRawText: string | null,
+  recurrenceInterval: number | null
+): RecurrenceStep | null {
   if (!recurring) return null;
-  if (recurrenceType === "yearly") return "yearly";
+
+  // Numeric-interval path: already fully described by structured data,
+  // no need to re-parse recurrenceRawText the way the text-only paths
+  // below have to. Checked before the "yearly" birthday path since they
+  // use different recurrenceType values ("year" vs "yearly") and can't
+  // collide.
+  if (recurrenceType && recurrenceType !== "yearly") {
+    return { unit: recurrenceType, interval: recurrenceInterval ?? 1 };
+  }
+
+  if (recurrenceType === "yearly") return { unit: "year", interval: 1 };
   if (!recurrenceRawText) return null;
 
   const lower = recurrenceRawText.toLowerCase();
@@ -199,7 +261,7 @@ export function classifyRecurrenceCadence(
     lower.includes("week") &&
     !lower.includes("weekend") &&
     !lower.includes("weekday");
-  if (lower === "biweekly" || isOtherWeek) return "biweekly";
+  if (lower === "biweekly" || isOtherWeek) return { unit: "week", interval: 2 };
 
   const WEEKDAY_NAMES = [
     "monday",
@@ -210,18 +272,20 @@ export function classifyRecurrenceCadence(
     "saturday",
     "sunday",
   ];
-  if (WEEKDAY_NAMES.some((day) => lower.includes(day))) return "weekly";
+  if (WEEKDAY_NAMES.some((day) => lower.includes(day))) return { unit: "week", interval: 1 };
   if (lower.includes("weekend") || lower.includes("weekday")) return null;
-  if (lower.includes("week") || lower === "weekly") return "weekly";
-  if (lower.includes("month") || lower === "monthly") return "monthly";
-  if (lower.includes("year") || lower === "yearly" || lower === "annually") return "yearly";
+  if (lower.includes("week") || lower === "weekly") return { unit: "week", interval: 1 };
+  if (lower.includes("month") || lower === "monthly") return { unit: "month", interval: 1 };
+  if (lower.includes("year") || lower === "yearly" || lower === "annually") {
+    return { unit: "year", interval: 1 };
+  }
   if (
     lower.includes("day") ||
     lower === "daily" ||
     lower.includes("night") ||
     lower.includes("morning")
   ) {
-    return "daily";
+    return { unit: "day", interval: 1 };
   }
 
   return null;
@@ -310,6 +374,7 @@ const NONE_RESULT_BASE: Omit<TemporalResolutionOutput, "temporalRawText"> = {
   recurring: false,
   recurrenceType: null,
   recurrenceRawText: null,
+  recurrenceInterval: null,
 };
 
 function fromAiResult(aiResult: TemporalResolutionOutput): TemporalResolutionOutput {
@@ -327,6 +392,7 @@ function unresolvedResult(temporalRawText: string | null = null): TemporalResolu
     recurring: false,
     recurrenceType: null,
     recurrenceRawText: null,
+    recurrenceInterval: null,
   };
 }
 
@@ -354,6 +420,7 @@ export function resolveTemporal(
       recurring: true,
       recurrenceType: "yearly",
       recurrenceRawText: null, // structured "yearly" already fully describes this
+      recurrenceInterval: null,
     };
   } else if (
     localCandidates.length === 1 &&
@@ -374,6 +441,7 @@ export function resolveTemporal(
       recurring: false,
       recurrenceType: null,
       recurrenceRawText: null,
+      recurrenceInterval: null,
     };
   } else if (
     localCandidates.length === 1 &&
@@ -431,10 +499,27 @@ export function resolveTemporal(
   // branch above - a Drop can be resolved-date AND recurring, or recurring
   // with no resolved date at all. Only applies when the birthday/
   // anniversary path hasn't already set a structured yearly recurrence.
+  // Numeric-interval phrasing ("every 3 months") is checked first since
+  // it carries structured data (recurrenceType/recurrenceInterval) the
+  // non-numeric fallback can't produce; a numeric phrase never matches
+  // the non-numeric RECURRENCE_PHRASE_PATTERN anyway (confirmed - it
+  // requires a unit word directly after "every ", with no room for a
+  // number in between), so there's no risk of double-processing.
   if (!result.recurring) {
-    const recurrenceRawText = detectRecurrencePhrase(input.rawText);
-    if (recurrenceRawText) {
-      result = { ...result, recurring: true, recurrenceRawText };
+    const numeric = detectNumericRecurrence(input.rawText);
+    if (numeric) {
+      result = {
+        ...result,
+        recurring: true,
+        recurrenceRawText: numeric.phrase,
+        recurrenceType: numeric.unit,
+        recurrenceInterval: numeric.interval,
+      };
+    } else {
+      const recurrenceRawText = detectRecurrencePhrase(input.rawText);
+      if (recurrenceRawText) {
+        result = { ...result, recurring: true, recurrenceRawText };
+      }
     }
   }
 
