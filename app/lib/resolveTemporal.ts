@@ -139,23 +139,58 @@ export type NumericRecurrence = {
   interval: number;
 };
 
-// "every N day(s)/week(s)/month(s)/year(s)" - a digit followed by a unit
-// noun is syntactically unambiguous, so this is handled by regex rather
-// than the AI escalation path (unlike date resolution, which genuinely
-// needs semantic judgment about vague/relative phrasing). Deliberately
-// digit-only (no "every three months") and anchored to this one word
-// order, same "narrow, named pattern, scope up later if real captures
-// show more" discipline as every other term list in this file - a miss
-// here just means recurrence isn't detected, the same safe failure mode
-// the non-numeric RECURRENCE_PHRASE_PATTERN already has for phrasings it
-// doesn't cover either.
-const NUMERIC_INTERVAL_PATTERN = /\bevery\s+(\d+)\s+(day|week|month|year)s?\b/i;
+// Sunshine is voice-first, so spelled-out numbers ("every three months")
+// are the common case, not an edge case - confirmed by a real Drop that
+// silently lost its recurrence data over exactly this. Deliberately a
+// short, named word list (one through twelve) rather than general
+// English number-word parsing ("twenty-five", "a dozen") - the same
+// "narrow, named pattern, scope up later if real captures show more"
+// discipline as every other term list in this file. The digit path
+// (\d+) has no equivalent upper bound to mirror - any positive integer
+// already matches there, only interval<1 is rejected - so this list's
+// 1-12 range is the only bound, by construction, not an inconsistency.
+const NUMBER_WORDS: Record<string, number> = {
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+};
+
+// Single source of truth for both the regex alternation below AND
+// describeRecurrence's own numeric-prefix check - the word list can
+// never drift out of sync between detection and display.
+const NUMBER_WORD_ALTERNATION = Object.keys(NUMBER_WORDS).join("|");
+
+function parseIntervalCount(text: string): number {
+  const lower = text.toLowerCase();
+  return /^\d+$/.test(lower) ? Number(lower) : NUMBER_WORDS[lower];
+}
+
+// "every N day(s)/week(s)/month(s)/year(s)", N as a digit OR one of the
+// spelled-out words above - unambiguous either way, so this is handled
+// by regex rather than the AI escalation path (unlike date resolution,
+// which genuinely needs semantic judgment about vague/relative
+// phrasing). Anchored to this one word order - a miss just means
+// recurrence isn't detected, the same safe failure mode the non-numeric
+// RECURRENCE_PHRASE_PATTERN already has for phrasings it doesn't cover.
+const NUMERIC_INTERVAL_PATTERN = new RegExp(
+  `\\bevery\\s+(\\d+|${NUMBER_WORD_ALTERNATION})\\s+(day|week|month|year)s?\\b`,
+  "i"
+);
 
 export function detectNumericRecurrence(rawText: string): NumericRecurrence | null {
   const match = rawText.match(NUMERIC_INTERVAL_PATTERN);
   if (!match) return null;
 
-  const interval = Number(match[1]);
+  const interval = parseIntervalCount(match[1]);
   if (!Number.isFinite(interval) || interval < 1) return null;
 
   return {
@@ -176,9 +211,15 @@ export function detectNumericRecurrence(rawText: string): NumericRecurrence | nu
 export function describeRecurrence(phrase: string): string {
   const lower = phrase.toLowerCase();
 
-  const numericMatch = lower.match(/^every\s+(\d+)\s+(day|week|month|year)s?\b/);
+  // Reuses NUMERIC_INTERVAL_PATTERN's own word list (NUMBER_WORD_ALTERNATION)
+  // and count-parsing (parseIntervalCount) rather than a second copy of
+  // either - "every three months" and "every 3 months" both normalize to
+  // the same "Every 3 months" display text.
+  const numericMatch = lower.match(
+    new RegExp(`^every\\s+(\\d+|${NUMBER_WORD_ALTERNATION})\\s+(day|week|month|year)s?\\b`)
+  );
   if (numericMatch) {
-    const count = Number(numericMatch[1]);
+    const count = parseIntervalCount(numericMatch[1]);
     const unit = numericMatch[2];
     return count === 1 ? `Every ${unit}` : `Every ${count} ${unit}s`;
   }
