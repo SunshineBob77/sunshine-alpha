@@ -88,7 +88,7 @@ export default function Home() {
       </header>
 
       <main
-        className="flex flex-col items-center p-4 sm:p-8 min-h-screen bg-gradient-to-b from-night to-dusk"
+        className="flex flex-col items-center p-4 sm:p-8 min-h-screen bg-night"
         style={{ paddingTop: headerHeight + 16 }}
       >
         <div className="w-full max-w-2xl">

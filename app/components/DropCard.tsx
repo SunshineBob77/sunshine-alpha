@@ -163,12 +163,21 @@ export default function DropCard({
     settle();
   }
 
-  // Dark variant: soft rounded card, low-opacity ink border/background, no
-  // hard shadow - space-tone color is carried by the icon chip below
-  // instead of the light variant's thick 5px tone.border, and a soft gold
-  // ambient glow marks the pinned emphasis state instead of a shadow.
+  // Dark variant: card differentiation is a core product requirement, not
+  // a style preference - every Drop's card boundary must read as
+  // unmistakably separate from the page at a glance. Solid dusk
+  // background (not translucent - dusk vs night alone is only ~1.22:1
+  // contrast, functionally invisible on its own) plus a full 2px border,
+  // gold at 65% opacity - chosen over a solid muted-brown alternative by
+  // computing actual contrast ratios against the dusk card background
+  // (not eyeballed): solid #5A4426 only reaches ~1.5:1, gold@50% ~2.7:1
+  // (both below the 3:1 minimum for a UI-component boundary to read as
+  // clearly visible), gold@65% lands comfortably above 3:1 without being
+  // full-brightness/loud. Space-tone color is carried by the icon chip
+  // below instead of a per-space border color, and pinned cards escalate
+  // to a full-opacity gold border plus a soft ambient glow for emphasis.
   const cardToneClass = isDark
-    ? `border ${isPinned ? "border-gold/40" : "border-ink/[0.12]"}`
+    ? `border-2 ${isPinned ? "border-gold" : "border-gold/65"}`
     : `border-[5px] ${tone.border}`;
   const cardShadowClass = isDark
     ? isPinned
@@ -180,7 +189,7 @@ export default function DropCard({
     <div
       ref={rootRef}
       className={`rounded-2xl transition-all duration-500 ease-in-out overflow-hidden ${
-        isDark ? "bg-ink/[0.05]" : "bg-white"
+        isDark ? "bg-dusk" : "bg-white"
       } ${cardToneClass} ${cardShadowClass} ${
         collapsing
           ? "max-h-0 opacity-0 !p-0 !border-0"
