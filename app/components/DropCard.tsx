@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import DropContent from "./DropContent";
 import ChecklistContent from "./ChecklistContent";
 import HidePanel from "./HidePanel";
-import { getSpaceTone } from "@/app/lib/spaceTone";
+import { getSpaceTone, getSpaceAccentColor } from "@/app/lib/spaceTone";
 import { formatRelativeTime } from "@/app/lib/relativeTime";
 import { hasUncheckedChecklistItems, type ChecklistItem } from "@/app/lib/captures";
 import { fraunces } from "@/app/lib/fonts";
@@ -73,6 +73,7 @@ export default function DropCard({
   variant?: "light" | "dark";
 }) {
   const tone = getSpaceTone(spaceId);
+  const accentColor = getSpaceAccentColor(spaceId);
   const isHero = size === "hero";
   const isDark = variant === "dark";
   const contentRef = useRef<HTMLDivElement>(null);
@@ -165,20 +166,16 @@ export default function DropCard({
 
   // Dark variant: card differentiation is a core product requirement, not
   // a style preference - every Drop's card boundary must read as
-  // unmistakably separate from the page at a glance. Solid dusk
-  // background (not translucent - dusk vs night alone is only ~1.22:1
-  // contrast, functionally invisible on its own) plus a full 2px border,
-  // gold at 65% opacity - chosen over a solid muted-brown alternative by
-  // computing actual contrast ratios against the dusk card background
-  // (not eyeballed): solid #5A4426 only reaches ~1.5:1, gold@50% ~2.7:1
-  // (both below the 3:1 minimum for a UI-component boundary to read as
-  // clearly visible), gold@65% lands comfortably above 3:1 without being
-  // full-brightness/loud. Space-tone color is carried by the icon chip
-  // below instead of a per-space border color, and pinned cards escalate
-  // to a full-opacity gold border plus a soft ambient glow for emphasis.
-  const cardToneClass = isDark
-    ? `border-2 ${isPinned ? "border-gold" : "border-gold/65"}`
-    : `border-[5px] ${tone.border}`;
+  // unmistakably separate from the page at a glance. Solid dusk (gray)
+  // background, not translucent, plus a full 2px border in the Drop's
+  // own Space color (getSpaceAccentColor - a genuine per-Space runtime
+  // value, so it's applied via inline style rather than a Tailwind
+  // class; Tailwind's static class scanning can't generate a class for a
+  // color chosen at render time from a ~12-entry lookup). The border no
+  // longer shifts to gold for pinned cards (that would compete with the
+  // border's actual meaning - which Space this is) - pinned emphasis is
+  // now carried entirely by the soft ambient gold glow (shadow) plus the
+  // header pin icon's own highlight.
   const cardShadowClass = isDark
     ? isPinned
       ? "shadow-[0_0_24px_rgba(240,163,57,0.18)]"
@@ -189,26 +186,38 @@ export default function DropCard({
     <div
       ref={rootRef}
       className={`rounded-2xl transition-all duration-500 ease-in-out overflow-hidden ${
-        isDark ? "bg-dusk" : "bg-white"
-      } ${cardToneClass} ${cardShadowClass} ${
+        isDark ? "bg-dusk border-2" : "bg-white border-[5px]"
+      } ${isDark ? "" : tone.border} ${cardShadowClass} ${
         collapsing
           ? "max-h-0 opacity-0 !p-0 !border-0"
           : `max-h-[20000px] opacity-100 ${isHero ? "p-8" : "p-4"}`
       }`}
+      style={isDark ? { borderColor: accentColor } : undefined}
     >
       <div className="flex items-start justify-between gap-3 mb-1.5">
         <div className="min-w-0 flex-1">
+          {isDark && (
+            // Eyebrow - the border color's meaning (which Space this is)
+            // needs to be legible on its own, not just decorative, so the
+            // Space name repeats the same accent color in text.
+            <p
+              className="text-[11px] font-bold uppercase tracking-wider mb-1"
+              style={{ color: accentColor }}
+            >
+              {tone.name}
+            </p>
+          )}
           {onTitleTap ? (
             <button type="button" onClick={onTitleTap} className="block w-full text-left">
               <p
-                className={`font-bold ${isDark ? `${fraunces.className} text-ink` : "text-gray-900"} ${isHero ? "text-2xl" : "text-lg"}`}
+                className={`font-bold ${isDark ? `${fraunces.className} text-white` : "text-gray-900"} ${isHero ? "text-2xl" : "text-lg"}`}
               >
                 {title}
               </p>
             </button>
           ) : (
             <p
-              className={`font-bold ${isDark ? `${fraunces.className} text-ink` : "text-gray-900"} ${isHero ? "text-2xl" : "text-lg"}`}
+              className={`font-bold ${isDark ? `${fraunces.className} text-white` : "text-gray-900"} ${isHero ? "text-2xl" : "text-lg"}`}
             >
               {title}
             </p>

@@ -16,13 +16,28 @@
      Lifeline-scoped components style off one shared source instead of
      repeating hex values inline. Tokens are global (any screen could
      technically use bg-night), but only Lifeline components currently
-     do - other screens are untouched by this change. */
-  --color-night: #1C1A33;
-  --color-dusk: #2E2750;
+     do - other screens are untouched by this change.
+
+     night/dusk/ink/ink-dim were redefined for the black-and-gray-base
+     pass (same token names/roles, new values - every existing bg-night/
+     bg-dusk/text-ink/text-ink-dim usage across Lifeline components picks
+     these up automatically, no per-file changes needed for those four):
+       night:    page background,          was #1C1A33 (dark purple)
+       dusk:     card background,          was #2E2750 (dark purple)
+       ink:      body text,                was #F6F1E9 (warm cream)
+       ink-dim:  timestamp/muted text,     was #C4BADA (lavender-gray)
+     gold/peach are untouched - still used by the action row/buttons,
+     which this pass doesn't touch (only the card's own background/
+     border/text/eyebrow - border color itself is no longer a uniform
+     gold, see getSpaceAccentColor in spaceTone.ts, applied via inline
+     style since it's a genuine per-Space runtime value, not a static
+     Tailwind class). */
+  --color-night: #000000;
+  --color-dusk: #38383D;
   --color-gold: #F0A339;
   --color-peach: #FFD8A6;
-  --color-ink: #F6F1E9;
-  --color-ink-dim: #C4BADA;
+  --color-ink: #C6C6CA;
+  --color-ink-dim: #8A8A90;
 }
 
 @media (prefers-color-scheme: dark) {
