@@ -68,7 +68,7 @@ type DashboardContextValue = {
   updatePinned: (id: number, pinned: boolean) => Promise<void>;
   updateChecklistItems: (id: number, items: ChecklistItem[]) => Promise<void>;
   toggleReminderOccurrence: (captureId: number, occurrenceDate: string) => Promise<void>;
-  hideCapture: (id: number, duration: "today" | "week") => Promise<void>;
+  hideCapture: (id: number) => Promise<void>;
   archiveCapture: (id: number) => Promise<void>;
   undoCaptureState: (id: number) => Promise<void>;
   updateTemporal: (
@@ -424,27 +424,32 @@ export function DashboardProvider({
     );
   }
 
-  async function hideCapture(id: number, duration: "today" | "week") {
+  // Hide v2: a plain toggle, no duration - hiddenUntil is no longer read
+  // as an expiry timestamp anywhere (see LifelineFeed's isManuallyHidden),
+  // just a presence marker for "currently manually hidden." Self-contained
+  // lookup+flip, same convention as archiveCapture/undoCaptureState below.
+  async function hideCapture(id: number) {
     const existing = captures.find((capture) => capture.id === id);
     if (!existing) return;
 
-    // "Remainder of the current day" ends at local midnight tonight, in
-    // the viewer's own timezone - same Intl-based pattern already used
-    // elsewhere in this file (e.g. the morning-brief localDate/localHour
-    // computation above) rather than a raw "+24h"/"+7*24h" offset, which
-    // would drift depending on what time of day the action was taken.
-    const endOfToday = new Date();
-    endOfToday.setHours(24, 0, 0, 0);
-    const hiddenUntil =
-      duration === "today"
-        ? endOfToday.toISOString()
-        : new Date(endOfToday.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const isCurrentlyHidden = existing.hiddenUntil !== null;
+
+    if (isCurrentlyHidden) {
+      // Un-hiding is itself already a direct undo-equivalent action - no
+      // new snapshot, same convention as un-completing via updateStatus.
+      await updateCaptureHide(id, null, existing.previousState);
+      setCaptures((prev) =>
+        prev.map((capture) => (capture.id === id ? { ...capture, hiddenUntil: null } : capture))
+      );
+      return;
+    }
 
     const previousState: PreviousState = {
       status: existing.status === "completed" ? "completed" : "active",
       hiddenUntil: existing.hiddenUntil,
       userArchivedAt: existing.userArchivedAt,
     };
+    const hiddenUntil = new Date().toISOString();
 
     await updateCaptureHide(id, hiddenUntil, previousState);
     setCaptures((prev) =>

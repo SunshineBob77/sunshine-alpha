@@ -3,13 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import ShareButton from "./ShareButton";
 import DeleteDropButton from "./DeleteDropButton";
-import HidePanel from "./HidePanel";
 import DropContent from "./DropContent";
 import ChecklistContent from "./ChecklistContent";
 import { assignableSpaces } from "@/app/lib/spaces";
 import { getSpaceTone } from "@/app/lib/spaceTone";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import { hasUncheckedChecklistItems } from "@/app/lib/captures";
+import { isAutoHidden } from "@/app/lib/autoHide";
 import type { Capture } from "@/app/lib/captures";
 import { describeRecurrence, type TemporalResolutionOutput } from "@/app/lib/resolveTemporal";
 
@@ -443,6 +443,7 @@ export default function DropDetailModal({
   onClose: () => void;
 }) {
   const {
+    user,
     updateText,
     updateStatus,
     updateChecklistItems,
@@ -458,7 +459,9 @@ export default function DropDetailModal({
   const [textError, setTextError] = useState<string | null>(null);
   const [togglingStatus, setTogglingStatus] = useState(false);
   const [confirmingComplete, setConfirmingComplete] = useState(false);
-  const [expandedPanel, setExpandedPanel] = useState<"hide" | "more" | null>(null);
+  // Only "More" expands into a panel now - Hide is a direct single-tap
+  // toggle, same simplification as DropCard.tsx.
+  const [moreOpen, setMoreOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
 
@@ -466,6 +469,16 @@ export default function DropDetailModal({
   const toneName = spaceOverrides[capture.spaceIds?.[0] ?? ""] ?? tone.name;
   const isUrgent = capture.tags?.includes("urgent") ?? false;
   const isCompleted = capture.status === "completed";
+  const isSunshineDrop = capture.source === "system";
+  const isHiddenNow = capture.hiddenUntil !== null || isAutoHidden(capture);
+  // Same reasoning as LifelineDropCard.tsx: always true outside a shared
+  // space, only meaningfully false when this modal was opened on another
+  // member's Drop in a shared space's Lifeline. RLS already rejects the
+  // underlying write regardless (owner-only UPDATE/DELETE on captures) -
+  // this just stops the modal's own independent action row from offering
+  // controls that would silently no-op, since it doesn't reuse
+  // LifelineDropCard's gating at all (separate component, separate wiring).
+  const isOwnCapture = capture.userId === user.id;
 
   // Cursor at the END of the existing text, not the start - autoFocus
   // alone leaves a controlled textarea's cursor at position 0, which
@@ -483,17 +496,17 @@ export default function DropDetailModal({
   // own onClick already closes the whole modal) collapses whichever
   // panel is open. Scoped to the modal's own inner box via boxRef.
   useEffect(() => {
-    if (!expandedPanel) return;
+    if (!moreOpen) return;
 
     function handleOutsideClick(event: MouseEvent) {
       if (boxRef.current && !boxRef.current.contains(event.target as Node)) {
-        setExpandedPanel(null);
+        setMoreOpen(false);
       }
     }
 
     document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, [expandedPanel]);
+  }, [moreOpen]);
 
   async function handleSaveText() {
     if (!draft.trim()) return;
@@ -552,28 +565,22 @@ export default function DropDetailModal({
   // Same "stay open, reflect live state" convention as every other
   // in-modal action here (Space toggling, temporal edits, Complete) -
   // no auto-close, no list settle animation to coordinate with.
-  async function handleHideToday() {
-    setExpandedPanel(null);
-    await hideCapture(capture.id, "today");
-  }
-
-  async function handleHideWeek() {
-    setExpandedPanel(null);
-    await hideCapture(capture.id, "week");
+  async function handleToggleHideTap() {
+    await hideCapture(capture.id);
   }
 
   async function handleArchiveTap() {
-    setExpandedPanel(null);
+    setMoreOpen(false);
     await archiveCapture(capture.id);
   }
 
   async function handleUndoTap() {
-    setExpandedPanel(null);
+    setMoreOpen(false);
     await undoCaptureState(capture.id);
   }
 
   function handleEditTap() {
-    setExpandedPanel(null);
+    setMoreOpen(false);
     setDraft(capture.text);
     setTextError(null);
     setEditing((prev) => !prev);
@@ -667,7 +674,8 @@ export default function DropDetailModal({
             {capture.checklistItems.length > 0 ? (
               <ChecklistContent
                 items={capture.checklistItems}
-                onToggle={handleToggleChecklistItem}
+                onToggle={isOwnCapture ? handleToggleChecklistItem : () => {}}
+                readOnly={!isOwnCapture}
               />
             ) : (
               <DropContent content={capture.formattedText ?? capture.text} />
@@ -704,6 +712,7 @@ export default function DropDetailModal({
         <div className="mt-4 pt-3 border-t border-gray-100">
           <div className="flex items-center gap-1.5 flex-wrap">
             {capture.isActionable &&
+              isOwnCapture &&
               (confirmingComplete ? (
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs text-gray-600">
@@ -744,31 +753,35 @@ export default function DropDetailModal({
 
             <ShareButton capture={capture} />
 
-            <button
-              type="button"
-              onClick={() => setExpandedPanel((prev) => (prev === "hide" ? null : "hide"))}
-              aria-expanded={expandedPanel === "hide"}
-              className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
-                expandedPanel === "hide"
-                  ? "bg-gray-800 text-white"
-                  : "bg-gray-100 hover:bg-gray-200 text-gray-600"
-              }`}
-            >
-              🙈 Hide
-            </button>
+            {!isSunshineDrop && isOwnCapture && (
+              <button
+                type="button"
+                onClick={handleToggleHideTap}
+                aria-label={isHiddenNow ? "Unhide" : "Hide"}
+                className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
+                  isHiddenNow
+                    ? "bg-gray-800 text-white"
+                    : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+                }`}
+              >
+                {isHiddenNow ? "🙉 Unhide" : "🙈 Hide"}
+              </button>
+            )}
 
-            <button
-              type="button"
-              onClick={() => setExpandedPanel((prev) => (prev === "more" ? null : "more"))}
-              aria-expanded={expandedPanel === "more"}
-              className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
-                expandedPanel === "more"
-                  ? "bg-gray-800 text-white"
-                  : "bg-gray-100 hover:bg-gray-200 text-gray-600"
-              }`}
-            >
-              ⋯ More
-            </button>
+            {isOwnCapture && (
+              <button
+                type="button"
+                onClick={() => setMoreOpen((prev) => !prev)}
+                aria-expanded={moreOpen}
+                className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
+                  moreOpen
+                    ? "bg-gray-800 text-white"
+                    : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+                }`}
+              >
+                ⋯ More
+              </button>
+            )}
 
             {capture.extractedAddress && (
               <a
@@ -782,36 +795,35 @@ export default function DropDetailModal({
             )}
           </div>
 
-          {expandedPanel && (
+          {moreOpen && isOwnCapture && (
             <div className="mt-2 pt-2 border-t border-gray-100">
-              {expandedPanel === "hide" ? (
-                <HidePanel
-                  onToday={handleHideToday}
-                  onWeek={handleHideWeek}
-                  onArchive={handleArchiveTap}
-                />
-              ) : (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={handleEditTap}
-                    aria-label="Edit Drop text"
-                    className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1.5 rounded-full transition-all"
-                  >
-                    ✏️ Edit
-                  </button>
-                  <DeleteDropButton captureId={capture.id} onDeleted={onClose} />
-                  <button
-                    type="button"
-                    onClick={handleUndoTap}
-                    disabled={!capture.previousState}
-                    aria-label="Undo last change"
-                    className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1.5 rounded-full transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    ↩️ Undo
-                  </button>
-                </div>
-              )}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleEditTap}
+                  aria-label="Edit Drop text"
+                  className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1.5 rounded-full transition-all"
+                >
+                  ✏️ Edit
+                </button>
+                <DeleteDropButton captureId={capture.id} onDeleted={onClose} />
+                <button
+                  type="button"
+                  onClick={handleArchiveTap}
+                  className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1.5 rounded-full transition-all"
+                >
+                  🗄️ Archive
+                </button>
+                <button
+                  type="button"
+                  onClick={handleUndoTap}
+                  disabled={!capture.previousState}
+                  aria-label="Undo last change"
+                  className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1.5 rounded-full transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  ↩️ Undo
+                </button>
+              </div>
             </div>
           )}
         </div>

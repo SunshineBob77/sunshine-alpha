@@ -4,6 +4,7 @@ import DropCard from "./DropCard";
 import ShareButton from "./ShareButton";
 import DeleteDropButton from "./DeleteDropButton";
 import { useCaptures } from "@/app/lib/DashboardContext";
+import { isAutoHidden } from "@/app/lib/autoHide";
 import type { Capture } from "@/app/lib/captures";
 
 export default function LifelineDropCard({
@@ -13,8 +14,7 @@ export default function LifelineDropCard({
   onAccept,
   onDismiss,
   onToggleStatus,
-  onHideToday,
-  onHideWeek,
+  onToggleHide,
   onArchive,
   onUndo,
 }: {
@@ -24,14 +24,27 @@ export default function LifelineDropCard({
   onAccept?: () => void;
   onDismiss?: () => void;
   onToggleStatus?: () => void;
-  onHideToday?: () => void;
-  onHideWeek?: () => void;
+  onToggleHide?: () => void;
   onArchive?: () => void;
   onUndo?: () => void;
 }) {
-  const { updatePinned, updateChecklistItems } = useCaptures();
+  const { updatePinned, updateChecklistItems, user } = useCaptures();
   const isUrgent = capture.tags?.includes("urgent") ?? false;
   const isDrop = kind === "drop";
+  const isSunshineDrop = capture.source === "system";
+  // Always true outside a shared space (a user only ever sees their own
+  // captures there) - only meaningfully false when viewing a shared
+  // space's Lifeline and looking at a Drop another member created. RLS
+  // already rejects a write to someone else's capture regardless (see
+  // the Shared Spaces audit - UPDATE/DELETE on captures is still
+  // owner-only), so this is UI-layer only: it stops mutating controls
+  // from rendering as if they'd work when they'd silently no-op.
+  const isOwnCapture = capture.userId === user.id;
+  // Manual marker (hiddenUntil is a presence flag now, not an expiry) OR
+  // computed auto-hide for a dated Drop more than a week out - see
+  // autoHide.ts. Drives the toggle button's own label/styling; tapping it
+  // only ever flips the manual marker (see DropCard's onToggleHide).
+  const isHiddenNow = capture.hiddenUntil !== null || isAutoHidden(capture);
 
   function handleTogglePin() {
     updatePinned(capture.id, !capture.pinned);
@@ -49,21 +62,25 @@ export default function LifelineDropCard({
       variant="dark"
       title={capture.title ?? capture.sunshineSummary}
       spaceId={capture.spaceIds?.[0]}
-      isSunshineDrop={capture.source === "system"}
+      isSunshineDrop={isSunshineDrop}
       content={capture.formattedText ?? capture.text}
       createdAt={capture.createdAt}
       isUrgent={isUrgent}
       isActionable={capture.isActionable}
       status={capture.status}
-      onToggleStatus={isDrop ? onToggleStatus : undefined}
+      onToggleStatus={isDrop && isOwnCapture ? onToggleStatus : undefined}
       onTitleTap={() => onSelect(capture.id)}
       isPinned={capture.pinned}
-      onTogglePin={isDrop ? handleTogglePin : undefined}
+      onTogglePin={isDrop && isOwnCapture ? handleTogglePin : undefined}
       checklistItems={capture.checklistItems}
-      onToggleChecklistItem={handleToggleChecklistItem}
-      onHideToday={isDrop ? onHideToday : undefined}
-      onHideWeek={isDrop ? onHideWeek : undefined}
-      onArchive={isDrop ? onArchive : undefined}
+      onToggleChecklistItem={isOwnCapture ? handleToggleChecklistItem : undefined}
+      isHidden={isHiddenNow}
+      onToggleHide={isDrop && !isSunshineDrop && isOwnCapture ? onToggleHide : undefined}
+      // Share is deliberately left ungated here - it wasn't in the
+      // explicit "gate these" list, and the shares table's own RLS was
+      // never audited this session, so gating it would be a guess rather
+      // than a verified boundary. Flagging as an open question, not a
+      // silent decision.
       extraPrimaryActions={
         kind === "suggestion" ? (
           <>
@@ -86,8 +103,15 @@ export default function LifelineDropCard({
           <ShareButton capture={capture} variant="dark" />
         )
       }
+      // Only Edit/Delete were explicitly called out for gating - Archive
+      // and Undo are bundled into this same panel and get gated along
+      // with it for consistency (RLS already rejects a write to someone
+      // else's capture regardless, so leaving those two ungated would
+      // just reproduce the same "looks interactive, silently fails" gap
+      // for two controls instead of none). Flagging this extension
+      // rather than assuming it's what was meant.
       moreActions={
-        isDrop ? (
+        isDrop && isOwnCapture ? (
           <>
             <button
               type="button"
@@ -98,6 +122,14 @@ export default function LifelineDropCard({
             </button>
 
             <DeleteDropButton captureId={capture.id} variant="dark" />
+
+            <button
+              type="button"
+              onClick={onArchive}
+              className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-2 py-1.5 rounded-full transition-all"
+            >
+              🗄️ Archive
+            </button>
 
             <button
               type="button"

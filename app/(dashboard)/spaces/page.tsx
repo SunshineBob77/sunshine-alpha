@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { assignableSpaces, defaultSpaces, type Space } from "@/app/lib/spaces";
 import { orderSpaces } from "@/app/lib/spaceOrdering";
 import { useCaptures } from "@/app/lib/DashboardContext";
+import { createSharedSpace } from "@/app/lib/sharedSpaces";
+import CreateSpaceInline from "@/app/components/CreateSpaceInline";
+import SharedSpacesTile from "@/app/components/SharedSpacesTile";
 
 // Rename affordance for one non-system tile - a small inline text input,
 // not a separate modal, since the tile itself has room and this avoids
@@ -118,7 +121,9 @@ function SpaceTile({ space, displayName }: { space: Space; displayName: string }
 }
 
 export default function SpacesPage() {
-  const { captures, openCapture, spaceOverrides } = useCaptures();
+  const { captures, spaceOverrides } = useCaptures();
+  const router = useRouter();
+  const [creatingShared, setCreatingShared] = useState(false);
 
   const orderedSpaces = useMemo(
     () => orderSpaces(assignableSpaces, captures),
@@ -126,23 +131,44 @@ export default function SpacesPage() {
   );
   const systemSpaces = useMemo(() => defaultSpaces.filter((space) => space.isSystem), []);
 
+  async function handleCreateShared(name: string) {
+    await createSharedSpace(name);
+    // The sub-list page does its own fresh fetchMySpaces() - simplest way
+    // to "immediately reflect" the new space without duplicating list
+    // state on this tab too, which otherwise never shows individual
+    // shared spaces at all (only the folder tile).
+    router.push("/spaces/shared");
+  }
+
   return (
     <main className="flex flex-col items-center p-8">
       <div className="w-full max-w-2xl">
-        <h1 className="text-3xl font-bold text-center mb-8 tracking-tight text-gray-900">
-          Spaces
-        </h1>
-
         <section className="bg-white rounded-3xl ring-1 ring-black/5 shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-semibold text-gray-900">Organize</h2>
-
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
             <button
-              onClick={openCapture}
-              className="bg-gradient-to-r from-amber-400 to-orange-300 hover:from-amber-500 hover:to-orange-400 text-gray-900 font-bold py-3 px-5 rounded-xl shadow-sm transition-all"
+              type="button"
+              disabled
+              title="Creating additional personal Spaces isn't built yet"
+              className="text-sm font-semibold bg-gray-100 text-gray-400 px-4 py-2 rounded-xl cursor-not-allowed"
             >
-              + Capture
+              + Create Space
             </button>
+
+            {creatingShared ? (
+              <CreateSpaceInline
+                placeholder="Shared Space name"
+                onSubmit={handleCreateShared}
+                onCancel={() => setCreatingShared(false)}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setCreatingShared(true)}
+                className="text-sm font-semibold bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-xl transition-all"
+              >
+                + Create Shared Space
+              </button>
+            )}
           </div>
 
           <p className="text-sm text-gray-500 mb-4">
@@ -151,21 +177,18 @@ export default function SpacesPage() {
           </p>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[...orderedSpaces, ...systemSpaces].map((space) => (
-              <SpaceTile key={space.id} space={space} displayName={spaceOverrides[space.id] ?? space.name} />
-            ))}
+            {[...orderedSpaces, ...systemSpaces].map((space) =>
+              space.id === "shared" ? (
+                <SharedSpacesTile key={space.id} space={space} />
+              ) : (
+                <SpaceTile
+                  key={space.id}
+                  space={space}
+                  displayName={spaceOverrides[space.id] ?? space.name}
+                />
+              )
+            )}
           </div>
-        </section>
-
-        <section className="mt-6 bg-white rounded-3xl ring-1 ring-black/5 shadow-sm p-7 text-center">
-          <div className="text-4xl mb-3">👥</div>
-          <p className="text-lg text-gray-800 font-semibold mb-2">
-            Shared calendars are coming soon.
-          </p>
-          <p className="text-gray-500">
-            Soon you&apos;ll be able to share a calendar with family - Business/ADG, household
-            errands, and more - all in one place.
-          </p>
         </section>
       </div>
     </main>

@@ -53,6 +53,7 @@ export type ReminderDismissal = {
 
 export type Capture = {
   id: number;
+  userId: string;
   text: string;
   createdAt: string;
   category: string;
@@ -94,6 +95,7 @@ export type Capture = {
 
 export type CaptureRow = {
   id: number;
+  user_id: string;
   text: string;
   created_at: string;
   category: string;
@@ -136,6 +138,7 @@ export type CaptureRow = {
 export function mapRowToCapture(row: CaptureRow): Capture {
   return {
     id: row.id,
+    userId: row.user_id,
     text: row.text,
     createdAt: row.created_at,
     category: row.category,

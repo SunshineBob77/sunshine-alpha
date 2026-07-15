@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import LifelineDropCard from "./LifelineDropCard";
 import RemindersCard from "./RemindersCard";
 import { useCaptures } from "@/app/lib/DashboardContext";
+import { isAutoHidden } from "@/app/lib/autoHide";
 import type { Capture } from "@/app/lib/captures";
 
 // Matches DropCard's own settle time, so the card doesn't get yanked out of
@@ -25,9 +26,14 @@ export default function LifelineFeed({
 
   // Archived is checked first and short-circuits every other branch (tucked
   // away everywhere except its own Space) except the Archived filter
-  // itself. hiddenUntil only ever gates the literal "all" Lifeline view -
+  // itself. isHiddenNow only ever gates the literal "all" Lifeline view -
   // a hidden Drop stays fully visible in its own Space, and in the
-  // Completed/Pinned cross-cutting views, per spec.
+  // Completed/Pinned cross-cutting views, per spec. isHiddenNow itself is
+  // two independent things ORed together: a manual hide (hiddenUntil is
+  // now just a presence marker, not an expiry to compare against "now" -
+  // Hide v2 has no duration) and a computed auto-hide for dated Drops more
+  // than a week out (see isAutoHidden in autoHide.ts - purely derived,
+  // nothing stored for this half).
   const filteredCaptures = useMemo(() => {
     return captures.filter((capture) => {
       if (pendingRemovalIds.has(capture.id)) return true;
@@ -39,7 +45,9 @@ export default function LifelineFeed({
       if (activeFilter === "completed") return capture.status === "completed";
       if (activeFilter === "pinned") return capture.pinned === true;
 
-      const isHiddenNow = Boolean(capture.hiddenUntil && new Date(capture.hiddenUntil) > new Date());
+      const isManuallyHidden = capture.hiddenUntil !== null;
+      const isHiddenNow = isManuallyHidden || isAutoHidden(capture);
+      if (activeFilter === "hidden") return isHiddenNow;
       if (activeFilter === "all" && isHiddenNow) return false;
 
       if (capture.status === "completed") return false;
@@ -70,9 +78,9 @@ export default function LifelineFeed({
     await updateStatus(id, nextStatus);
   }
 
-  async function handleHide(id: number, duration: "today" | "week") {
+  async function handleToggleHide(id: number) {
     holdThroughSettle(id);
-    await hideCapture(id, duration);
+    await hideCapture(id);
   }
 
   async function handleArchive(id: number) {
@@ -103,8 +111,7 @@ export default function LifelineFeed({
         capture={capture}
         onSelect={onSelectCapture}
         onToggleStatus={() => handleToggleStatus(capture.id, capture.status)}
-        onHideToday={() => handleHide(capture.id, "today")}
-        onHideWeek={() => handleHide(capture.id, "week")}
+        onToggleHide={() => handleToggleHide(capture.id)}
         onArchive={() => handleArchive(capture.id)}
         onUndo={() => handleUndo(capture.id)}
       />
@@ -123,9 +130,11 @@ export default function LifelineFeed({
             ? "No completed Drops yet."
             : activeFilter === "archived"
               ? "No archived Drops yet."
-              : activeFilter === "all"
-                ? "No Drops yet."
-                : "No Drops in this Space yet."}
+              : activeFilter === "hidden"
+                ? "No hidden Drops."
+                : activeFilter === "all"
+                  ? "No Drops yet."
+                  : "No Drops in this Space yet."}
         </p>
       ) : (
         restCaptures.map(renderCard)

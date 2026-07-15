@@ -1,7 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import DropDetailModal from "@/app/components/DropDetailModal";
 import LifelineFeed from "@/app/components/LifelineFeed";
 import { useCaptures } from "@/app/lib/DashboardContext";
@@ -9,18 +9,24 @@ import { defaultSpaces } from "@/app/lib/spaces";
 
 export default function Home() {
   const { captures, capturesLoading, capturesError, spaceOverrides } = useCaptures();
+  const router = useRouter();
   const searchParams = useSearchParams();
   // Deep-link from the Organization tab: tapping a Space tile there routes
   // here with ?space=<id> pre-selected, since Organization no longer shows
-  // a Space's Drops itself - this is the one place that still does.
+  // a Space's Drops itself - this is the one place that still does. Now
+  // also the deep-link target from the Shared Spaces sub-list
+  // (spaces/shared/page.tsx), whose ids are real spaces-table UUIDs, not
+  // one of defaultSpaces' fixed entries - the old defaultSpaces.some(...)
+  // gate would have silently rejected those and fallen back to "all", so
+  // it's gone; any requested id is trusted as-is (worst case an unknown
+  // id just renders as an empty "No Drops in this Space yet" list, same
+  // as any real Space with zero Drops today - no injection risk, this
+  // string is never used as anything but a plain equality/array-includes
+  // check and React-escaped text).
   const requestedSpace = searchParams.get("space");
   const [selectedCaptureId, setSelectedCaptureId] = useState<number | null>(null);
   const selectedCapture = captures.find((capture) => capture.id === selectedCaptureId) ?? null;
-  const [activeFilter, setActiveFilter] = useState(
-    requestedSpace && defaultSpaces.some((space) => space.id === requestedSpace)
-      ? requestedSpace
-      : "all"
-  );
+  const [activeFilter, setActiveFilter] = useState(requestedSpace ?? "all");
 
   // Otherwise still defaultSpaces' fixed order (the pinned-first/recency
   // ordering rule applies to Organization and the calendar pill toolbar,
@@ -74,7 +80,13 @@ export default function Home() {
             <button
               key={option.id}
               type="button"
-              onClick={() => setActiveFilter(option.id)}
+              // "Shared Spaces" is a folder/entry-point, not a filterable
+              // Space itself (see spaces.ts) - it navigates to the
+              // sub-list instead of setting activeFilter, same as tapping
+              // its Spaces-tab tile does (SharedSpacesTile.tsx).
+              onClick={() =>
+                option.id === "shared" ? router.push("/spaces/shared") : setActiveFilter(option.id)
+              }
               className={`shrink-0 whitespace-nowrap text-xs font-semibold px-3 py-1.5 rounded-full transition-all ${
                 activeFilter === option.id
                   ? "bg-gold text-night"

@@ -46,11 +46,12 @@ export function getSpaceTone(spaceId: string | null | undefined) {
 // requested list but needed *some* color for full coverage - picked
 // reasonable, sufficiently-distinct ones for those too.
 //
-// "pinned" is a system Space tile for filtering/Organization display
-// only - a real capture's spaceIds never actually contains "pinned"
-// (pinned is capture.pinned, a separate boolean, not a Space membership)
-// - so this entry can never actually render as a card's own border
-// color. Kept for completeness / potential future non-card use.
+// "pinned" and "hidden" are system Space tiles for filtering/Organization
+// display only - a real capture's spaceIds never actually contains either
+// (pinned is capture.pinned, hidden is derived from hiddenUntil/isAutoHidden
+// - see autoHide.ts - neither is a Space membership) - so these entries can
+// never actually render as a card's own border color. Kept for
+// completeness / potential future non-card use.
 // completed/archived Drops are excluded from the "All" Lifeline filter
 // entirely (see LifelineFeed.tsx), so those two are rarely if ever seen
 // as a card border either - only in their own dedicated filter tabs.
@@ -67,6 +68,7 @@ export const spaceAccentColors: Record<string, string> = {
   shared: "#5C6BC0",
   pinned: "#C9A227",
   completed: "#5C7A87",
+  hidden: "#8A94A6",
   archived: "#6B6B70",
 };
 

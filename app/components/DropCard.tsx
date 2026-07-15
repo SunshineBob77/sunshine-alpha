@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import DropContent from "./DropContent";
 import ChecklistContent from "./ChecklistContent";
-import HidePanel from "./HidePanel";
 import { getSpaceTone, getSpaceAccentColor, sunshineDropTone, sunshineDropAccentColor } from "@/app/lib/spaceTone";
 import { formatRelativeTime } from "@/app/lib/relativeTime";
 import { hasUncheckedChecklistItems, type ChecklistItem } from "@/app/lib/captures";
@@ -28,9 +27,8 @@ export default function DropCard({
   isActionable = false,
   status = "active",
   onToggleStatus,
-  onHideToday,
-  onHideWeek,
-  onArchive,
+  isHidden = false,
+  onToggleHide,
   size = "default",
   isPinned = false,
   onTogglePin,
@@ -62,9 +60,16 @@ export default function DropCard({
   isActionable?: boolean;
   status?: "active" | "completed" | "deleted";
   onToggleStatus?: () => void;
-  onHideToday?: () => void;
-  onHideWeek?: () => void;
-  onArchive?: () => void;
+  // Reflects the Drop's current effective hidden state (manual marker OR
+  // computed auto-hide for a dated Drop - see isAutoHidden in
+  // app/lib/autoHide.ts), for the toggle button's own label/styling.
+  // Tapping it only ever flips the manual marker - see onToggleHide.
+  isHidden?: boolean;
+  // Single tap, no duration picker (Hide v2) - toggles the manual hidden
+  // marker directly, no expandable panel. Absent entirely for Sunshine
+  // Drop cards (system Drops never get a Hide control - caller's
+  // responsibility, same as the isSunshineDrop rendering guard).
+  onToggleHide?: () => void;
   size?: "default" | "hero";
   isPinned?: boolean;
   onTogglePin?: () => void;
@@ -104,7 +109,10 @@ export default function DropCard({
   const [isOverflowing, setIsOverflowing] = useState(false);
   const [collapsing, setCollapsing] = useState(false);
   const [confirmingComplete, setConfirmingComplete] = useState(false);
-  const [expandedPanel, setExpandedPanel] = useState<"hide" | "more" | null>(null);
+  // Only "More" expands into a panel now - Hide is a direct single-tap
+  // toggle (see handleToggleHide below), so this no longer needs to be a
+  // multi-value enum the way it did when Hide opened its own panel too.
+  const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
     const el = contentRef.current;
@@ -118,26 +126,22 @@ export default function DropCard({
   // absolutely-positioned popover, so it isn't subject to the overflow-
   // hidden clipping issue the earlier standalone overflow-menu attempt hit.
   useEffect(() => {
-    if (!expandedPanel) return;
+    if (!moreOpen) return;
 
     function handleOutsideClick(event: MouseEvent) {
       if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
-        setExpandedPanel(null);
+        setMoreOpen(false);
       }
     }
 
     document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, [expandedPanel]);
+  }, [moreOpen]);
 
   const isClippedNow = clipped && !expanded;
   const isCompleted = status === "completed";
   const showCompletedToggle = isActionable && onToggleStatus;
-  const showHideTrigger = Boolean(onHideToday || onHideWeek || onArchive);
-
-  function togglePanel(panel: "hide" | "more") {
-    setExpandedPanel((prev) => (prev === panel ? null : panel));
-  }
+  const showHideToggle = Boolean(onToggleHide);
 
   function handleToggleTap() {
     if (!onToggleStatus) return;
@@ -168,21 +172,8 @@ export default function DropCard({
     setTimeout(() => setCollapsing(true), SETTLE_MS);
   }
 
-  function handleHideToday() {
-    setExpandedPanel(null);
-    onHideToday?.();
-    settle();
-  }
-
-  function handleHideWeek() {
-    setExpandedPanel(null);
-    onHideWeek?.();
-    settle();
-  }
-
-  function handleArchive() {
-    setExpandedPanel(null);
-    onArchive?.();
+  function handleToggleHide() {
+    onToggleHide?.();
     settle();
   }
 
@@ -300,7 +291,11 @@ export default function DropCard({
         {customContent ? (
           customContent
         ) : checklistItems && checklistItems.length > 0 ? (
-          <ChecklistContent items={checklistItems} onToggle={onToggleChecklistItem ?? (() => {})} />
+          <ChecklistContent
+            items={checklistItems}
+            onToggle={onToggleChecklistItem ?? (() => {})}
+            readOnly={!onToggleChecklistItem}
+          />
         ) : (
           <DropContent content={content} variant={variant} />
         )}
@@ -322,7 +317,7 @@ export default function DropCard({
         </p>
       )}
 
-      {(extraPrimaryActions || moreActions || showCompletedToggle || showHideTrigger) && (
+      {(extraPrimaryActions || moreActions || showCompletedToggle || showHideToggle) && (
         <div className={`mt-2 pt-2 border-t ${isDark ? "border-ink/10" : "border-gray-100"}`}>
           <div className="flex items-center gap-1.5 flex-wrap">
             {showCompletedToggle &&
@@ -375,36 +370,36 @@ export default function DropCard({
 
             {extraPrimaryActions}
 
-            {showHideTrigger && (
+            {showHideToggle && (
               <button
                 type="button"
-                onClick={() => togglePanel("hide")}
-                aria-expanded={expandedPanel === "hide"}
+                onClick={handleToggleHide}
+                aria-label={isHidden ? "Unhide" : "Hide"}
                 className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
                   isDark
-                    ? expandedPanel === "hide"
+                    ? isHidden
                       ? "bg-gold text-night"
                       : "bg-ink/5 hover:bg-ink/10 text-ink-dim"
-                    : expandedPanel === "hide"
+                    : isHidden
                       ? "bg-gray-800 text-white"
                       : "bg-gray-100 hover:bg-gray-200 text-gray-600"
                 }`}
               >
-                🙈 Hide
+                {isHidden ? "🙉 Unhide" : "🙈 Hide"}
               </button>
             )}
 
             {moreActions && (
               <button
                 type="button"
-                onClick={() => togglePanel("more")}
-                aria-expanded={expandedPanel === "more"}
+                onClick={() => setMoreOpen((prev) => !prev)}
+                aria-expanded={moreOpen}
                 className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
                   isDark
-                    ? expandedPanel === "more"
+                    ? moreOpen
                       ? "bg-gold text-night"
                       : "bg-ink/5 hover:bg-ink/10 text-ink-dim"
-                    : expandedPanel === "more"
+                    : moreOpen
                       ? "bg-gray-800 text-white"
                       : "bg-gray-100 hover:bg-gray-200 text-gray-600"
                 }`}
@@ -414,18 +409,9 @@ export default function DropCard({
             )}
           </div>
 
-          {expandedPanel && (
+          {moreOpen && moreActions && (
             <div className={`mt-2 pt-2 border-t ${isDark ? "border-ink/10" : "border-gray-100"}`}>
-              {expandedPanel === "hide" ? (
-                <HidePanel
-                  onToday={handleHideToday}
-                  onWeek={handleHideWeek}
-                  onArchive={handleArchive}
-                  variant={variant}
-                />
-              ) : (
-                moreActions
-              )}
+              {moreActions}
             </div>
           )}
         </div>

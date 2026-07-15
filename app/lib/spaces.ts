@@ -19,9 +19,16 @@ export const defaultSpaces: Space[] = [
   { id: "ideas", name: "Ideas", icon: "💡", color: "bg-purple-100", border: "border-purple-400", isShared: false },
   { id: "travel", name: "Travel", icon: "✈️", color: "bg-sky-100", border: "border-sky-400", isShared: false },
   { id: "recipes", name: "Recipes", icon: "🍳", color: "bg-orange-100", border: "border-orange-400", isShared: false },
-  { id: "shared", name: "Shared Space", icon: "👥", color: "bg-pink-100", border: "border-pink-400", isShared: true },
+  // Folder/entry-point, not a real Space of its own - real shared spaces
+  // live in the spaces table (see app/lib/sharedSpaces.ts) and are
+  // rendered via SharedSpacesTile.tsx / spaces/shared/page.tsx, not this
+  // hardcoded entry. This id/icon/color still drives the Spaces tab
+  // tile's look and the Lifeline pill's label - both read from
+  // defaultSpaces the same way they read every other entry here.
+  { id: "shared", name: "Shared Spaces", icon: "👥", color: "bg-pink-100", border: "border-pink-400", isShared: true },
   { id: "pinned", name: "Pinned", icon: "📌", color: "bg-amber-100", border: "border-amber-400", isShared: false, isSystem: true },
   { id: "completed", name: "Completed", icon: "✅", color: "bg-orange-100", border: "border-orange-400", isShared: false, isSystem: true },
+  { id: "hidden", name: "Hidden", icon: "🙈", color: "bg-slate-200", border: "border-slate-400", isShared: false, isSystem: true },
   { id: "archived", name: "Archived", icon: "🗄️", color: "bg-gray-200", border: "border-gray-400", isShared: false, isSystem: true },
 ];
 
