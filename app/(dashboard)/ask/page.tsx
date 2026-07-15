@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useCaptures } from "@/app/lib/DashboardContext";
-import { searchCaptures } from "@/app/lib/searchCaptures";
+import { searchCaptures, tokenizeSearchQuery } from "@/app/lib/searchCaptures";
 import DropCard from "@/app/components/DropCard";
 import DropDetailModal from "@/app/components/DropDetailModal";
 
@@ -14,6 +14,11 @@ export default function AskSunshinePage() {
 
   const results = useMemo(() => searchCaptures(captures, query), [captures, query]);
   const trimmedQuery = query.trim();
+  // Distinguishes "nothing typed" from "typed something, but it was all
+  // filler words (e.g. just 'find')" - both need the placeholder state
+  // rather than a literal "no results", since neither one was ever a
+  // real search to begin with.
+  const hasSearchTerms = useMemo(() => tokenizeSearchQuery(query).length > 0, [query]);
 
   return (
     <main className="flex flex-col items-center p-8">
@@ -31,14 +36,27 @@ export default function AskSunshinePage() {
           className="w-full text-base bg-white border border-gray-300 rounded-2xl px-4 py-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent mb-6"
         />
 
-        {!trimmedQuery ? (
+        {!hasSearchTerms ? (
           <section className="bg-white rounded-3xl ring-1 ring-black/5 shadow-sm p-7 text-center">
             <div className="text-4xl mb-3">💬</div>
-            <p className="text-lg text-gray-800 font-semibold mb-2">Search your Drops</p>
+            <p className="text-lg text-gray-800 font-semibold mb-2">
+              {trimmedQuery ? "Add a specific word to search for" : "Search your Drops"}
+            </p>
             <p className="text-gray-500">
-              Type a keyword above to find Drops by title, content, category, project, or tags.
-              Straightforward keyword search for now - conversational answers and smarter queries
-              (like totals across your Drops) are coming later.
+              {trimmedQuery ? (
+                <>
+                  &ldquo;{trimmedQuery}&rdquo; doesn&apos;t have a specific word to search for yet -
+                  try adding a name, place, or topic (e.g. &ldquo;find ADG&rdquo; instead of just
+                  &ldquo;find&rdquo;).
+                </>
+              ) : (
+                <>
+                  Type a keyword above to find Drops by title, content, category, project, or tags.
+                  Natural phrasing like &ldquo;find ADG&rdquo; or &ldquo;show me birthdays&rdquo;
+                  works too. Straightforward keyword search for now - conversational answers and
+                  smarter queries (like totals across your Drops) are coming later.
+                </>
+              )}
             </p>
           </section>
         ) : capturesLoading ? (

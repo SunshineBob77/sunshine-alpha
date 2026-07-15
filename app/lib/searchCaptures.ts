@@ -26,8 +26,51 @@ import type { Capture } from "./captures";
 // Hide/Archive/Undo plan's explicit "still fully reachable via search").
 // The one exclusion is source === "system" (Morning Brief, etc.) - those
 // aren't really "Drops" a user is searching their own notes for.
+
+// "Ask Sunshine" invites natural phrasing ("find X", "show me X", "how
+// many X"), but the matching logic is still plain AND-across-tokens
+// keyword search, not a rewrite into anything conversational - these
+// carry no search meaning on their own and would otherwise become
+// required tokens that silently zero out results a bare keyword would
+// have found (e.g. "find ADG" requiring the literal word "find" to
+// appear in a Drop, which it never does). Stripped before tokenizing
+// rather than matched against. "how"/"many" are here specifically so
+// "how many boxing" still surfaces plain keyword matches on "boxing" -
+// counting/aggregating is separate, later work; this only stops the
+// filler words from blocking the keyword search that already exists.
+const FILLER_WORDS = new Set([
+  "find",
+  "show",
+  "search",
+  "what",
+  "what's",
+  "whats",
+  "tell",
+  "look",
+  "get",
+  "give",
+  "me",
+  "for",
+  "up",
+  "is",
+  "how",
+  "many",
+]);
+
+// Exported separately from searchCaptures so a caller (the Ask Sunshine
+// page) can tell "no real search terms at all" (empty query, or every
+// word typed was filler) apart from "real terms, zero Drops matched" -
+// those need different empty-state messaging, not the same "no results".
+export function tokenizeSearchQuery(query: string): string[] {
+  return query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((token) => !FILLER_WORDS.has(token));
+}
+
 export function searchCaptures(captures: Capture[], query: string): Capture[] {
-  const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const tokens = tokenizeSearchQuery(query);
   if (tokens.length === 0) return [];
 
   return captures.filter((capture) => {
