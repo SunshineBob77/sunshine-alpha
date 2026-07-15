@@ -1,3 +1,10 @@
+-- SUPERSEDED - see docs/drop-attachments-teardown.sql and
+-- docs/drop-groups-schema.sql. Card Carousel's spec changed: attachments
+-- turned out to mean full independent Drops linked by a shared group_id
+-- on captures itself, not lightweight sub-cards in a separate table. Kept
+-- here for reference/history only, per this repo's convention - do not
+-- re-apply.
+--
 -- Card Carousel: lightweight sub-cards attached to a Drop
 -- Run in Supabase SQL editor. Saved here for reference/history, not applied automatically.
 --

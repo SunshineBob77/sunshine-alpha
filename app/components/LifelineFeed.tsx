@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import LifelineDropCard from "./LifelineDropCard";
 import RemindersCard from "./RemindersCard";
+import DropGroupCarousel from "./DropGroupCarousel";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import { isAutoHidden } from "@/app/lib/autoHide";
 import type { Capture } from "@/app/lib/captures";
@@ -118,6 +119,38 @@ export default function LifelineFeed({
     );
   }
 
+  // Card Carousel v2 - a purely presentational grouping pass over
+  // restCaptures, which has ALREADY gone through every existing filter
+  // above (Space/Completed/Pinned/Hidden/Archived). This is deliberate:
+  // it means a group member that got individually filtered out of the
+  // current view (e.g. it was just completed) simply isn't part of
+  // `members` here either, with zero new logic - which is exactly what
+  // makes "the carousel advances to the next non-completed card"
+  // fall out for free instead of needing an explicit skip-completed step.
+  // Ordered by createdAt ascending (insertion order) within a group - no
+  // new order_index column; every capture already has a creation
+  // timestamp, and "the next one fills in" is naturally creation order.
+  const groupedRestItems = useMemo(() => {
+    const renderedGroupIds = new Set<string>();
+    const items: { key: string; members: Capture[] }[] = [];
+
+    for (const capture of restCaptures) {
+      if (!capture.groupId) {
+        items.push({ key: String(capture.id), members: [capture] });
+        continue;
+      }
+      if (renderedGroupIds.has(capture.groupId)) continue;
+      renderedGroupIds.add(capture.groupId);
+
+      const members = restCaptures
+        .filter((sibling) => sibling.groupId === capture.groupId)
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      items.push({ key: capture.groupId, members });
+    }
+
+    return items;
+  }, [restCaptures]);
+
   return (
     <div className="space-y-3">
       {systemCaptures.map(renderCard)}
@@ -137,7 +170,13 @@ export default function LifelineFeed({
                   : "No Drops in this Space yet."}
         </p>
       ) : (
-        restCaptures.map(renderCard)
+        groupedRestItems.map(({ key, members }) =>
+          members.length > 1 ? (
+            <DropGroupCarousel key={key} slides={members.map((member) => renderCard(member))} />
+          ) : (
+            renderCard(members[0])
+          )
+        )
       )}
     </div>
   );

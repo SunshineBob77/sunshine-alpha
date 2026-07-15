@@ -3,11 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import DropContent from "./DropContent";
 import ChecklistContent from "./ChecklistContent";
-import DropAttachmentCarousel from "./DropAttachmentCarousel";
-import InlineTextInput from "./InlineTextInput";
 import { getSpaceTone, getSpaceAccentColor, sunshineDropTone, sunshineDropAccentColor } from "@/app/lib/spaceTone";
 import { formatRelativeTime } from "@/app/lib/relativeTime";
-import { hasUncheckedChecklistItems, type ChecklistItem, type DropAttachment } from "@/app/lib/captures";
+import { hasUncheckedChecklistItems, type ChecklistItem } from "@/app/lib/captures";
 import { fraunces } from "@/app/lib/fonts";
 
 const MAX_COLLAPSED_HEIGHT = 160;
@@ -39,8 +37,7 @@ export default function DropCard({
   customContent,
   hideTimestamp = false,
   isSunshineDrop = false,
-  attachments,
-  onAddAttachment,
+  onAddToGroup,
   variant = "light",
 }: {
   title: string;
@@ -95,16 +92,17 @@ export default function DropCard({
   // Drop it shouldn't have) can never surface as a wrong-colored card.
   // See spaceTone.ts's sunshineDropTone/sunshineDropAccentColor.
   isSunshineDrop?: boolean;
-  // Card Carousel - present (even if empty) whenever the caller wants the
-  // "+" attach trigger available at all; once non-empty, the card body
-  // becomes a swipeable carousel (DropAttachmentCarousel) instead of the
-  // normal content/checklist rendering, with the Drop's own content as
-  // the first slide, never replaced by its attachments.
-  attachments?: DropAttachment[];
-  // Deliberately independent of isOwnCapture-style gating at the caller
-  // level - Shared Spaces' "friendly invite" model means any active
-  // member can attach to any Drop they can see, not just its own owner.
-  onAddAttachment?: (content: string) => Promise<void> | void;
+  // Card Carousel v2 - present whenever the caller wants the "+" trigger
+  // available. Tapping it doesn't manage anything locally in this
+  // component at all: it opens the ordinary global capture flow (owned
+  // by DashboardContext), pre-wired to land the new capture in this
+  // Drop's group. Rendering of the carousel itself (grouped Drops
+  // swiping between each other) happens one level up, in LifelineFeed -
+  // each member is a full independent DropCard, not content inside a
+  // fixed one. Deliberately independent of isOwnCapture-style gating at
+  // the caller level - Shared Spaces' "friendly invite" model means any
+  // active member can add to a group, not just the Drop's own owner.
+  onAddToGroup?: () => void;
   // "light" (default) is the existing, unchanged appearance - used by the
   // public share page (app/s/[id]/page.tsx), which doesn't pass this
   // prop. "dark" is scoped to the Lifeline feed screen's restyle only.
@@ -127,8 +125,6 @@ export default function DropCard({
   // toggle (see handleToggleHide below), so this no longer needs to be a
   // multi-value enum the way it did when Hide opened its own panel too.
   const [moreOpen, setMoreOpen] = useState(false);
-  const [addingAttachment, setAddingAttachment] = useState(false);
-  const hasAttachments = Boolean(attachments && attachments.length > 0);
 
   useEffect(() => {
     const el = contentRef.current;
@@ -154,9 +150,7 @@ export default function DropCard({
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, [moreOpen]);
 
-  // The vertical clamp/"Show more" concept doesn't apply to a horizontal
-  // carousel - each slide is whatever height its own content needs.
-  const isClippedNow = clipped && !expanded && !hasAttachments;
+  const isClippedNow = clipped && !expanded;
   const isCompleted = status === "completed";
   const showCompletedToggle = isActionable && onToggleStatus;
   const showHideToggle = Boolean(onToggleHide);
@@ -193,11 +187,6 @@ export default function DropCard({
   function handleToggleHide() {
     onToggleHide?.();
     settle();
-  }
-
-  async function handleAddAttachment(content: string) {
-    await onAddAttachment?.(content);
-    setAddingAttachment(false);
   }
 
   // Dark variant: card differentiation is a core product requirement, not
@@ -261,24 +250,25 @@ export default function DropCard({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          {onAddAttachment && (
+          {onAddToGroup && (
             <button
               type="button"
-              onClick={() => setAddingAttachment((prev) => !prev)}
-              aria-label="Add attachment"
-              aria-expanded={addingAttachment}
-              title="Add a photo, note, or thought to this Drop"
-              className={`flex shrink-0 items-center justify-center rounded-full transition-all ${
-                isDark ? "hover:bg-ink/10" : "hover:bg-black/5"
-              } ${
-                addingAttachment
-                  ? isDark
-                    ? "opacity-100 bg-gold/20"
-                    : "opacity-100 bg-amber-100"
-                  : "opacity-35 hover:opacity-70"
-              } ${isHero ? "h-9 w-9 text-base" : "h-6 w-6 text-xs"}`}
+              onClick={onAddToGroup}
+              aria-label="Add to this Drop's carousel"
+              title="Add another card to this Drop"
+              // Plain "+" glyph, not an emoji character - an emoji's color
+              // is baked into the glyph itself and can't be recolored via
+              // CSS. Always a solid, explicitly-colored circle (no
+              // low-opacity idle state), matching the always-visible
+              // weight of the Space badge next to it rather than Pin's
+              // low-opacity-until-active treatment.
+              className={`flex shrink-0 items-center justify-center rounded-full font-bold leading-none transition-all ${
+                isDark
+                  ? "text-white bg-ink/15 hover:bg-ink/25"
+                  : "text-gray-900 bg-black/10 hover:bg-black/15"
+              } ${isHero ? "h-9 w-9 text-xl" : "h-6 w-6 text-base"}`}
             >
-              ➕
+              +
             </button>
           )}
 
@@ -325,16 +315,6 @@ export default function DropCard({
         </div>
       </div>
 
-      {addingAttachment && (
-        <div className="mb-2">
-          <InlineTextInput
-            placeholder="Add a photo caption, note, or thought…"
-            onSubmit={handleAddAttachment}
-            onCancel={() => setAddingAttachment(false)}
-          />
-        </div>
-      )}
-
       <div
         ref={contentRef}
         className={`mt-1.5 overflow-hidden ${isDark ? "text-ink" : "text-gray-800"} ${
@@ -344,22 +324,6 @@ export default function DropCard({
       >
         {customContent ? (
           customContent
-        ) : hasAttachments ? (
-          <DropAttachmentCarousel
-            mainSlide={
-              checklistItems && checklistItems.length > 0 ? (
-                <ChecklistContent
-                  items={checklistItems}
-                  onToggle={onToggleChecklistItem ?? (() => {})}
-                  readOnly={!onToggleChecklistItem}
-                />
-              ) : (
-                <DropContent content={content} variant={variant} />
-              )
-            }
-            attachments={attachments!}
-            variant={variant}
-          />
         ) : checklistItems && checklistItems.length > 0 ? (
           <ChecklistContent
             items={checklistItems}
@@ -371,7 +335,7 @@ export default function DropCard({
         )}
       </div>
 
-      {clipped && isOverflowing && !hasAttachments && (
+      {clipped && isOverflowing && (
         <button
           type="button"
           onClick={() => setExpanded((prev) => !prev)}

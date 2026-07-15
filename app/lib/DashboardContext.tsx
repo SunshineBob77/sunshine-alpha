@@ -17,7 +17,7 @@ import {
   updateCaptureArchive,
   updateCaptureUndo,
   updateCaptureReminderDismissals,
-  insertCaptureAttachment,
+  assignGroupId,
   mapRowToCapture,
   type Capture,
   type CaptureRow,
@@ -78,7 +78,10 @@ type DashboardContextValue = {
   updatePinned: (id: number, pinned: boolean) => Promise<void>;
   updateChecklistItems: (id: number, items: ChecklistItem[]) => Promise<void>;
   toggleReminderOccurrence: (captureId: number, occurrenceDate: string) => Promise<void>;
-  addAttachment: (captureId: number, content: string) => Promise<void>;
+  // Card Carousel v2 - ensures captureId has a groupId (assigning one if
+  // it doesn't yet), then opens the ordinary capture flow so the new
+  // member is a real, independent Drop, not a stripped-down text field.
+  addToGroup: (captureId: number) => Promise<void>;
   hideCapture: (id: number) => Promise<void>;
   archiveCapture: (id: number) => Promise<void>;
   undoCaptureState: (id: number) => Promise<void>;
@@ -114,6 +117,14 @@ export function DashboardProvider({
   const [capturesError, setCapturesError] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [currentSpaceId, setCurrentSpaceId] = useState<string | null>(null);
+  // Card Carousel v2 - one-shot, unlike currentSpaceId (which persists
+  // across multiple captures while a Space's Lifeline stays in view).
+  // Set only by addToGroup right before opening the capture modal, and
+  // always cleared by saveCapture/onCancel below - never touched by any
+  // page-level effect the way currentSpaceId is, since "add to this
+  // Drop's group" is a one-time intent per modal open, not an ambient
+  // view.
+  const [currentGroupId, setCurrentGroupId] = useState<string | null>(null);
   const [captureText, setCaptureText] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -298,15 +309,24 @@ export function DashboardProvider({
     setIsSaving(true);
 
     try {
-      // Capturing while viewing a specific Space's filtered Lifeline
-      // (personal or shared - currentSpaceId holds whichever real id is
-      // in view) tags the new Drop straight into that Space instead of
-      // the usual keyword-based guess, and marks it manually-set so the
-      // background analyze-drop AI pass (fired below) doesn't silently
-      // overwrite it moments later - same protection the Edit Spaces
-      // picker already relies on. Capturing from anywhere else (activeFilter
-      // "all", or any other page) keeps using the existing guess, unchanged.
-      const spaceIds = currentSpaceId ? [currentSpaceId] : [meaning.spaceId];
+      // A capture made via a Drop's own "+" (currentGroupId set) always
+      // inherits THAT Drop's own Space(s) - group siblings have to land
+      // together regardless of which Lifeline view happens to be active,
+      // so this takes priority over currentSpaceId. Falls back to
+      // currentSpaceId (capturing while viewing a specific Space's
+      // filtered Lifeline, personal or shared) and finally to the
+      // ordinary keyword-based guess when neither applies. Either
+      // override also marks the Drop manually-set so the background
+      // analyze-drop AI pass (fired below) doesn't silently overwrite it
+      // moments later - same protection the Edit Spaces picker relies on.
+      const groupSibling = currentGroupId
+        ? captures.find((capture) => capture.groupId === currentGroupId)
+        : undefined;
+      const spaceIds = groupSibling
+        ? groupSibling.spaceIds
+        : currentSpaceId
+          ? [currentSpaceId]
+          : [meaning.spaceId];
 
       const newCapture = await insertCapture({
         text: captureText.trim(),
@@ -317,12 +337,14 @@ export function DashboardProvider({
         mood: meaning.mood,
         sunshineSummary: meaning.sunshineSummary,
         entities,
-        spaceManuallySet: Boolean(currentSpaceId),
+        spaceManuallySet: Boolean(groupSibling || currentSpaceId),
+        groupId: currentGroupId,
       });
 
       setCaptures((prev) => [newCapture, ...prev]);
       setCaptureText("");
       setIsCapturing(false);
+      setCurrentGroupId(null);
 
       setShowSavedToast(true);
       setTimeout(() => setShowSavedToast(false), 2500);
@@ -585,31 +607,29 @@ export function DashboardProvider({
     );
   }
 
-  // Card Carousel - "friendly invite" model, deliberately no ownership
+  // Card Carousel v2 - "friendly invite" model preserved: no ownership
   // check here at all (unlike updateStatus/hideCapture/archiveCapture/
-  // etc.): any active member of the parent Drop's space can attach,
-  // not just its owner. The actual write boundary is drop_attachments'
-  // own RLS insert policy, which mirrors captures' own visibility exactly
-  // (see docs/drop-attachments-schema.sql) - this just computes
-  // orderIndex from whatever's already loaded locally rather than a
-  // separate round trip, then appends optimistically.
-  async function addAttachment(captureId: number, content: string) {
-    const existing = captures.find((capture) => capture.id === captureId);
-    if (!existing) return;
-
-    const nextOrderIndex =
-      existing.attachments.length > 0
-        ? Math.max(...existing.attachments.map((attachment) => attachment.orderIndex)) + 1
-        : 0;
-
-    const attachment = await insertCaptureAttachment(captureId, content, nextOrderIndex);
+  // etc.), any active member of the parent Drop's space can add a new
+  // member to its group, not just its owner. There's no new RLS boundary
+  // to rely on either - the new member is just a regular capture insert,
+  // fully covered by existing captures policies. Only assigns a fresh
+  // groupId the first time; a Drop that's already a group anchor or
+  // member keeps its existing one. currentGroupId is a one-shot value -
+  // saveCapture (below) consumes and clears it on save or cancel, so it
+  // can never leak into an unrelated capture made later.
+  async function addToGroup(captureId: number) {
+    // Always defers to assign_group_id() as the source of truth rather
+    // than trusting this capture's local groupId - local state could be
+    // briefly stale (e.g. another member just started a group on it
+    // concurrently), and the function itself is idempotent/row-locked, so
+    // there's no benefit to a client-side "already has one" shortcut here.
+    const groupId = await assignGroupId(captureId);
     setCaptures((prev) =>
-      prev.map((capture) =>
-        capture.id === captureId
-          ? { ...capture, attachments: [...capture.attachments, attachment] }
-          : capture
-      )
+      prev.map((capture) => (capture.id === captureId ? { ...capture, groupId } : capture))
     );
+
+    setCurrentGroupId(groupId);
+    setIsCapturing(true);
   }
 
   async function updateTemporal(
@@ -656,7 +676,7 @@ export function DashboardProvider({
         updatePinned,
         updateChecklistItems,
         toggleReminderOccurrence,
-        addAttachment,
+        addToGroup,
         hideCapture,
         archiveCapture,
         undoCaptureState,
@@ -682,6 +702,7 @@ export function DashboardProvider({
           setIsCapturing(false);
           setCaptureText("");
           setSaveError(null);
+          setCurrentGroupId(null);
         }}
       />
 

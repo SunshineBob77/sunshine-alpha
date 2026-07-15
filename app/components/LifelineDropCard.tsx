@@ -28,7 +28,7 @@ export default function LifelineDropCard({
   onArchive?: () => void;
   onUndo?: () => void;
 }) {
-  const { updatePinned, updateChecklistItems, addAttachment, user } = useCaptures();
+  const { updatePinned, updateChecklistItems, addToGroup, user } = useCaptures();
   const isUrgent = capture.tags?.includes("urgent") ?? false;
   const isDrop = kind === "drop";
   const isSunshineDrop = capture.source === "system";
@@ -57,8 +57,8 @@ export default function LifelineDropCard({
     updateChecklistItems(capture.id, next);
   }
 
-  function handleAddAttachment(content: string) {
-    return addAttachment(capture.id, content);
+  function handleAddToGroup() {
+    return addToGroup(capture.id);
   }
 
   return (
@@ -80,13 +80,13 @@ export default function LifelineDropCard({
       onToggleChecklistItem={isOwnCapture ? handleToggleChecklistItem : undefined}
       isHidden={isHiddenNow}
       onToggleHide={isDrop && !isSunshineDrop && isOwnCapture ? onToggleHide : undefined}
-      attachments={capture.attachments}
       // Deliberately NOT gated by isOwnCapture, unlike every other control
       // above - Card Carousel is explicitly the "friendly invite" model
-      // (any active member of the parent Drop's space can attach, not
-      // just its owner). Still excluded for suggestion-kind cards and
-      // Sunshine Drops, same as everything else.
-      onAddAttachment={isDrop && !isSunshineDrop ? handleAddAttachment : undefined}
+      // (any active member of a Shared Space can add a new card to a
+      // group belonging to a Drop in that space, not just its owner).
+      // Still excluded for suggestion-kind cards and Sunshine Drops, same
+      // as everything else.
+      onAddToGroup={isDrop && !isSunshineDrop ? handleAddToGroup : undefined}
       // Share is deliberately left ungated here - it wasn't in the
       // explicit "gate these" list, and the shares table's own RLS was
       // never audited this session, so gating it would be a guess rather

@@ -51,37 +51,6 @@ export type ReminderDismissal = {
   dismissedOn: string;
 };
 
-// Card Carousel: a lightweight sub-card attached to a Drop (a photo
-// caption, a follow-up thought, a related note) - deliberately NOT a full
-// Drop of its own (no category/project/mood/temporal/AI fields), see
-// docs/drop-attachments-schema.sql. Fetched embedded alongside its parent
-// capture via a single PostgREST join, not a separate round trip.
-export type DropAttachment = {
-  id: number;
-  createdBy: string;
-  content: string;
-  orderIndex: number;
-  createdAt: string;
-};
-
-type DropAttachmentRow = {
-  id: number;
-  created_by: string;
-  content: string;
-  order_index: number;
-  created_at: string;
-};
-
-function mapRowToAttachment(row: DropAttachmentRow): DropAttachment {
-  return {
-    id: row.id,
-    createdBy: row.created_by,
-    content: row.content,
-    orderIndex: row.order_index,
-    createdAt: row.created_at,
-  };
-}
-
 export type Capture = {
   id: number;
   userId: string;
@@ -122,7 +91,14 @@ export type Capture = {
   userArchivedAt: string | null;
   previousState: PreviousState | null;
   reminderDismissedDates: ReminderDismissal[];
-  attachments: DropAttachment[];
+  // Card Carousel v2: two or more captures sharing the same groupId are
+  // members of the same swipeable carousel, each a full independent Drop
+  // with its own complete lifecycle - null means a normal standalone
+  // Drop, unaffected. See docs/drop-groups-schema.sql. No embedding/join
+  // needed - group siblings are found by filtering the already-loaded
+  // captures array client-side (see LifelineFeed.tsx), same as every
+  // other purely-derived view in this app.
+  groupId: string | null;
 };
 
 export type CaptureRow = {
@@ -165,10 +141,7 @@ export type CaptureRow = {
   user_archived_at: string | null;
   previous_state: PreviousState | null;
   reminder_dismissed_dates: ReminderDismissal[] | null;
-  // Embedded via PostgREST's join on the drop_attachments -> captures FK
-  // (see fetchCaptures' select string) - null when the embed wasn't
-  // requested, empty array when requested but there are none.
-  drop_attachments: DropAttachmentRow[] | null;
+  group_id: string | null;
 };
 
 export function mapRowToCapture(row: CaptureRow): Capture {
@@ -212,13 +185,7 @@ export function mapRowToCapture(row: CaptureRow): Capture {
     userArchivedAt: row.user_archived_at ?? null,
     previousState: row.previous_state ?? null,
     reminderDismissedDates: row.reminder_dismissed_dates ?? [],
-    // Sorted defensively even though the fetchCaptures query already
-    // orders the embed server-side - insertCaptureAttachment's own local
-    // append (see DashboardContext.addAttachment) relies on this same
-    // ordering guarantee holding after a full re-fetch too.
-    attachments: (row.drop_attachments ?? [])
-      .map(mapRowToAttachment)
-      .sort((a, b) => a.orderIndex - b.orderIndex),
+    groupId: row.group_id ?? null,
   };
 }
 
@@ -228,10 +195,9 @@ export async function fetchCaptures(): Promise<Capture[]> {
   // Lifeline view - same as how completed Drops are handled elsewhere.
   const { data, error } = await supabase
     .from("captures")
-    .select("*, drop_attachments(*)")
+    .select("*")
     .is("archived_at", null)
-    .order("created_at", { ascending: false })
-    .order("order_index", { foreignTable: "drop_attachments", ascending: true });
+    .order("created_at", { ascending: false });
 
   if (error) throw error;
 
@@ -265,6 +231,10 @@ export async function insertCapture(input: {
   // flag updateCaptureSpaces already sets whenever a user edits via the
   // Edit Spaces picker.
   spaceManuallySet?: boolean;
+  // Card Carousel v2 - set when this capture was created via an existing
+  // Drop's own "+" (adding to its group), never by the ordinary capture
+  // flow. Absent/null means a normal standalone Drop.
+  groupId?: string | null;
 }): Promise<Capture> {
   const { data, error } = await supabase
     .from("captures")
@@ -278,12 +248,31 @@ export async function insertCapture(input: {
       space_ids: input.spaceIds,
       entities: input.entities,
       space_manually_set: input.spaceManuallySet ?? false,
+      group_id: input.groupId ?? null,
     })
     .select()
     .single();
 
   if (error) throw error;
   return mapRowToCapture(data as CaptureRow);
+}
+
+// Card Carousel v2 - ensures a Drop has a groupId, assigning a fresh one
+// if it doesn't yet, idempotently returning the existing one if it does.
+// Goes through the assign_group_id() SECURITY DEFINER function
+// (docs/drop-groups-assign-function.sql) rather than a direct
+// UPDATE - captures' UPDATE policy is owner-only, so a non-owner Shared
+// Space member's "+" tap on someone else's still-ungrouped Drop would
+// otherwise silently fail to write anything (found live, during
+// verification: the two captures never ended up sharing a group_id at
+// all). The function re-derives visibility itself (it runs with elevated
+// privileges internally, bypassing RLS, so it can't just rely on RLS
+// having already filtered the row) and row-locks to avoid a race if two
+// members tap "+" on the same ungrouped Drop at once.
+export async function assignGroupId(captureId: number): Promise<string> {
+  const { data, error } = await supabase.rpc("assign_group_id", { target_capture_id: captureId });
+  if (error) throw error;
+  return data as string;
 }
 
 export async function deleteCapture(id: number): Promise<void> {
@@ -456,34 +445,3 @@ export async function updateCaptureReminderDismissals(
   if (error) throw error;
 }
 
-// Card Carousel - orderIndex is computed by the caller (current max
-// among the parent's already-loaded attachments + 1, see
-// DashboardContext.addAttachment) rather than here, since the caller
-// already has that array in local state and computing it there avoids an
-// extra round trip. RLS (drop_attachments' insert policy) is the actual
-// write boundary - "friendly invite" model, any active member of the
-// parent Drop's space can attach, not just its owner; created_by is
-// still pinned to the real caller regardless of whose Drop it is.
-export async function insertCaptureAttachment(
-  parentCaptureId: number,
-  content: string,
-  orderIndex: number
-): Promise<DropAttachment> {
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError) throw userError;
-  if (!userData.user) throw new Error("Not authenticated");
-
-  const { data, error } = await supabase
-    .from("drop_attachments")
-    .insert({
-      parent_capture_id: parentCaptureId,
-      created_by: userData.user.id,
-      content,
-      order_index: orderIndex,
-    })
-    .select()
-    .single();
-
-  if (error) throw error;
-  return mapRowToAttachment(data as DropAttachmentRow);
-}
