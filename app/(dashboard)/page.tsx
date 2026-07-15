@@ -1,14 +1,21 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import DropDetailModal from "@/app/components/DropDetailModal";
 import LifelineFeed from "@/app/components/LifelineFeed";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import { defaultSpaces } from "@/app/lib/spaces";
 
+// Cross-cutting filters shown in this same pill row that aren't a real,
+// single Space to tag a new capture into - only a genuine personal or
+// shared Space id (including a real spaces-table uuid, which never
+// collides with any of these fixed strings) should set currentSpaceId.
+const NON_SPACE_FILTER_IDS = new Set(["all", "pinned", "completed", "hidden", "archived"]);
+
 export default function Home() {
-  const { captures, capturesLoading, capturesError, spaceOverrides } = useCaptures();
+  const { captures, capturesLoading, capturesError, spaceOverrides, setCurrentSpaceId } =
+    useCaptures();
   const router = useRouter();
   const searchParams = useSearchParams();
   // Deep-link from the Organization tab: tapping a Space tile there routes
@@ -27,6 +34,23 @@ export default function Home() {
   const [selectedCaptureId, setSelectedCaptureId] = useState<number | null>(null);
   const selectedCapture = captures.find((capture) => capture.id === selectedCaptureId) ?? null;
   const [activeFilter, setActiveFilter] = useState(requestedSpace ?? "all");
+
+  // Capturing while this specific Space's filtered Lifeline is in view
+  // tags the new Drop straight into it (see DashboardContext.saveCapture) -
+  // BottomNav's capture button lives outside this page entirely (a
+  // sibling under DashboardProvider), so this is the one place that
+  // needs to publish "which Space is currently in view" for it to read.
+  useEffect(() => {
+    setCurrentSpaceId(NON_SPACE_FILTER_IDS.has(activeFilter) ? null : activeFilter);
+  }, [activeFilter, setCurrentSpaceId]);
+
+  // Separate from the effect above - only clears on actually leaving this
+  // page (stable setCurrentSpaceId reference means this never re-fires on
+  // an activeFilter change alone), so capturing from Calendar/Spaces/Ask
+  // right after visiting a Space here doesn't inherit a stale value.
+  useEffect(() => {
+    return () => setCurrentSpaceId(null);
+  }, [setCurrentSpaceId]);
 
   // Otherwise still defaultSpaces' fixed order (the pinned-first/recency
   // ordering rule applies to Organization and the calendar pill toolbar,

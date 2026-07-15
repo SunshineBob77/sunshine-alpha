@@ -61,6 +61,15 @@ type DashboardContextValue = {
   capturesError: string | null;
   isCapturing: boolean;
   openCapture: () => void;
+  // Which Space's filtered Lifeline is currently in view (personal or
+  // real shared-space uuid), or null when there isn't one (activeFilter
+  // is "all"/a system filter, or the user isn't on that page at all).
+  // BottomNav's capture button and the Lifeline page that owns
+  // activeFilter are siblings under DashboardProvider, not parent/child -
+  // this is the shared state that lets saveCapture() know "capture while
+  // inside a Space's view" without threading a prop through the layout.
+  currentSpaceId: string | null;
+  setCurrentSpaceId: (id: string | null) => void;
   removeCapture: (id: number) => Promise<void>;
   updateSpaces: (id: number, spaceIds: string[]) => Promise<void>;
   updateText: (id: number, text: string) => Promise<void>;
@@ -102,6 +111,7 @@ export function DashboardProvider({
   const [capturesLoading, setCapturesLoading] = useState(true);
   const [capturesError, setCapturesError] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [currentSpaceId, setCurrentSpaceId] = useState<string | null>(null);
   const [captureText, setCaptureText] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -286,15 +296,26 @@ export function DashboardProvider({
     setIsSaving(true);
 
     try {
+      // Capturing while viewing a specific Space's filtered Lifeline
+      // (personal or shared - currentSpaceId holds whichever real id is
+      // in view) tags the new Drop straight into that Space instead of
+      // the usual keyword-based guess, and marks it manually-set so the
+      // background analyze-drop AI pass (fired below) doesn't silently
+      // overwrite it moments later - same protection the Edit Spaces
+      // picker already relies on. Capturing from anywhere else (activeFilter
+      // "all", or any other page) keeps using the existing guess, unchanged.
+      const spaceIds = currentSpaceId ? [currentSpaceId] : [meaning.spaceId];
+
       const newCapture = await insertCapture({
         text: captureText.trim(),
-        spaceIds: [meaning.spaceId],
+        spaceIds,
         category: meaning.category,
         project: meaning.project,
         tags: meaning.tags,
         mood: meaning.mood,
         sunshineSummary: meaning.sunshineSummary,
         entities,
+        spaceManuallySet: Boolean(currentSpaceId),
       });
 
       setCaptures((prev) => [newCapture, ...prev]);
@@ -597,6 +618,8 @@ export function DashboardProvider({
         capturesError,
         isCapturing,
         openCapture: () => setIsCapturing(true),
+        currentSpaceId,
+        setCurrentSpaceId,
         removeCapture,
         updateSpaces,
         updateText,

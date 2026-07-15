@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ShareButton from "./ShareButton";
 import DeleteDropButton from "./DeleteDropButton";
 import DropContent from "./DropContent";
@@ -11,15 +11,69 @@ import { useCaptures } from "@/app/lib/DashboardContext";
 import { hasUncheckedChecklistItems } from "@/app/lib/captures";
 import { isAutoHidden } from "@/app/lib/autoHide";
 import type { Capture } from "@/app/lib/captures";
+import { fetchMySpaces } from "@/app/lib/sharedSpaces";
 import { describeRecurrence, type TemporalResolutionOutput } from "@/app/lib/resolveTemporal";
+
+type PickerOption = {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  isShared: boolean;
+};
 
 function SpacePicker({ capture }: { capture: Capture }) {
   const { updateSpaces, spaceOverrides } = useCaptures();
   const [open, setOpen] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sharedSpaces, setSharedSpaces] = useState<PickerOption[]>([]);
 
-  const activeSpaces = assignableSpaces.filter((space) => capture.spaceIds?.includes(space.id));
+  // Loaded once per modal open, not gated behind `open` - the active-tags
+  // row above the toggle button needs real shared-space names too (to
+  // show "ADG" instead of a generic "Shared" tag), not just the expanded
+  // picker list.
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchMySpaces()
+      .then((spaces) => {
+        if (cancelled) return;
+        setSharedSpaces(
+          spaces.map((space) => ({
+            id: space.id,
+            name: space.name,
+            icon: space.icon,
+            color: space.color,
+            isShared: true,
+          }))
+        );
+      })
+      .catch((err) => console.error("Couldn't load shared spaces for Edit Spaces", err));
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // The hardcoded "shared" placeholder is replaced entirely here by real,
+  // individually-selectable shared spaces from fetchMySpaces() - each by
+  // its own real uuid/name, not lumped into one generic option. Personal
+  // spaces are unaffected.
+  const pickerOptions: PickerOption[] = useMemo(() => {
+    const personalOptions = assignableSpaces
+      .filter((space) => space.id !== "shared")
+      .map((space) => ({
+        id: space.id,
+        name: spaceOverrides[space.id] ?? space.name,
+        icon: space.icon,
+        color: space.color,
+        isShared: false,
+      }));
+    return [...personalOptions, ...sharedSpaces];
+  }, [spaceOverrides, sharedSpaces]);
+
+  const activeOptions = pickerOptions.filter((option) => capture.spaceIds?.includes(option.id));
 
   async function toggleSpace(spaceId: string) {
     const current = capture.spaceIds ?? [];
@@ -43,10 +97,10 @@ function SpacePicker({ capture }: { capture: Capture }) {
   return (
     <div className="mb-3">
       <div className="flex flex-wrap items-center gap-2">
-        {activeSpaces.map((space) => (
-          <span key={space.id} className={`text-xs px-2 py-1 rounded-full ${space.color}`}>
-            {space.icon} {spaceOverrides[space.id] ?? space.name}
-            {space.isShared ? " · Shared" : ""}
+        {activeOptions.map((option) => (
+          <span key={option.id} className={`text-xs px-2 py-1 rounded-full ${option.color}`}>
+            {option.icon} {option.name}
+            {option.isShared ? " · Shared" : ""}
           </span>
         ))}
 
@@ -55,31 +109,37 @@ function SpacePicker({ capture }: { capture: Capture }) {
           onClick={() => setOpen((prev) => !prev)}
           className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-2.5 py-1 rounded-full transition-all"
         >
-          {open ? "Done" : activeSpaces.length > 0 ? "Edit Spaces" : "+ Add to Space"}
+          {open ? "Done" : activeOptions.length > 0 ? "Edit Spaces" : "+ Add to Space"}
         </button>
       </div>
 
       {open && (
         <div className="mt-2 flex flex-wrap gap-2 p-3 bg-gray-50 rounded-2xl">
-          {assignableSpaces.map((space) => {
-            const active = capture.spaceIds?.includes(space.id);
+          {pickerOptions.map((option) => {
+            const active = capture.spaceIds?.includes(option.id);
             return (
               <button
-                key={space.id}
+                key={option.id}
                 type="button"
-                onClick={() => toggleSpace(space.id)}
-                disabled={pendingId === space.id}
+                onClick={() => toggleSpace(option.id)}
+                disabled={pendingId === option.id}
                 className={`text-xs px-2.5 py-1.5 rounded-full ring-1 transition-all disabled:opacity-50 ${
                   active
-                    ? `${space.color} ring-black/10 font-semibold`
+                    ? `${option.color} ring-black/10 font-semibold`
                     : "bg-white text-gray-500 ring-gray-200 hover:ring-gray-300"
                 }`}
               >
                 {active ? "✓ " : ""}
-                {space.icon} {spaceOverrides[space.id] ?? space.name}
+                {option.icon} {option.name}
+                {option.isShared ? " · Shared" : ""}
               </button>
             );
           })}
+          {sharedSpaces.length === 0 && (
+            <p className="text-xs text-gray-400 w-full">
+              You&apos;re not a member of any shared spaces yet.
+            </p>
+          )}
         </div>
       )}
 

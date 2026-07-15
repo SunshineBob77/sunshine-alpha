@@ -212,6 +212,15 @@ export async function insertCapture(input: {
   sunshineSummary: string;
   spaceIds: string[];
   entities: RecognizedEntities;
+  // True when spaceIds came from an explicit context (e.g. capturing
+  // while viewing a specific Space's filtered Lifeline) rather than the
+  // keyword-based guess in analyzeCapture() - without this, the
+  // background analyze-drop AI pass that fires right after every capture
+  // would silently overwrite spaceIds moments later (it only respects an
+  // existing assignment when space_manually_set is already true). Same
+  // flag updateCaptureSpaces already sets whenever a user edits via the
+  // Edit Spaces picker.
+  spaceManuallySet?: boolean;
 }): Promise<Capture> {
   const { data, error } = await supabase
     .from("captures")
@@ -224,6 +233,7 @@ export async function insertCapture(input: {
       sunshine_summary: input.sunshineSummary,
       space_ids: input.spaceIds,
       entities: input.entities,
+      space_manually_set: input.spaceManuallySet ?? false,
     })
     .select()
     .single();
