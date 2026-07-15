@@ -51,6 +51,37 @@ export type ReminderDismissal = {
   dismissedOn: string;
 };
 
+// Card Carousel: a lightweight sub-card attached to a Drop (a photo
+// caption, a follow-up thought, a related note) - deliberately NOT a full
+// Drop of its own (no category/project/mood/temporal/AI fields), see
+// docs/drop-attachments-schema.sql. Fetched embedded alongside its parent
+// capture via a single PostgREST join, not a separate round trip.
+export type DropAttachment = {
+  id: number;
+  createdBy: string;
+  content: string;
+  orderIndex: number;
+  createdAt: string;
+};
+
+type DropAttachmentRow = {
+  id: number;
+  created_by: string;
+  content: string;
+  order_index: number;
+  created_at: string;
+};
+
+function mapRowToAttachment(row: DropAttachmentRow): DropAttachment {
+  return {
+    id: row.id,
+    createdBy: row.created_by,
+    content: row.content,
+    orderIndex: row.order_index,
+    createdAt: row.created_at,
+  };
+}
+
 export type Capture = {
   id: number;
   userId: string;
@@ -91,6 +122,7 @@ export type Capture = {
   userArchivedAt: string | null;
   previousState: PreviousState | null;
   reminderDismissedDates: ReminderDismissal[];
+  attachments: DropAttachment[];
 };
 
 export type CaptureRow = {
@@ -133,6 +165,10 @@ export type CaptureRow = {
   user_archived_at: string | null;
   previous_state: PreviousState | null;
   reminder_dismissed_dates: ReminderDismissal[] | null;
+  // Embedded via PostgREST's join on the drop_attachments -> captures FK
+  // (see fetchCaptures' select string) - null when the embed wasn't
+  // requested, empty array when requested but there are none.
+  drop_attachments: DropAttachmentRow[] | null;
 };
 
 export function mapRowToCapture(row: CaptureRow): Capture {
@@ -176,6 +212,13 @@ export function mapRowToCapture(row: CaptureRow): Capture {
     userArchivedAt: row.user_archived_at ?? null,
     previousState: row.previous_state ?? null,
     reminderDismissedDates: row.reminder_dismissed_dates ?? [],
+    // Sorted defensively even though the fetchCaptures query already
+    // orders the embed server-side - insertCaptureAttachment's own local
+    // append (see DashboardContext.addAttachment) relies on this same
+    // ordering guarantee holding after a full re-fetch too.
+    attachments: (row.drop_attachments ?? [])
+      .map(mapRowToAttachment)
+      .sort((a, b) => a.orderIndex - b.orderIndex),
   };
 }
 
@@ -185,9 +228,10 @@ export async function fetchCaptures(): Promise<Capture[]> {
   // Lifeline view - same as how completed Drops are handled elsewhere.
   const { data, error } = await supabase
     .from("captures")
-    .select("*")
+    .select("*, drop_attachments(*)")
     .is("archived_at", null)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .order("order_index", { foreignTable: "drop_attachments", ascending: true });
 
   if (error) throw error;
 
@@ -410,4 +454,36 @@ export async function updateCaptureReminderDismissals(
     .eq("id", id);
 
   if (error) throw error;
+}
+
+// Card Carousel - orderIndex is computed by the caller (current max
+// among the parent's already-loaded attachments + 1, see
+// DashboardContext.addAttachment) rather than here, since the caller
+// already has that array in local state and computing it there avoids an
+// extra round trip. RLS (drop_attachments' insert policy) is the actual
+// write boundary - "friendly invite" model, any active member of the
+// parent Drop's space can attach, not just its owner; created_by is
+// still pinned to the real caller regardless of whose Drop it is.
+export async function insertCaptureAttachment(
+  parentCaptureId: number,
+  content: string,
+  orderIndex: number
+): Promise<DropAttachment> {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError) throw userError;
+  if (!userData.user) throw new Error("Not authenticated");
+
+  const { data, error } = await supabase
+    .from("drop_attachments")
+    .insert({
+      parent_capture_id: parentCaptureId,
+      created_by: userData.user.id,
+      content,
+      order_index: orderIndex,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return mapRowToAttachment(data as DropAttachmentRow);
 }

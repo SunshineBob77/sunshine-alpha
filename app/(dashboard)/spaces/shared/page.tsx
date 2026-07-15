@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fetchMySpaces, createSharedSpace, type MySpace } from "@/app/lib/sharedSpaces";
-import CreateSpaceInline from "@/app/components/CreateSpaceInline";
+import InlineTextInput from "@/app/components/InlineTextInput";
 
 export default function SharedSpacesPage() {
   const router = useRouter();
@@ -53,7 +53,7 @@ export default function SharedSpacesPage() {
 
         <div className="mb-4">
           {creating ? (
-            <CreateSpaceInline
+            <InlineTextInput
               placeholder="Shared Space name"
               onSubmit={handleCreate}
               onCancel={() => setCreating(false)}

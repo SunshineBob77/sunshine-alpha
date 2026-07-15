@@ -17,6 +17,7 @@ import {
   updateCaptureArchive,
   updateCaptureUndo,
   updateCaptureReminderDismissals,
+  insertCaptureAttachment,
   mapRowToCapture,
   type Capture,
   type CaptureRow,
@@ -77,6 +78,7 @@ type DashboardContextValue = {
   updatePinned: (id: number, pinned: boolean) => Promise<void>;
   updateChecklistItems: (id: number, items: ChecklistItem[]) => Promise<void>;
   toggleReminderOccurrence: (captureId: number, occurrenceDate: string) => Promise<void>;
+  addAttachment: (captureId: number, content: string) => Promise<void>;
   hideCapture: (id: number) => Promise<void>;
   archiveCapture: (id: number) => Promise<void>;
   undoCaptureState: (id: number) => Promise<void>;
@@ -583,6 +585,33 @@ export function DashboardProvider({
     );
   }
 
+  // Card Carousel - "friendly invite" model, deliberately no ownership
+  // check here at all (unlike updateStatus/hideCapture/archiveCapture/
+  // etc.): any active member of the parent Drop's space can attach,
+  // not just its owner. The actual write boundary is drop_attachments'
+  // own RLS insert policy, which mirrors captures' own visibility exactly
+  // (see docs/drop-attachments-schema.sql) - this just computes
+  // orderIndex from whatever's already loaded locally rather than a
+  // separate round trip, then appends optimistically.
+  async function addAttachment(captureId: number, content: string) {
+    const existing = captures.find((capture) => capture.id === captureId);
+    if (!existing) return;
+
+    const nextOrderIndex =
+      existing.attachments.length > 0
+        ? Math.max(...existing.attachments.map((attachment) => attachment.orderIndex)) + 1
+        : 0;
+
+    const attachment = await insertCaptureAttachment(captureId, content, nextOrderIndex);
+    setCaptures((prev) =>
+      prev.map((capture) =>
+        capture.id === captureId
+          ? { ...capture, attachments: [...capture.attachments, attachment] }
+          : capture
+      )
+    );
+  }
+
   async function updateTemporal(
     id: number,
     input: { eventAt: string; eventHasTime: boolean; eventTimezone: string }
@@ -627,6 +656,7 @@ export function DashboardProvider({
         updatePinned,
         updateChecklistItems,
         toggleReminderOccurrence,
+        addAttachment,
         hideCapture,
         archiveCapture,
         undoCaptureState,

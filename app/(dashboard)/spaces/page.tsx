@@ -6,7 +6,7 @@ import { assignableSpaces, defaultSpaces, type Space } from "@/app/lib/spaces";
 import { orderSpaces } from "@/app/lib/spaceOrdering";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import { createSharedSpace } from "@/app/lib/sharedSpaces";
-import CreateSpaceInline from "@/app/components/CreateSpaceInline";
+import InlineTextInput from "@/app/components/InlineTextInput";
 import SharedSpacesTile from "@/app/components/SharedSpacesTile";
 
 // Rename affordance for one non-system tile - a small inline text input,
@@ -155,7 +155,7 @@ export default function SpacesPage() {
             </button>
 
             {creatingShared ? (
-              <CreateSpaceInline
+              <InlineTextInput
                 placeholder="Shared Space name"
                 onSubmit={handleCreateShared}
                 onCancel={() => setCreatingShared(false)}

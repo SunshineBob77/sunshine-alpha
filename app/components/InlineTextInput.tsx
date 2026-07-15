@@ -2,17 +2,18 @@
 
 import { useState } from "react";
 
-// Same inline text-input shape as SpacesPage's own rename control
-// (SpaceTile's editing view) - a plain text field plus Save/Cancel, no
-// modal - reused here rather than introducing a second lightweight-input
-// pattern for what's the same kind of one-field action.
-export default function CreateSpaceInline({
+// Generic single-field text input with Save/Cancel - same shape as
+// SpacesPage's own rename control (SpaceTile's editing view). Originally
+// built just for "create a Space" (hence prior name), reused as-is for
+// any other lightweight one-field action (e.g. adding a Drop attachment)
+// rather than duplicating this pattern under a second name.
+export default function InlineTextInput({
   placeholder,
   onSubmit,
   onCancel,
 }: {
   placeholder: string;
-  onSubmit: (name: string) => Promise<void>;
+  onSubmit: (value: string) => Promise<void>;
   onCancel: () => void;
 }) {
   const [draft, setDraft] = useState("");
@@ -29,7 +30,7 @@ export default function CreateSpaceInline({
       await onSubmit(trimmed);
     } catch (err) {
       console.error(err);
-      setError("Couldn't create. Try again.");
+      setError("Couldn't save. Try again.");
       setSaving(false);
     }
   }
