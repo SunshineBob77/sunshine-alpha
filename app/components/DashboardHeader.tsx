@@ -48,13 +48,14 @@ export default function DashboardHeader() {
               group's width. */}
           <div aria-hidden="true" className="h-9 w-9" />
 
-          {/* Search has no destination/functionality yet - visual placeholder
-              only, per the header layout requirement. Not wired to anything.
-              No label, per spec - self-explanatory icon. */}
-          <button
-            type="button"
+          {/* One search experience, reached from two places - this just
+              routes to the Ask Sunshine tab (BottomNav's own entry point),
+              not a separate search feature. No label, per spec -
+              self-explanatory icon. */}
+          <Link
+            href="/ask"
             aria-label="Search"
-            title="Search (coming soon)"
+            title="Search"
             className="flex h-9 w-9 items-center justify-center rounded-full text-gray-600 hover:bg-black/5 transition-colors"
           >
             <svg
@@ -70,7 +71,7 @@ export default function DashboardHeader() {
               <circle cx="11" cy="11" r="7" />
               <path d="m21 21-4.35-4.35" />
             </svg>
-          </button>
+          </Link>
 
           <button
             type="button"
