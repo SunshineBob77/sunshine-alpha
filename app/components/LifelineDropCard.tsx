@@ -69,6 +69,9 @@ export default function LifelineDropCard({
       isSunshineDrop={isSunshineDrop}
       content={capture.formattedText ?? capture.text}
       createdAt={capture.createdAt}
+      imagePath={capture.imagePath}
+      filePath={capture.filePath}
+      fileName={capture.fileName}
       isUrgent={isUrgent}
       isActionable={capture.isActionable}
       status={capture.status}

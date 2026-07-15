@@ -17,6 +17,7 @@ import {
   updateCaptureArchive,
   updateCaptureUndo,
   updateCaptureReminderDismissals,
+  updateCaptureAttachment,
   assignGroupId,
   mapRowToCapture,
   type Capture,
@@ -26,6 +27,7 @@ import {
 } from "./captures";
 import { analyzeCapture } from "./analyzeCapture";
 import { recognizeEntities } from "./recognizeEntities";
+import { uploadDropImage, uploadDropFile } from "./storage";
 import {
   detectRiskFlags,
   resolveTemporal,
@@ -37,7 +39,7 @@ import {
   renameSpace as renameSpaceRequest,
   type SpaceOverrides,
 } from "./userSpaceOverrides";
-import CaptureModal from "../components/CaptureModal";
+import CaptureModal, { type PendingAttachment } from "../components/CaptureModal";
 
 // Two texts "look the same" temporally if the set of local date/time
 // phrases they contain is identical - used only to decide whether a
@@ -126,6 +128,10 @@ export function DashboardProvider({
   // view.
   const [currentGroupId, setCurrentGroupId] = useState<string | null>(null);
   const [captureText, setCaptureText] = useState("");
+  // Photo/Gallery/File capture v1 - one-shot, same lifecycle as
+  // currentGroupId above: set while the modal is open, always cleared by
+  // saveCapture/onCancel, never touched by any ambient page-level effect.
+  const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showSavedToast, setShowSavedToast] = useState(false);
@@ -214,13 +220,18 @@ export function DashboardProvider({
       });
   }, [user.id]);
 
-  function analyzeDrop(id: number, text: string) {
+  // imagePath (Photo/Gallery captures only - never set for a plain File
+  // attachment, see saveCapture below) tells the route to run Claude
+  // Vision on the attached photo alongside the usual text tasks - see
+  // app/api/analyze-drop/route.ts. Omitted entirely for a text-only or
+  // File-attached Drop, identical request shape to before this feature.
+  function analyzeDrop(id: number, text: string, imagePath?: string) {
     const captureTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     fetch("/api/analyze-drop", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, text, captureTimezone }),
+      body: JSON.stringify({ id, text, captureTimezone, imagePath }),
     })
       .then((response) => response.json())
       .then(
@@ -300,10 +311,25 @@ export function DashboardProvider({
   }
 
   async function saveCapture() {
-    if (!captureText.trim()) return;
+    if (!captureText.trim() && !pendingAttachment) return;
 
-    const meaning = analyzeCapture(captureText);
-    const entities = recognizeEntities(captureText.trim());
+    // captures.text is not-null, and analyze-drop requires non-empty text
+    // to run at all - a photo/file-only capture (no typed caption) still
+    // needs SOME text saved. A short placeholder keeps every other code
+    // path (search, the text-only card fallback, analyze-drop's own
+    // validation) working unchanged, and analyze-drop's system prompt is
+    // told explicitly to disregard this placeholder in favor of the real
+    // image content when one's attached (see route.ts).
+    const trimmedText = captureText.trim();
+    const fallbackText = pendingAttachment
+      ? pendingAttachment.kind === "image"
+        ? "📷 Photo"
+        : `📎 ${pendingAttachment.file.name}`
+      : "";
+    const textToSave = trimmedText || fallbackText;
+
+    const meaning = analyzeCapture(textToSave);
+    const entities = recognizeEntities(textToSave);
 
     setSaveError(null);
     setIsSaving(true);
@@ -328,8 +354,8 @@ export function DashboardProvider({
           ? [currentSpaceId]
           : [meaning.spaceId];
 
-      const newCapture = await insertCapture({
-        text: captureText.trim(),
+      let newCapture = await insertCapture({
+        text: textToSave,
         spaceIds,
         category: meaning.category,
         project: meaning.project,
@@ -341,15 +367,37 @@ export function DashboardProvider({
         groupId: currentGroupId,
       });
 
+      // Uploaded AFTER the row exists - the storage path is
+      // "{captureId}/...", and the INSERT policy on storage.objects
+      // requires that capture row to already exist and be owned by the
+      // uploading user (see docs/photo-file-capture-schema.sql). A failed
+      // upload here still leaves a perfectly valid text Drop behind - it
+      // just won't have an attachment, surfaced as the normal save-error
+      // path rather than losing the whole capture.
+      let imagePathForAnalysis: string | undefined;
+      if (pendingAttachment) {
+        if (pendingAttachment.kind === "image") {
+          const imagePath = await uploadDropImage(newCapture.id, pendingAttachment.file);
+          await updateCaptureAttachment(newCapture.id, { imagePath });
+          newCapture = { ...newCapture, imagePath };
+          imagePathForAnalysis = imagePath;
+        } else {
+          const { path, name } = await uploadDropFile(newCapture.id, pendingAttachment.file);
+          await updateCaptureAttachment(newCapture.id, { filePath: path, fileName: name });
+          newCapture = { ...newCapture, filePath: path, fileName: name };
+        }
+      }
+
       setCaptures((prev) => [newCapture, ...prev]);
       setCaptureText("");
+      setPendingAttachment(null);
       setIsCapturing(false);
       setCurrentGroupId(null);
 
       setShowSavedToast(true);
       setTimeout(() => setShowSavedToast(false), 2500);
 
-      analyzeDrop(newCapture.id, newCapture.text);
+      analyzeDrop(newCapture.id, newCapture.text, imagePathForAnalysis);
     } catch (error) {
       console.error(error);
       setSaveError("Couldn't save your Drop. Please try again.");
@@ -695,12 +743,15 @@ export function DashboardProvider({
         open={isCapturing}
         captureText={captureText}
         onCaptureTextChange={setCaptureText}
+        pendingAttachment={pendingAttachment}
+        onPendingAttachmentChange={setPendingAttachment}
         error={saveError}
         saving={isSaving}
         onSave={saveCapture}
         onCancel={() => {
           setIsCapturing(false);
           setCaptureText("");
+          setPendingAttachment(null);
           setSaveError(null);
           setCurrentGroupId(null);
         }}

@@ -5,6 +5,7 @@ import ShareButton from "./ShareButton";
 import DeleteDropButton from "./DeleteDropButton";
 import DropContent from "./DropContent";
 import ChecklistContent from "./ChecklistContent";
+import { DropAttachmentImage, DropAttachmentFile } from "./DropAttachment";
 import { assignableSpaces } from "@/app/lib/spaces";
 import { getSpaceTone } from "@/app/lib/spaceTone";
 import { useCaptures } from "@/app/lib/DashboardContext";
@@ -695,6 +696,11 @@ export default function DropDetailModal({
         <TemporalEditor capture={capture} />
         {capture.temporalLocked && temporalSuggestions[capture.id] && (
           <TemporalEditSuggestion capture={capture} />
+        )}
+
+        {capture.imagePath && <DropAttachmentImage imagePath={capture.imagePath} />}
+        {capture.filePath && capture.fileName && (
+          <DropAttachmentFile filePath={capture.filePath} fileName={capture.fileName} />
         )}
 
         {editing ? (

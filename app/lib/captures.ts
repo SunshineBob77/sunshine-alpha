@@ -99,6 +99,19 @@ export type Capture = {
   // captures array client-side (see LifelineFeed.tsx), same as every
   // other purely-derived view in this app.
   groupId: string | null;
+  // Photo/Gallery/File capture v1 - see docs/photo-file-capture-schema.sql.
+  // At most one of imagePath/filePath is ever set per Drop (whichever
+  // attach flow was used at capture time). Both are storage object paths
+  // within the private "drop-attachments" bucket, not URLs - rendering
+  // always goes through a freshly-requested signed URL (see
+  // app/lib/storage.ts's getSignedAttachmentUrl), never a stored one, so
+  // access naturally stays gated by the same RLS that governs whether the
+  // Drop itself is visible. fileName is the original filename, needed
+  // only for file_path (a non-image attachment has no thumbnail to label
+  // itself with - imagePath needs no equivalent since it renders directly).
+  imagePath: string | null;
+  filePath: string | null;
+  fileName: string | null;
 };
 
 export type CaptureRow = {
@@ -142,6 +155,9 @@ export type CaptureRow = {
   previous_state: PreviousState | null;
   reminder_dismissed_dates: ReminderDismissal[] | null;
   group_id: string | null;
+  image_path: string | null;
+  file_path: string | null;
+  file_name: string | null;
 };
 
 export function mapRowToCapture(row: CaptureRow): Capture {
@@ -186,6 +202,9 @@ export function mapRowToCapture(row: CaptureRow): Capture {
     previousState: row.previous_state ?? null,
     reminderDismissedDates: row.reminder_dismissed_dates ?? [],
     groupId: row.group_id ?? null,
+    imagePath: row.image_path ?? null,
+    filePath: row.file_path ?? null,
+    fileName: row.file_name ?? null,
   };
 }
 
@@ -430,6 +449,24 @@ export async function updateCaptureChecklistItems(
     .update({ checklist_items: items })
     .eq("id", id);
 
+  if (error) throw error;
+}
+
+// Photo/Gallery/File capture v1 - called once, right after the upload
+// that follows insertCapture(), since the storage object's path depends
+// on the capture's own id (see app/lib/storage.ts). Only ever sets one of
+// the two attachment kinds per call - the caller decides which, this
+// doesn't try to enforce mutual exclusivity itself.
+export async function updateCaptureAttachment(
+  id: number,
+  input: { imagePath?: string; filePath?: string; fileName?: string }
+): Promise<void> {
+  const payload: Record<string, unknown> = {};
+  if (input.imagePath !== undefined) payload.image_path = input.imagePath;
+  if (input.filePath !== undefined) payload.file_path = input.filePath;
+  if (input.fileName !== undefined) payload.file_name = input.fileName;
+
+  const { error } = await supabase.from("captures").update(payload).eq("id", id);
   if (error) throw error;
 }
 

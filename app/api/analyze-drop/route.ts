@@ -67,8 +67,21 @@ Rules:
 - If resolving a date-only reference with no explicit time of day, say so explicitly.`;
 }
 
+// Photo/Gallery capture v1 - a capture made with no typed caption is
+// still saved with a short placeholder text (see DashboardContext's
+// saveCapture, e.g. "📷 Photo") purely so every other code path that
+// expects non-empty captures.text keeps working. That placeholder carries
+// no real information of its own - this tells the model to look past it
+// straight to the actual attached image instead of literally analyzing
+// the words "Photo" or the filename. A real caption alongside the image
+// is used together with it, not discarded.
+const IMAGE_GUIDANCE = `
+
+This note has an attached image (a photo, screenshot, or scan). If the note's own text is just a generic placeholder like "📷 Photo" or "📎 <filename>" - i.e. it carries no real information by itself - treat the image as the actual content: describe what's in it and extract any visible text via OCR, and base every task below on that rather than the placeholder. If the note ALSO has real user-authored text alongside the image (a caption), use both together - the caption for intent/context, the image for what it actually shows. If the image is unclear, low-quality, or nothing useful can be made out, it's fine to fall back to generic values (e.g. title "Photo", category "Memory") rather than guessing.`;
+
 function buildSystemPrompt(
   hasUrl: boolean,
+  hasImage: boolean,
   includeTemporalTask: boolean,
   rawText: string,
   referenceDatetime: string,
@@ -81,7 +94,7 @@ function buildSystemPrompt(
     ? buildTemporalTask(8, rawText, referenceDatetime, captureTimezone, localCandidates, riskFlags)
     : "";
 
-  return `You are analyzing a short personal note (a "Drop"). Do ${taskCount} independent things:
+  return `You are analyzing a short personal note (a "Drop").${hasImage ? IMAGE_GUIDANCE : ""} Do ${taskCount} independent things:
 
 ${hasUrl ? RESEARCH_TASK_WITH_URL : RESEARCH_TASK_DEFAULT}
 2. Determine if this note contains a physical address (e.g. a hotel, restaurant, or event location). If yes, extract it exactly as written. If no, use the value null.
@@ -384,12 +397,61 @@ function buildAiTemporalResult(
   };
 }
 
+// Claude's vision input only accepts these four exact media types -
+// notably NOT image/heic, which is what an iPhone's photo library
+// sometimes still reports even though Safari/WebKit usually transcodes a
+// file-input pick to JPEG first. Anything outside this set gets treated
+// as "can't run vision on this" rather than mislabeling the bytes (e.g.
+// forcing a HEIC blob's bytes through as media_type "image/jpeg" would
+// just make the API fail to decode it) - the request still goes through,
+// just without the image block, so a genuinely unsupported format
+// degrades to text-only analysis instead of failing the whole call.
+const SUPPORTED_IMAGE_MEDIA_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"] as const;
+type SupportedImageMediaType = (typeof SUPPORTED_IMAGE_MEDIA_TYPES)[number];
+
+function isSupportedImageMediaType(value: string): value is SupportedImageMediaType {
+  return (SUPPORTED_IMAGE_MEDIA_TYPES as readonly string[]).includes(value);
+}
+
+// Photo/Gallery capture v1 - downloads the attached image from the
+// private "drop-attachments" bucket (service-role client, bypasses RLS,
+// same as every other supabaseAdmin call in this route) and returns it
+// base64-encoded for a Claude vision content block. Returns null on any
+// failure (download error, or an unsupported format) rather than
+// throwing - a broken/missing/unsupported image must never take down the
+// rest of analysis, it just silently falls back to text-only (see the
+// try/catch at the call site below).
+async function downloadImageAsBase64(
+  imagePath: string
+): Promise<{ data: string; mediaType: SupportedImageMediaType } | null> {
+  const { data: blob, error } = await supabaseAdmin.storage
+    .from("drop-attachments")
+    .download(imagePath);
+
+  if (error || !blob) {
+    console.error("Couldn't download attached image for analysis", error);
+    return null;
+  }
+
+  if (!isSupportedImageMediaType(blob.type)) {
+    console.error("Attached image has an unsupported media type for vision analysis", blob.type);
+    return null;
+  }
+
+  const arrayBuffer = await blob.arrayBuffer();
+  return {
+    data: Buffer.from(arrayBuffer).toString("base64"),
+    mediaType: blob.type,
+  };
+}
+
 export async function POST(request: Request) {
   const {
     id,
     text,
     captureTimezone: requestTimezone,
     temporalPreviewOnly,
+    imagePath,
   } = await request.json();
 
   if (!id || typeof text !== "string" || !text.trim()) {
@@ -494,11 +556,18 @@ export async function POST(request: Request) {
     // tasks still run normally either way.
     const effectiveIncludeTemporalTask = !temporalLocked && includeTemporalTask;
 
+    // A download failure degrades to hasImage=false (plain text analysis)
+    // rather than failing the request - matches the "still save fine with
+    // no rich analysis" requirement for a broken/missing attachment.
+    const image = typeof imagePath === "string" && imagePath ? await downloadImageAsBase64(imagePath) : null;
+    const hasImage = image !== null;
+
     const response = await anthropic.messages.create({
       model: "claude-opus-4-8",
       max_tokens: 1024,
       system: buildSystemPrompt(
         hasUrl,
+        hasImage,
         effectiveIncludeTemporalTask,
         text,
         referenceDatetime,
@@ -512,7 +581,24 @@ export async function POST(request: Request) {
             { type: "web_fetch_20260209", name: "web_fetch" },
           ]
         : [{ type: "web_search_20260209", name: "web_search" }],
-      messages: [{ role: "user", content: text }],
+      messages: [
+        {
+          role: "user",
+          content: image
+            ? [
+                {
+                  type: "image" as const,
+                  source: {
+                    type: "base64" as const,
+                    media_type: image.mediaType,
+                    data: image.data,
+                  },
+                },
+                { type: "text" as const, text },
+              ]
+            : text,
+        },
+      ],
     });
 
     const rawText = response.content

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import DropContent from "./DropContent";
 import ChecklistContent from "./ChecklistContent";
+import { DropAttachmentImage, DropAttachmentFile } from "./DropAttachment";
 import { getSpaceTone, getSpaceAccentColor, sunshineDropTone, sunshineDropAccentColor } from "@/app/lib/spaceTone";
 import { formatRelativeTime } from "@/app/lib/relativeTime";
 import { hasUncheckedChecklistItems, type ChecklistItem } from "@/app/lib/captures";
@@ -39,6 +40,9 @@ export default function DropCard({
   isSunshineDrop = false,
   onAddToGroup,
   variant = "light",
+  imagePath = null,
+  filePath = null,
+  fileName = null,
 }: {
   title: string;
   spaceId: string | null | undefined;
@@ -107,6 +111,13 @@ export default function DropCard({
   // public share page (app/s/[id]/page.tsx), which doesn't pass this
   // prop. "dark" is scoped to the Lifeline feed screen's restyle only.
   variant?: "light" | "dark";
+  // Photo/Gallery/File capture v1 - at most one of these is ever set on a
+  // real Drop (see Capture.imagePath/filePath in app/lib/captures.ts).
+  // Rendered above the text content, never gated by clipped/expanded -
+  // an attachment is always fully visible, only the text below it clips.
+  imagePath?: string | null;
+  filePath?: string | null;
+  fileName?: string | null;
 }) {
   // spaceId is intentionally ignored entirely when isSunshineDrop is true -
   // not just overridden after the fact - so a corrupted/stale spaceId can
@@ -314,6 +325,17 @@ export default function DropCard({
           </span>
         </div>
       </div>
+
+      {imagePath && (
+        <div className="mt-1.5">
+          <DropAttachmentImage imagePath={imagePath} variant={variant} />
+        </div>
+      )}
+      {filePath && fileName && (
+        <div className="mt-1.5">
+          <DropAttachmentFile filePath={filePath} fileName={fileName} variant={variant} />
+        </div>
+      )}
 
       <div
         ref={contentRef}
