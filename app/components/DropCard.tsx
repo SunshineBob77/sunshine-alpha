@@ -33,6 +33,7 @@ export default function DropCard({
   size = "default",
   isPinned = false,
   onTogglePin,
+  onEdit,
   checklistItems,
   onToggleChecklistItem,
   customContent,
@@ -78,6 +79,11 @@ export default function DropCard({
   size?: "default" | "hero";
   isPinned?: boolean;
   onTogglePin?: () => void;
+  // Header-row Edit shortcut, grouped with "+" and Pin - renders the same
+  // way onTogglePin does. Independent of the Edit entry inside moreActions
+  // (callers may wire both to the same handler during the comparison
+  // period; this component doesn't dedupe or prefer one over the other).
+  onEdit?: () => void;
   checklistItems?: ChecklistItem[];
   onToggleChecklistItem?: (itemId: string) => void;
   // Escape hatch for structured content that isn't a flat checklist (the
@@ -296,10 +302,31 @@ export default function DropCard({
                   ? isDark
                     ? "opacity-100 bg-gold/20"
                     : "opacity-100 bg-amber-100"
-                  : "opacity-35 hover:opacity-70"
+                  : // Idle/unpinned state: the emoji glyph's own color can't be
+                    // recolored via CSS, so contrast against the dusk card
+                    // background has to come from opacity alone - 35% (fine
+                    // against the light card) reads as nearly invisible on
+                    // dusk, so the dark variant gets a higher idle floor.
+                    isDark
+                    ? "opacity-70 hover:opacity-100"
+                    : "opacity-35 hover:opacity-70"
               } ${isHero ? "h-9 w-9 text-base" : "h-6 w-6 text-xs"}`}
             >
               📌
+            </button>
+          )}
+
+          {onEdit && (
+            <button
+              type="button"
+              onClick={onEdit}
+              aria-label="Edit"
+              title="Edit"
+              className={`flex shrink-0 items-center justify-center rounded-full transition-all ${
+                isDark ? "text-white hover:bg-ink/10" : "text-gray-900 hover:bg-black/5"
+              } ${isHero ? "h-9 w-9 text-base" : "h-6 w-6 text-xs"}`}
+            >
+              ✏️
             </button>
           )}
 

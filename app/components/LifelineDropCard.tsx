@@ -79,6 +79,9 @@ export default function LifelineDropCard({
       onTitleTap={() => onSelect(capture.id)}
       isPinned={capture.pinned}
       onTogglePin={isDrop && isOwnCapture ? handleTogglePin : undefined}
+      // Same handler and gating as the Edit entry in moreActions below -
+      // both wired side by side for now to compare usage, per the plan.
+      onEdit={isDrop && isOwnCapture ? () => onSelect(capture.id) : undefined}
       checklistItems={capture.checklistItems}
       onToggleChecklistItem={isOwnCapture ? handleToggleChecklistItem : undefined}
       isHidden={isHiddenNow}
