@@ -116,15 +116,18 @@ function detectMetric(query: string): "rounds" | "minutes" {
 }
 
 // Everything that isn't the activity itself: the base FILLER_WORDS
-// searchCaptures.ts already strips (how/many/what/etc.), plus
+// searchCaptures.ts already strips (how/many/what/of/did/a/etc.), plus
 // aggregation-specific filler (much/total/count), plus the date-range and
 // metric vocabulary above - so "how many rounds did I box this month"
-// reduces to just "box", not "box rounds this month".
+// reduces to just "box", not "box rounds this month". "did" is deliberately
+// NOT repeated here - it's already in searchCaptures.ts's base FILLER_WORDS
+// (tokenizeSearchQuery, called below, strips it before this set is ever
+// checked), so listing it twice would just be dead code inviting the two
+// lists to drift out of sync with each other.
 const AGGREGATION_EXTRA_FILLER = new Set([
   "much",
   "total",
   "count",
-  "did",
   "do",
   "does",
   "i",

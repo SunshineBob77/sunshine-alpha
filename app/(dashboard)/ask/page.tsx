@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import { searchCaptures, tokenizeSearchQuery } from "@/app/lib/searchCaptures";
 import { isAggregationQuery, detectWorkoutQuery } from "@/app/lib/aggregationIntent";
@@ -16,6 +16,7 @@ const AGGREGATION_DEBOUNCE_MS = 400;
 export default function AskSunshinePage() {
   const { captures, capturesLoading, user } = useCaptures();
   const [query, setQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [selectedCaptureId, setSelectedCaptureId] = useState<number | null>(null);
   const selectedCapture = captures.find((capture) => capture.id === selectedCaptureId) ?? null;
 
@@ -94,14 +95,30 @@ export default function AskSunshinePage() {
           Ask Sunshine
         </h1>
 
-        <input
-          type="text"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search your Drops…"
-          autoFocus
-          className="w-full text-base bg-white border border-gray-300 rounded-2xl px-4 py-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent mb-6"
-        />
+        <div className="relative mb-6">
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search your Drops…"
+            autoFocus
+            className="w-full text-base bg-white border border-gray-300 rounded-2xl px-4 py-3 pr-10 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+          />
+          {query.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setQuery("");
+                searchInputRef.current?.focus();
+              }}
+              aria-label="Clear search"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-lg leading-none"
+            >
+              ✕
+            </button>
+          )}
+        </div>
 
         {!hasSearchTerms ? (
           <section className="bg-white rounded-3xl ring-1 ring-black/5 shadow-sm p-7 text-center">

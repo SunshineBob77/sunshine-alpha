@@ -55,6 +55,14 @@ const FILLER_WORDS = new Set([
   "is",
   "how",
   "many",
+  // Added alongside Ask Sunshine v2's aggregation phrasing ("how many
+  // rounds OF boxing DID I do") - these carry no search meaning either,
+  // same reasoning as the rest of this list, and strict AND-across-tokens
+  // matching means leaving them in silently zeroed out results a bare
+  // keyword search would still have found.
+  "of",
+  "did",
+  "a",
 ]);
 
 // Exported separately from searchCaptures so a caller (the Ask Sunshine
@@ -67,6 +75,23 @@ export function tokenizeSearchQuery(query: string): string[] {
     .split(/\s+/)
     .filter(Boolean)
     .filter((token) => !FILLER_WORDS.has(token));
+}
+
+// A token matches a blob either literally, or - if the token ends in "s" -
+// via its singular form (trailing "s" stripped). Deliberately just that
+// one check, not real stemming (no y/ies, no irregular plurals): lets a
+// plural query ("birthdays") still find Drop text that only ever uses the
+// singular ("birthday"), which is the common real case Ask Sunshine v2's
+// "how many X" phrasing surfaced. The reverse direction (singular query,
+// plural Drop text) already works via plain substring matching with no
+// extra logic - "birthday" is already a substring of "birthdays". Scope
+// up if real queries show this one check isn't enough.
+function tokenMatchesBlob(blob: string, token: string): boolean {
+  if (blob.includes(token)) return true;
+  if (token.length > 1 && token.endsWith("s") && blob.includes(token.slice(0, -1))) {
+    return true;
+  }
+  return false;
 }
 
 export function searchCaptures(captures: Capture[], query: string): Capture[] {
@@ -88,6 +113,6 @@ export function searchCaptures(captures: Capture[], query: string): Capture[] {
       .join(" ")
       .toLowerCase();
 
-    return tokens.every((token) => blob.includes(token));
+    return tokens.every((token) => tokenMatchesBlob(blob, token));
   });
 }
