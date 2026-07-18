@@ -39,6 +39,7 @@ import {
   renameSpace as renameSpaceRequest,
   type SpaceOverrides,
 } from "./userSpaceOverrides";
+import { fetchMySpaces, type MySpace } from "./sharedSpaces";
 import CaptureModal, { type PendingAttachment } from "../components/CaptureModal";
 
 // Two texts "look the same" temporally if the set of local date/time
@@ -97,6 +98,7 @@ type DashboardContextValue = {
   previewTemporalReanalysis: (id: number) => Promise<TemporalResolutionOutput>;
   spaceOverrides: SpaceOverrides;
   renameSpace: (spaceId: string, customName: string) => Promise<void>;
+  sharedSpaces: MySpace[];
 };
 
 const DashboardContext = createContext<DashboardContextValue | null>(null);
@@ -137,6 +139,15 @@ export function DashboardProvider({
   const [showSavedToast, setShowSavedToast] = useState(false);
   const [temporalSuggestions, setTemporalSuggestions] = useState<Record<number, boolean>>({});
   const [spaceOverrides, setSpaceOverrides] = useState<SpaceOverrides>({});
+  // Fed to getSpaceTone/getSpaceAccentColor (see spaceTone.ts) so a Drop
+  // whose primary space is a real Shared Space uuid - not one of
+  // defaultSpaces' fixed personal-space ids - resolves to that Space's
+  // real name/icon/color instead of falling through to the generic
+  // "Unsorted" tone. Fetched once here (same pattern as spaceOverrides
+  // above) so every consumer (LifelineDropCard, DropDetailModal,
+  // DropTimeline, Ask Sunshine) shares one fetch instead of each
+  // independently calling fetchMySpaces().
+  const [sharedSpaces, setSharedSpaces] = useState<MySpace[]>([]);
 
   function dismissTemporalSuggestion(id: number) {
     setTemporalSuggestions((prev) => {
@@ -178,6 +189,22 @@ export function DashboardProvider({
       })
       .catch((error) => {
         console.error("Couldn't load space overrides", error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchMySpaces()
+      .then((data) => {
+        if (!cancelled) setSharedSpaces(data);
+      })
+      .catch((error) => {
+        console.error("Couldn't load shared spaces", error);
       });
 
     return () => {
@@ -733,6 +760,7 @@ export function DashboardProvider({
         previewTemporalReanalysis,
         spaceOverrides,
         renameSpace,
+        sharedSpaces,
       }}
     >
       {children}

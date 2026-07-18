@@ -41,7 +41,7 @@ export default function LifelineDropCard({
   // the pill row's own onClick={() => setActiveFilter(option.id)}.
   onNavigateToSpace?: (spaceId: string) => void;
 }) {
-  const { updatePinned, updateChecklistItems, addToGroup, user } = useCaptures();
+  const { updatePinned, updateChecklistItems, addToGroup, user, sharedSpaces } = useCaptures();
   const isUrgent = capture.tags?.includes("urgent") ?? false;
   const isDrop = kind === "drop";
   const isSunshineDrop = capture.source === "system";
@@ -80,6 +80,7 @@ export default function LifelineDropCard({
       variant="dark"
       title={capture.title ?? capture.sunshineSummary}
       spaceId={capture.spaceIds?.[0]}
+      sharedSpaces={sharedSpaces}
       isSunshineDrop={isSunshineDrop}
       content={capture.formattedText ?? capture.text}
       createdAt={capture.createdAt}

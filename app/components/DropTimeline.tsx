@@ -54,7 +54,7 @@ export default function DropTimeline({
   scrollToDate: Date | null;
   onSelectCapture: (id: number) => void;
 }) {
-  const { spaceOverrides } = useCaptures();
+  const { spaceOverrides, sharedSpaces } = useCaptures();
   const [throughDate, setThroughDate] = useState(() => addMonths(new Date(), MONTHS_PER_PAGE));
   const sentinelRef = useRef<HTMLDivElement>(null);
   const entryRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -148,7 +148,7 @@ export default function DropTimeline({
       {occurrences.map((occurrence) => {
         const key = `${occurrence.capture.id}-${occurrence.occurrenceDate}`;
         const spaceId = occurrence.capture.spaceIds?.[0];
-        const tone = getSpaceTone(spaceId);
+        const tone = getSpaceTone(spaceId, sharedSpaces);
         const displayName = spaceOverrides[spaceId ?? ""] ?? tone.name;
 
         return (

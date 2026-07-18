@@ -23,9 +23,39 @@ export const sunshineDropTone = {
 
 export const sunshineDropAccentColor = "#FFC940";
 
-export function getSpaceTone(spaceId: string | null | undefined) {
+// Minimal shape every caller needs from a real Shared Space (a subset of
+// sharedSpaces.ts's MySpace - callers pass that array directly, this type
+// exists so spaceTone.ts doesn't have to import from there and create a
+// two-way dependency between the two lib modules).
+export type SharedSpaceLookup = {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  border: string;
+};
+
+// sharedSpaces defaults to [] (not required) specifically so DropCard.tsx
+// keeps working unchanged for the public share page (app/s/[id]/page.tsx),
+// which has no DashboardProvider/useCaptures() to fetch a caller's shared
+// spaces from in the first place - it just falls back to the previous
+// personal-only-else-Unsorted behavior, same as today.
+//
+// Checked in this order (defaultSpaces first, then sharedSpaces) because a
+// real Shared Space's id is a spaces-table uuid - it can never collide
+// with one of defaultSpaces' fixed string ids ("personal", "work", etc.),
+// so there's no ambiguity to resolve either way.
+export function getSpaceTone(
+  spaceId: string | null | undefined,
+  sharedSpaces: SharedSpaceLookup[] = []
+): { name: string; icon: string; color: string; border: string } {
   const space = defaultSpaces.find((candidate) => candidate.id === spaceId);
-  return space ?? unassignedSpaceTone;
+  if (space) return space;
+
+  const shared = sharedSpaces.find((candidate) => candidate.id === spaceId);
+  if (shared) return shared;
+
+  return unassignedSpaceTone;
 }
 
 // Per-Space accent color for the Lifeline feed screen's dark card border
@@ -78,7 +108,22 @@ export const spaceAccentColors: Record<string, string> = {
 // intentional Space color.
 export const unassignedSpaceAccent = "#6B6B70";
 
-export function getSpaceAccentColor(spaceId: string | null | undefined): string {
+// A real Shared Space has no per-space hex of its own anywhere (the
+// spaces table only stores Tailwind color/border classes, not a hex
+// value) - unlike defaultSpaces, which get one each in
+// spaceAccentColors above. Giving every Shared Space a genuinely unique
+// hex would need a schema change (a color column on the spaces table);
+// out of scope for this fix. Falling back to the existing "shared" entry
+// above (added for exactly this eventual purpose, per its own comment)
+// at least keeps a real Shared Space's card border visually distinct
+// from a truly-unassigned Drop's neutral gray, even without per-space
+// uniqueness.
+export function getSpaceAccentColor(
+  spaceId: string | null | undefined,
+  sharedSpaces: SharedSpaceLookup[] = []
+): string {
   if (!spaceId) return unassignedSpaceAccent;
-  return spaceAccentColors[spaceId] ?? unassignedSpaceAccent;
+  if (spaceAccentColors[spaceId]) return spaceAccentColors[spaceId];
+  if (sharedSpaces.some((candidate) => candidate.id === spaceId)) return spaceAccentColors.shared;
+  return unassignedSpaceAccent;
 }

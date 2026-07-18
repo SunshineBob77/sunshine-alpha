@@ -260,6 +260,62 @@ function parseTemporal(raw: string | undefined): TemporalExtraction | null {
   }
 }
 
+const ANALYSIS_LABELS = [
+  "RESEARCH",
+  "ADDRESS",
+  "FORMATTED",
+  "WORKOUT",
+  "TITLE",
+  "ACTIONABLE",
+  "CATEGORY",
+  "SPACE",
+  "TEMPORAL",
+] as const;
+
+type AnalysisLabel = (typeof ANALYSIS_LABELS)[number];
+
+// Finds each label's own first occurrence independently, rather than the
+// old approach of nine chained pairwise regexes (LABEL_A:...LABEL_B:).
+// That chain meant a SINGLE missing label broke the boundary for every
+// field before and after it too, and the whole response fell into the
+// "model didn't follow the format" branch below - discarding every field
+// wholesale, including ones the model got right. Confirmed as a real
+// production loss: a whiteboard-photo capture's response had a perfect,
+// richly-detailed FORMATTED transcription and a specific TITLE, but the
+// model simply never emitted a WORKOUT: line (an obviously-inapplicable
+// field it apparently judged not worth stating "null" for on a long,
+// content-heavy response) - the old parser's formattedMatch required
+// literally finding "WORKOUT:" after "FORMATTED:", so that alone erased
+// the title, category, actionable flag, AND the entire transcription,
+// replacing all of it with generic fallback values.
+//
+// Here, each label found in the response has its content bounded by
+// whichever OTHER label is found next (whichever one that happens to
+// be), not a fixed expected neighbor - so one missing label only means
+// that one field comes back empty/undefined (each field's own parser
+// already treats undefined the same as "null"/absent), never affects any
+// other field's extraction.
+function parseLabeledSections(rawText: string): Partial<Record<AnalysisLabel, string>> {
+  const positions: { label: AnalysisLabel; start: number; contentStart: number }[] = [];
+
+  for (const label of ANALYSIS_LABELS) {
+    const match = rawText.match(new RegExp(`\\b${label}:`, "i"));
+    if (match && match.index !== undefined) {
+      positions.push({ label, start: match.index, contentStart: match.index + match[0].length });
+    }
+  }
+
+  positions.sort((a, b) => a.start - b.start);
+
+  const sections: Partial<Record<AnalysisLabel, string>> = {};
+  for (let i = 0; i < positions.length; i++) {
+    const end = i + 1 < positions.length ? positions[i + 1].start : rawText.length;
+    sections[positions[i].label] = rawText.slice(positions[i].contentStart, end).trim();
+  }
+
+  return sections;
+}
+
 function parseAnalysis(rawText: string): {
   research: string[] | null;
   address: string | null;
@@ -271,28 +327,13 @@ function parseAnalysis(rawText: string): {
   spaceId: (typeof SPACE_IDS)[number];
   temporal: TemporalExtraction | null;
 } {
-  const researchMatch = rawText.match(/RESEARCH:\s*([\s\S]*?)\s*ADDRESS:/i);
-  const addressMatch = rawText.match(/ADDRESS:\s*([\s\S]*?)\s*FORMATTED:/i);
-  const formattedMatch = rawText.match(/FORMATTED:\s*([\s\S]*?)\s*WORKOUT:/i);
-  const workoutMatch = rawText.match(/WORKOUT:\s*([\s\S]*?)\s*TITLE:/i);
-  const titleMatch = rawText.match(/TITLE:\s*([\s\S]*?)\s*ACTIONABLE:/i);
-  const actionableMatch = rawText.match(/ACTIONABLE:\s*([\s\S]*?)\s*CATEGORY:/i);
-  const categoryMatch = rawText.match(/CATEGORY:\s*([\s\S]*?)\s*SPACE:/i);
-  const spaceMatch = rawText.match(/SPACE:\s*([\s\S]*?)\s*TEMPORAL:/i);
-  const temporalMatch = rawText.match(/TEMPORAL:\s*([\s\S]*)$/i);
+  const sections = parseLabeledSections(rawText);
 
-  if (
-    !researchMatch ||
-    !addressMatch ||
-    !formattedMatch ||
-    !workoutMatch ||
-    !titleMatch ||
-    !actionableMatch ||
-    !categoryMatch ||
-    !spaceMatch ||
-    !temporalMatch
-  ) {
-    // Model didn't follow the format — fall back to treating the whole response as the research answer.
+  if (Object.keys(sections).length === 0) {
+    // Genuinely unstructured response - not even one recognizable label
+    // anywhere, not just one missing. Same last-resort fallback as
+    // before: treat the whole thing as a research answer rather than
+    // silently dropping it.
     return {
       research: parseResearch(rawText),
       address: null,
@@ -307,15 +348,15 @@ function parseAnalysis(rawText: string): {
   }
 
   return {
-    research: parseResearch(researchMatch[1]),
-    address: nullableValue(addressMatch[1]),
-    formatted: nullableValue(formattedMatch[1]),
-    workout: parseWorkout(workoutMatch[1]),
-    title: nullableValue(titleMatch[1]),
-    isActionable: actionableMatch[1].trim().toLowerCase().startsWith("true"),
-    category: parseCategory(categoryMatch[1]),
-    spaceId: parseSpace(spaceMatch[1]),
-    temporal: parseTemporal(temporalMatch[1]),
+    research: parseResearch(sections.RESEARCH),
+    address: nullableValue(sections.ADDRESS),
+    formatted: nullableValue(sections.FORMATTED),
+    workout: parseWorkout(sections.WORKOUT),
+    title: nullableValue(sections.TITLE),
+    isActionable: (sections.ACTIONABLE ?? "").trim().toLowerCase().startsWith("true"),
+    category: parseCategory(sections.CATEGORY),
+    spaceId: parseSpace(sections.SPACE),
+    temporal: parseTemporal(sections.TEMPORAL),
   };
 }
 

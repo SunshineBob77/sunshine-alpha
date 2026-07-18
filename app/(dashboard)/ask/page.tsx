@@ -14,7 +14,7 @@ import DropDetailModal from "@/app/components/DropDetailModal";
 const AGGREGATION_DEBOUNCE_MS = 400;
 
 export default function AskSunshinePage() {
-  const { captures, capturesLoading, user } = useCaptures();
+  const { captures, capturesLoading, user, sharedSpaces } = useCaptures();
   const [query, setQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [selectedCaptureId, setSelectedCaptureId] = useState<number | null>(null);
@@ -169,6 +169,7 @@ export default function AskSunshinePage() {
                     key={capture.id}
                     title={capture.title ?? capture.sunshineSummary}
                     spaceId={capture.spaceIds?.[0]}
+                    sharedSpaces={sharedSpaces}
                     content={capture.formattedText ?? capture.text}
                     createdAt={capture.createdAt}
                     isUrgent={capture.tags?.includes("urgent") ?? false}

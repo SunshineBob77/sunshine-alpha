@@ -4,7 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import DropContent from "./DropContent";
 import ChecklistContent from "./ChecklistContent";
 import { DropAttachmentImage, DropAttachmentFile } from "./DropAttachment";
-import { getSpaceTone, getSpaceAccentColor, sunshineDropTone, sunshineDropAccentColor } from "@/app/lib/spaceTone";
+import {
+  getSpaceTone,
+  getSpaceAccentColor,
+  sunshineDropTone,
+  sunshineDropAccentColor,
+  type SharedSpaceLookup,
+} from "@/app/lib/spaceTone";
 import { formatRelativeTime } from "@/app/lib/relativeTime";
 import { hasUncheckedChecklistItems, type ChecklistItem } from "@/app/lib/captures";
 import { fraunces } from "@/app/lib/fonts";
@@ -18,6 +24,7 @@ const SETTLE_MS = 2800;
 export default function DropCard({
   title,
   spaceId,
+  sharedSpaces = [],
   content,
   createdAt,
   isUrgent = false,
@@ -47,6 +54,13 @@ export default function DropCard({
 }: {
   title: string;
   spaceId: string | null | undefined;
+  // Defaults to [] - the public share page (app/s/[id]/page.tsx) has no
+  // DashboardProvider/useCaptures() to source this from and never passes
+  // it, same reasoning as variant defaulting to "light" there. Lets a
+  // Drop whose primary space is a real Shared Space uuid resolve to that
+  // Space's actual name/icon/color via getSpaceTone/getSpaceAccentColor
+  // below, instead of falling through to the generic "Unsorted" tone.
+  sharedSpaces?: SharedSpaceLookup[];
   content: string;
   createdAt: string;
   isUrgent?: boolean;
@@ -128,8 +142,10 @@ export default function DropCard({
   // spaceId is intentionally ignored entirely when isSunshineDrop is true -
   // not just overridden after the fact - so a corrupted/stale spaceId can
   // never leak through even transiently.
-  const tone = isSunshineDrop ? sunshineDropTone : getSpaceTone(spaceId);
-  const accentColor = isSunshineDrop ? sunshineDropAccentColor : getSpaceAccentColor(spaceId);
+  const tone = isSunshineDrop ? sunshineDropTone : getSpaceTone(spaceId, sharedSpaces);
+  const accentColor = isSunshineDrop
+    ? sunshineDropAccentColor
+    : getSpaceAccentColor(spaceId, sharedSpaces);
   const isHero = size === "hero";
   const isDark = variant === "dark";
   const contentRef = useRef<HTMLDivElement>(null);

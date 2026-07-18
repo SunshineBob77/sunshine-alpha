@@ -521,6 +521,7 @@ export default function DropDetailModal({
     undoCaptureState,
     temporalSuggestions,
     spaceOverrides,
+    sharedSpaces,
   } = useCaptures();
   const [editing, setEditing] = useState(startInEditMode);
   const [draft, setDraft] = useState(capture.text);
@@ -534,7 +535,7 @@ export default function DropDetailModal({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
 
-  const tone = getSpaceTone(capture.spaceIds?.[0]);
+  const tone = getSpaceTone(capture.spaceIds?.[0], sharedSpaces);
   const toneName = spaceOverrides[capture.spaceIds?.[0] ?? ""] ?? tone.name;
   const isUrgent = capture.tags?.includes("urgent") ?? false;
   const isCompleted = capture.status === "completed";
