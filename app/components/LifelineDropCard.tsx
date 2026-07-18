@@ -84,10 +84,16 @@ export default function LifelineDropCard({
       onTitleTap={() => onSelect(capture.id)}
       isPinned={capture.pinned}
       onTogglePin={isDrop && isOwnCapture ? handleTogglePin : undefined}
-      // Same gating as the Edit entry in moreActions below, but landing
-      // directly in the modal's edit mode (see onSelect's `edit` option)
-      // instead of its default view mode - no extra "More -> Edit" tap.
-      onEdit={isDrop && isOwnCapture ? () => onSelect(capture.id, { edit: true }) : undefined}
+      // Same gating as the Edit entry in moreActions below (including the
+      // !isSunshineDrop exclusion - system Drops like Morning Brief aren't
+      // user-editable), but landing directly in the modal's edit mode (see
+      // onSelect's `edit` option) instead of its default view mode - no
+      // extra "More -> Edit" tap.
+      onEdit={
+        isDrop && !isSunshineDrop && isOwnCapture
+          ? () => onSelect(capture.id, { edit: true })
+          : undefined
+      }
       checklistItems={capture.checklistItems}
       onToggleChecklistItem={isOwnCapture ? handleToggleChecklistItem : undefined}
       isHidden={isHiddenNow}
@@ -136,13 +142,20 @@ export default function LifelineDropCard({
       moreActions={
         isDrop && isOwnCapture ? (
           <>
-            <button
-              type="button"
-              onClick={() => onSelect(capture.id)}
-              className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-2 py-1.5 rounded-full transition-all"
-            >
-              ✏️ Edit
-            </button>
+            {// Not user-editable, same as the top Edit button above - a
+            // Sunshine Drop's text is system-generated, not something the
+            // owner authored, so it's excluded here even though this
+            // fragment as a whole isn't gated by isSunshineDrop (Delete/
+            // Archive/Undo below still apply to system Drops).
+            !isSunshineDrop && (
+              <button
+                type="button"
+                onClick={() => onSelect(capture.id)}
+                className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-2 py-1.5 rounded-full transition-all"
+              >
+                ✏️ Edit
+              </button>
+            )}
 
             <DeleteDropButton captureId={capture.id} variant="dark" />
 
