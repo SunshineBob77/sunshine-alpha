@@ -31,41 +31,6 @@ export default function SharedSpacesPage() {
       })
       .catch((err) => {
         console.error(err);
-        if (!cancelled) setError("Couldn't load
-cat > "app/(dashboard)/spaces/shared/page.tsx" << 'EOF'
-"use client";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import {
-  fetchMySpaces,
-  createSharedSpace,
-  createInviteLink,
-  type MySpace,
-} from "@/app/lib/sharedSpaces";
-import InlineTextInput from "@/app/components/InlineTextInput";
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://sunshine-alpha-nu.vercel.app";
-
-export default function SharedSpacesPage() {
-  const router = useRouter();
-  const [spaces, setSpaces] = useState<MySpace[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
-
-  const [inviteSpaceId, setInviteSpaceId] = useState<string | null>(null);
-  const [inviteLink, setInviteLink] = useState<string | null>(null);
-  const [inviteLoading, setInviteLoading] = useState(false);
-  const [inviteError, setInviteError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchMySpaces()
-      .then((data) => {
-        if (!cancelled) setSpaces(data);
-      })
-      .catch((err) => {
-        console.error(err);
         if (!cancelled) setError("Couldn't load your shared spaces.");
       });
     return () => {
