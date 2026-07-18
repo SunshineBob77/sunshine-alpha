@@ -2,10 +2,21 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "../lib/supabaseClient";
 
+// Key used to hand a pending invite token across an email-confirmation
+// gap (see the signup branch below and (dashboard)/layout.tsx's recovery
+// effect) - sessionStorage rather than the URL, since the confirmation
+// link the user eventually clicks comes from their email client, not from
+// this page, so there's no query param to carry the token through that
+// hop. Scoped to sessionStorage (not localStorage) deliberately - a stale
+// leftover token from a long-abandoned signup attempt shouldn't silently
+// resurrect itself in some unrelated future session.
+const PENDING_JOIN_TOKEN_KEY = "sunshine_pending_join_token";
+
 export default function AuthForm() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [mode, setMode] = useState<"login" | "signup">(
     searchParams.get("mode") === "signup" ? "signup" : "login"
@@ -16,6 +27,12 @@ export default function AuthForm() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Present only when this page was reached via the /join/<token>
+  // acceptance route's "create an account to join" / "log in" buttons
+  // (see app/join/[token]/page.tsx) - absent for every ordinary
+  // login/signup, which behaves exactly as before.
+  const joinToken = searchParams.get("join");
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -39,7 +56,34 @@ export default function AuthForm() {
       return;
     }
 
-    if (mode === "signup" && !data.session) {
+    if (data.session) {
+      // Immediate session (login always has one; signup does too when the
+      // Supabase project doesn't require email confirmation) - hand
+      // straight back to the join page with justAuthed=1 so it
+      // auto-redeems without a second confirmation tap, since completing
+      // this exact signup/login WAS the confirmation. Ordinary
+      // login/signup with no joinToken is completely unaffected - falls
+      // through with nothing left to do, same as before this feature.
+      if (joinToken) router.push(`/join/${joinToken}?justAuthed=1`);
+      return;
+    }
+
+    // No session yet - only reachable via signup requiring email
+    // confirmation (signInWithPassword never succeeds without a session).
+    // Ordinary signup keeps its original message unchanged; a
+    // joinToken-carrying signup also stashes the token so the recovery
+    // effect in (dashboard)/layout.tsx can pick it up and redirect to
+    // /join/<token> the moment a session actually appears, whenever/
+    // wherever that ends up happening (a later login here, or the emailed
+    // confirmation link signing them in directly - both land on an
+    // authenticated page under the dashboard layout, which is what that
+    // effect watches).
+    if (joinToken) {
+      sessionStorage.setItem(PENDING_JOIN_TOKEN_KEY, joinToken);
+      setInfo(
+        "Account created! Check your email to confirm it, then log in — we'll add you to the space you were invited to."
+      );
+    } else {
       setInfo("Account created! Check your email to confirm it, then log in.");
     }
   }

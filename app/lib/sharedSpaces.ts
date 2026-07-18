@@ -144,12 +144,23 @@ export type InviteLink = {
 export type InvitePreview = {
   spaceName: string;
   spaceIcon: string;
-  isValid: boolean;
+  // See docs/invite-rpc-fixes-schema.sql - replaces the original single
+  // is_valid boolean so app/join/[token]/page.tsx can show a specific,
+  // accurate reason (revoked vs expired vs exhausted) before ever
+  // prompting an unauthenticated visitor through a full signup. A token
+  // matching no row at all is NOT a status value - previewInvite() below
+  // still throws for that case exactly as before.
+  status: "valid" | "revoked" | "expired" | "exhausted";
 };
 
 export type RedeemedInvite = {
   spaceId: string;
   role: SpaceRole;
+  // See docs/invite-rpc-fixes-schema.sql - true when the caller was
+  // already an active member of this space (the insert was a no-op).
+  // Lets the join route show "you're already in this space" instead of
+  // a misleading "welcome!" for a re-tapped or already-a-member link.
+  alreadyMember: boolean;
 };
 
 // Only inserts into invite_links - token/expires_at (30 days out)/
@@ -187,7 +198,7 @@ export async function previewInvite(token: string): Promise<InvitePreview> {
   return {
     spaceName: row.space_name,
     spaceIcon: row.space_icon,
-    isValid: row.is_valid,
+    status: row.status,
   };
 }
 
@@ -214,7 +225,11 @@ export async function redeemInvite(token: string): Promise<RedeemedInvite> {
   const row = Array.isArray(data) ? data[0] : data;
   if (!row) throw new Error("Couldn't redeem invite link.");
 
-  return { spaceId: row.out_space_id, role: row.out_role as SpaceRole };
+  return {
+    spaceId: row.out_space_id,
+    role: row.out_role as SpaceRole,
+    alreadyMember: row.out_already_member,
+  };
 }
 
 // Convenience-only owner check before attempting the update - calls the
