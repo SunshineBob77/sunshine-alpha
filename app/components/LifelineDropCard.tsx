@@ -3,8 +3,10 @@
 import DropCard from "./DropCard";
 import ShareButton from "./ShareButton";
 import DeleteDropButton from "./DeleteDropButton";
+import DailyBriefContent from "./DailyBriefContent";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import { isAutoHidden } from "@/app/lib/autoHide";
+import { DAILY_BRIEF_SYSTEM_DROP_TYPE } from "@/app/lib/systemDrops";
 import type { Capture } from "@/app/lib/captures";
 
 export default function LifelineDropCard({
@@ -17,6 +19,7 @@ export default function LifelineDropCard({
   onToggleHide,
   onArchive,
   onUndo,
+  onNavigateToSpace,
 }: {
   capture: Capture;
   // Optional `edit` flag rides along to page.tsx, which threads it through
@@ -32,11 +35,17 @@ export default function LifelineDropCard({
   onToggleHide?: () => void;
   onArchive?: () => void;
   onUndo?: () => void;
+  // Daily Brief v1 - only ever read when this card is the Daily Brief
+  // itself (see the customContent branch below). Threaded down from
+  // page.tsx (which owns activeFilter) via LifelineFeed, same shape as
+  // the pill row's own onClick={() => setActiveFilter(option.id)}.
+  onNavigateToSpace?: (spaceId: string) => void;
 }) {
   const { updatePinned, updateChecklistItems, addToGroup, user } = useCaptures();
   const isUrgent = capture.tags?.includes("urgent") ?? false;
   const isDrop = kind === "drop";
   const isSunshineDrop = capture.source === "system";
+  const isDailyBrief = capture.systemDropType === DAILY_BRIEF_SYSTEM_DROP_TYPE;
   // Always true outside a shared space (a user only ever sees their own
   // captures there) - only meaningfully false when viewing a shared
   // space's Lifeline and looking at a Drop another member created. RLS
@@ -78,6 +87,21 @@ export default function LifelineDropCard({
       filePath={capture.filePath}
       fileName={capture.fileName}
       isUrgent={isUrgent}
+      // Daily Brief v1 - swaps the default markdown-rendered `content`
+      // above for real tappable rows, one per Space with activity. Every
+      // other system Drop (and every ordinary Drop) is untouched -
+      // customContent stays undefined, same default markdown path as
+      // always. onNavigateToSpace is only ever undefined if a caller
+      // forgets to wire it; DailyBriefContent's rows would just no-op in
+      // that case rather than throw, but every real caller passes it.
+      customContent={
+        isDailyBrief ? (
+          <DailyBriefContent
+            items={capture.dailyBriefActivity ?? []}
+            onNavigateToSpace={onNavigateToSpace ?? (() => {})}
+          />
+        ) : undefined
+      }
       isActionable={capture.isActionable}
       status={capture.status}
       onToggleStatus={isDrop && isOwnCapture ? onToggleStatus : undefined}

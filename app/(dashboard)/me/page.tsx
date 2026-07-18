@@ -81,30 +81,18 @@ export default function MePage() {
 
         {prefs && (
           <section className="bg-white rounded-3xl ring-1 ring-black/5 shadow-sm p-7 mt-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">Morning Brief</h2>
+            <h2 className="text-lg font-bold text-gray-900 mb-4">Daily Brief</h2>
 
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="font-semibold text-gray-900">Daily Morning Brief</p>
+                <p className="font-semibold text-gray-900">Daily Brief</p>
                 <p className="text-sm text-gray-500">
-                  A greeting, today &amp; tomorrow&apos;s weather, waiting for you each day.
+                  A summary of what&apos;s new across your Shared Spaces, waiting for you each day.
                 </p>
               </div>
               <Toggle
-                checked={prefs.morningBriefEnabled}
-                onChange={() => togglePref("morningBriefEnabled")}
-              />
-            </div>
-
-            <div className="flex items-center justify-between gap-4 mt-5 pt-5 border-t border-black/5">
-              <div>
-                <p className="font-semibold text-gray-900">Include a daily quote</p>
-                <p className="text-sm text-gray-500">A short Stoic quote alongside the weather.</p>
-              </div>
-              <Toggle
-                checked={prefs.morningBriefQuoteEnabled}
-                onChange={() => togglePref("morningBriefQuoteEnabled")}
-                disabled={!prefs.morningBriefEnabled}
+                checked={prefs.dailyBriefEnabled}
+                onChange={() => togglePref("dailyBriefEnabled")}
               />
             </div>
           </section>

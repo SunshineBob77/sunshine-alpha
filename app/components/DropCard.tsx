@@ -95,7 +95,7 @@ export default function DropCard({
   // than passing a misleading createdAt.
   hideTimestamp?: boolean;
   // True for system-generated Drops (capture.source === "system", e.g.
-  // Morning Brief). Content-based category/Space classification must
+  // Daily Brief). Content-based category/Space classification must
   // never determine how a Sunshine Drop card looks - this is a rendering
   // backstop, independent of whatever spaceId/category actually got
   // passed in, so a gap upstream (AI classification touching a system

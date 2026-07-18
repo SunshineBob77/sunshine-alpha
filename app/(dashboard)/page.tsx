@@ -102,9 +102,10 @@ export default function Home() {
   return (
     <>
       {/* Filter row only - greeting/weather/quote removed per spec (that
-          content now lives in a future Morning Brief System Drop, not
-          replaced here). Positioned at top-14 to sit directly below the
-          global 56px DashboardHeader. */}
+          content lived briefly in the old Morning Brief System Drop, since
+          replaced by the Daily Brief's activity summary - see
+          app/api/daily-brief/route.ts). Positioned at top-14 to sit
+          directly below the global 56px DashboardHeader. */}
       <header
         ref={headerRef}
         className="fixed top-14 inset-x-0 z-30 bg-night/90 backdrop-blur-md border-b border-ink/10 px-4 sm:px-8 py-2"
@@ -150,6 +151,7 @@ export default function Home() {
                 captures={captures}
                 activeFilter={activeFilter}
                 onSelectCapture={handleSelectCapture}
+                onNavigateToSpace={setActiveFilter}
               />
             </section>
           )}

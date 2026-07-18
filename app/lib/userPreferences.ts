@@ -1,19 +1,16 @@
 import { supabase } from "./supabaseClient";
 
 export type UserPreferences = {
-  morningBriefEnabled: boolean;
-  morningBriefQuoteEnabled: boolean;
+  dailyBriefEnabled: boolean;
 };
 
 type UserPreferencesRow = {
-  morning_brief_enabled: boolean;
-  morning_brief_quote_enabled: boolean;
+  daily_brief_enabled: boolean;
 };
 
 function mapRow(row: UserPreferencesRow): UserPreferences {
   return {
-    morningBriefEnabled: row.morning_brief_enabled,
-    morningBriefQuoteEnabled: row.morning_brief_quote_enabled,
+    dailyBriefEnabled: row.daily_brief_enabled,
   };
 }
 
@@ -22,7 +19,7 @@ function mapRow(row: UserPreferencesRow): UserPreferences {
 export async function getOrCreateUserPreferences(userId: string): Promise<UserPreferences> {
   const { data: existing, error: selectError } = await supabase
     .from("user_preferences")
-    .select("morning_brief_enabled, morning_brief_quote_enabled")
+    .select("daily_brief_enabled")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -32,14 +29,14 @@ export async function getOrCreateUserPreferences(userId: string): Promise<UserPr
   const { data: inserted, error: insertError } = await supabase
     .from("user_preferences")
     .insert({ user_id: userId })
-    .select("morning_brief_enabled, morning_brief_quote_enabled")
+    .select("daily_brief_enabled")
     .single();
 
   if (insertError) {
     if (insertError.code === "23505") {
       const { data: raceWinner, error: raceError } = await supabase
         .from("user_preferences")
-        .select("morning_brief_enabled, morning_brief_quote_enabled")
+        .select("daily_brief_enabled")
         .eq("user_id", userId)
         .single();
 
@@ -58,9 +55,7 @@ export async function updateUserPreferences(
   patch: Partial<UserPreferences>
 ): Promise<void> {
   const update: Partial<UserPreferencesRow> = {};
-  if (patch.morningBriefEnabled !== undefined) update.morning_brief_enabled = patch.morningBriefEnabled;
-  if (patch.morningBriefQuoteEnabled !== undefined)
-    update.morning_brief_quote_enabled = patch.morningBriefQuoteEnabled;
+  if (patch.dailyBriefEnabled !== undefined) update.daily_brief_enabled = patch.dailyBriefEnabled;
 
   const { error } = await supabase.from("user_preferences").update(update).eq("user_id", userId);
   if (error) throw error;

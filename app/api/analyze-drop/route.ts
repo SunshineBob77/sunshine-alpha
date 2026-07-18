@@ -476,7 +476,7 @@ export async function POST(request: Request) {
 
     if (captureLookupError) throw captureLookupError;
 
-    // Sunshine Drop cards (system-generated, e.g. Morning Brief) are never
+    // Sunshine Drop cards (system-generated, e.g. Daily Brief) are never
     // content-classified by AI - their category/Space identity is fixed
     // regardless of what's in their body text. This is the authoritative
     // skip: whatever caller hit this route (an edit, a future re-analysis

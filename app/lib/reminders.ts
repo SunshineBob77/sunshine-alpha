@@ -36,7 +36,7 @@ function isEligible(capture: Capture): boolean {
 
 // Builds the Reminders card's two sections straight from the Lifeline's
 // already-loaded captures - deliberately not a stored system Drop row the
-// way Morning Brief is. This content is cheap to derive (no external API
+// way Daily Brief is. This content is cheap to derive (no external API
 // call) and needs to react instantly to every checkbox toggle and to the
 // calendar day rolling over, neither of which a once-a-day generated row
 // handles well. Reuses buildOccurrences() (not calendar/page.tsx's flat

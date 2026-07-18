@@ -17,10 +17,14 @@ export default function LifelineFeed({
   captures,
   activeFilter,
   onSelectCapture,
+  onNavigateToSpace,
 }: {
   captures: Capture[];
   activeFilter: string;
   onSelectCapture: (id: number, options?: { edit?: boolean }) => void;
+  // Daily Brief v1 - passed straight through to LifelineDropCard, which
+  // only actually uses it when rendering the Daily Brief card itself.
+  onNavigateToSpace: (spaceId: string) => void;
 }) {
   const { updateStatus, hideCapture, archiveCapture, undoCaptureState } = useCaptures();
   const [pendingRemovalIds, setPendingRemovalIds] = useState<Set<number>>(new Set());
@@ -96,9 +100,9 @@ export default function LifelineFeed({
 
   // Reminders is a synthetic card, not a capture in this list - it's kept
   // out of the "no Drops yet" empty-state decision entirely and rendered
-  // right after any system captures (Morning Brief) so a day with no real
+  // right after any system captures (Daily Brief) so a day with no real
   // Drops but upcoming reminders still shows something useful. Only shown
-  // on the literal "all" Lifeline view, same scope Morning Brief itself
+  // on the literal "all" Lifeline view, same scope Daily Brief itself
   // isn't restricted to but Reminders deliberately is, since a per-Space
   // or Completed/Archived/Pinned view has no "upcoming" framing that
   // makes sense.
@@ -115,6 +119,7 @@ export default function LifelineFeed({
         onToggleHide={() => handleToggleHide(capture.id)}
         onArchive={() => handleArchive(capture.id)}
         onUndo={() => handleUndo(capture.id)}
+        onNavigateToSpace={onNavigateToSpace}
       />
     );
   }

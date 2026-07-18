@@ -24,7 +24,7 @@ import type { Capture } from "./captures";
 // Hidden, Completed, and Archived Drops must all remain fully
 // searchable (Hide-for-now's own design principle, and the original
 // Hide/Archive/Undo plan's explicit "still fully reachable via search").
-// The one exclusion is source === "system" (Morning Brief, etc.) - those
+// The one exclusion is source === "system" (Daily Brief, etc.) - those
 // aren't really "Drops" a user is searching their own notes for.
 
 // "Ask Sunshine" invites natural phrasing ("find X", "show me X", "how

@@ -196,13 +196,11 @@ export function DashboardProvider({
   // Never awaited by the Lifeline load above, so it can't block it.
   useEffect(() => {
     const localDate = new Date().toLocaleDateString("en-CA");
-    const localHour = new Date().getHours();
-    const displayName = user.user_metadata?.full_name || null;
 
-    fetch("/api/morning-brief", {
+    fetch("/api/daily-brief", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: user.id, localDate, localHour, displayName }),
+      body: JSON.stringify({ userId: user.id, localDate }),
     })
       .then((response) => response.json())
       .then((data: { capture?: CaptureRow; skipped?: boolean }) => {
@@ -216,7 +214,7 @@ export function DashboardProvider({
         });
       })
       .catch((error) => {
-        console.error("morning-brief generation failed", error);
+        console.error("daily-brief generation failed", error);
       });
   }, [user.id]);
 

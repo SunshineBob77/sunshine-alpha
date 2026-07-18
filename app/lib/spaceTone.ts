@@ -8,7 +8,7 @@ export const unassignedSpaceTone = {
 };
 
 // Fixed visual identity for Sunshine Drop cards (system-generated Drops -
-// capture.source === "system", e.g. Morning Brief) - deliberately NOT
+// capture.source === "system", e.g. Daily Brief) - deliberately NOT
 // derived from spaceAccentColors/defaultSpaces at all, so it can never
 // collide with a real Space's color even by coincidence. #FFC940 doesn't
 // appear anywhere in spaceAccentColors below. DropCard is responsible for

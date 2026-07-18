@@ -1,5 +1,6 @@
 import { supabase } from "./supabaseClient";
 import type { RecognizedEntities } from "./recognizeEntities";
+import type { DailyBriefSpaceActivity } from "./dailyBrief";
 
 // AI research answers are stored as JSON-encoded bullet arrays in the
 // existing ai_research_result text column (no schema change) - but rows
@@ -56,6 +57,12 @@ export type Capture = {
   userId: string;
   text: string;
   createdAt: string;
+  // Only bumped by the DB trigger on genuine content changes (text,
+  // formatted_text, title, checklist_items, space_ids) - see
+  // captures_bump_updated_at in docs/daily-brief-schema.sql. State/
+  // housekeeping toggles (pin, hide, archive, undo, reminder dismissals)
+  // deliberately don't touch this.
+  updatedAt: string;
   category: string;
   project: string;
   tags: string[];
@@ -112,6 +119,11 @@ export type Capture = {
   imagePath: string | null;
   filePath: string | null;
   fileName: string | null;
+  // Daily Brief v1 - only ever set on source='system'/
+  // system_drop_type='daily_brief' rows, computed once at generation time
+  // (see app/api/daily-brief/route.ts). Null for every other Drop,
+  // including old archived Morning Brief rows.
+  dailyBriefActivity: DailyBriefSpaceActivity[] | null;
 };
 
 export type CaptureRow = {
@@ -119,6 +131,7 @@ export type CaptureRow = {
   user_id: string;
   text: string;
   created_at: string;
+  updated_at: string;
   category: string;
   project: string;
   tags: string[];
@@ -158,6 +171,7 @@ export type CaptureRow = {
   image_path: string | null;
   file_path: string | null;
   file_name: string | null;
+  daily_brief_activity: DailyBriefSpaceActivity[] | null;
 };
 
 export function mapRowToCapture(row: CaptureRow): Capture {
@@ -166,6 +180,7 @@ export function mapRowToCapture(row: CaptureRow): Capture {
     userId: row.user_id,
     text: row.text,
     createdAt: row.created_at,
+    updatedAt: row.updated_at,
     category: row.category,
     project: row.project,
     tags: row.tags ?? [],
@@ -205,11 +220,12 @@ export function mapRowToCapture(row: CaptureRow): Capture {
     imagePath: row.image_path ?? null,
     filePath: row.file_path ?? null,
     fileName: row.file_name ?? null,
+    dailyBriefActivity: row.daily_brief_activity ?? null,
   };
 }
 
 export async function fetchCaptures(): Promise<Capture[]> {
-  // Archived System Drops (e.g. yesterday's Morning Brief) stay in the DB
+  // Archived System Drops (e.g. yesterday's Daily Brief) stay in the DB
   // and remain directly queryable, they just drop out of the active
   // Lifeline view - same as how completed Drops are handled elsewhere.
   const { data, error } = await supabase
