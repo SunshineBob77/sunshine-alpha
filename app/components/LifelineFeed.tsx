@@ -18,6 +18,7 @@ export default function LifelineFeed({
   activeFilter,
   onSelectCapture,
   onNavigateToSpace,
+  onOpenInvite,
 }: {
   captures: Capture[];
   activeFilter: string;
@@ -25,6 +26,10 @@ export default function LifelineFeed({
   // Daily Brief v1 - passed straight through to LifelineDropCard, which
   // only actually uses it when rendering the Daily Brief card itself.
   onNavigateToSpace: (spaceId: string) => void;
+  // Shared-Space invite trigger v1 - passed straight through to
+  // LifelineDropCard, which only actually uses it for a Drop whose
+  // primary Space the viewer owns.
+  onOpenInvite: (spaceId: string) => void;
 }) {
   const { updateStatus, hideCapture, archiveCapture, undoCaptureState } = useCaptures();
   const [pendingRemovalIds, setPendingRemovalIds] = useState<Set<number>>(new Set());
@@ -120,6 +125,7 @@ export default function LifelineFeed({
         onArchive={() => handleArchive(capture.id)}
         onUndo={() => handleUndo(capture.id)}
         onNavigateToSpace={onNavigateToSpace}
+        onOpenInvite={onOpenInvite}
       />
     );
   }

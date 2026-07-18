@@ -98,13 +98,16 @@ function SpacePicker({ capture }: { capture: Capture }) {
   return (
     <div className="mb-3">
       <div className="flex flex-wrap items-center gap-2">
-        {activeOptions.map((option) => (
-          <span key={option.id} className={`text-xs px-2 py-1 rounded-full ${option.color}`}>
-            {option.icon} {option.name}
-            {option.isShared ? " · Shared" : ""}
-          </span>
-        ))}
-
+        {/* The always-visible "ADG · Shared" pill row that used to render
+            here (one per activeOptions entry) is gone - the collapsed
+            DropCard's own eyebrow badge now shows the primary Space's
+            name/Shared status directly (see DropCard.tsx), so repeating
+            it here was pure duplication for the common single-Space case.
+            A Drop assigned to more than one Space (rare) no longer gets
+            an at-a-glance list of all of them here - "Edit Spaces" below
+            still shows the full picker with checkmarks for that case,
+            just one tap further than before. Confirmed acceptable
+            tradeoff rather than a silent regression. */}
         <button
           type="button"
           onClick={() => setOpen((prev) => !prev)}

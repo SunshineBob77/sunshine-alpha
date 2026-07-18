@@ -20,6 +20,7 @@ export default function LifelineDropCard({
   onArchive,
   onUndo,
   onNavigateToSpace,
+  onOpenInvite,
 }: {
   capture: Capture;
   // Optional `edit` flag rides along to page.tsx, which threads it through
@@ -40,12 +41,22 @@ export default function LifelineDropCard({
   // page.tsx (which owns activeFilter) via LifelineFeed, same shape as
   // the pill row's own onClick={() => setActiveFilter(option.id)}.
   onNavigateToSpace?: (spaceId: string) => void;
+  // Shared-Space invite trigger v1 - page.tsx owns the actual
+  // InviteSpaceModal/its open state; this just reports which Space to
+  // open it for. Only ever wired into DropCard's onInvite when the
+  // viewer owns that Space (see ownsPrimarySpace below) - a non-owner
+  // never even gets a tappable eyebrow to begin with.
+  onOpenInvite?: (spaceId: string) => void;
 }) {
   const { updatePinned, updateChecklistItems, addToGroup, user, sharedSpaces } = useCaptures();
   const isUrgent = capture.tags?.includes("urgent") ?? false;
   const isDrop = kind === "drop";
   const isSunshineDrop = capture.source === "system";
   const isDailyBrief = capture.systemDropType === DAILY_BRIEF_SYSTEM_DROP_TYPE;
+  const primarySpaceId = capture.spaceIds?.[0];
+  const ownsPrimarySpace = sharedSpaces.some(
+    (space) => space.id === primarySpaceId && space.role === "owner"
+  );
   // Always true outside a shared space (a user only ever sees their own
   // captures there) - only meaningfully false when viewing a shared
   // space's Lifeline and looking at a Drop another member created. RLS
@@ -79,8 +90,13 @@ export default function LifelineDropCard({
     <DropCard
       variant="dark"
       title={capture.title ?? capture.sunshineSummary}
-      spaceId={capture.spaceIds?.[0]}
+      spaceId={primarySpaceId}
       sharedSpaces={sharedSpaces}
+      onInvite={
+        isDrop && ownsPrimarySpace && onOpenInvite && primarySpaceId
+          ? () => onOpenInvite(primarySpaceId)
+          : undefined
+      }
       isSunshineDrop={isSunshineDrop}
       content={capture.formattedText ?? capture.text}
       createdAt={capture.createdAt}

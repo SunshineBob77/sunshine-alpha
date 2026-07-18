@@ -1,27 +1,16 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  fetchMySpaces,
-  createSharedSpace,
-  createInviteLink,
-  type MySpace,
-} from "@/app/lib/sharedSpaces";
+import { fetchMySpaces, createSharedSpace, type MySpace } from "@/app/lib/sharedSpaces";
 import InlineTextInput from "@/app/components/InlineTextInput";
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://sunshine-alpha-nu.vercel.app";
+import InviteSpaceModal from "@/app/components/InviteSpaceModal";
 
 export default function SharedSpacesPage() {
   const router = useRouter();
   const [spaces, setSpaces] = useState<MySpace[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-
   const [inviteSpaceId, setInviteSpaceId] = useState<string | null>(null);
-  const [inviteLink, setInviteLink] = useState<string | null>(null);
-  const [inviteLoading, setInviteLoading] = useState(false);
-  const [inviteError, setInviteError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,40 +31,6 @@ export default function SharedSpacesPage() {
     const space = await createSharedSpace(name);
     setCreating(false);
     setSpaces((prev) => (prev ? [...prev, space] : [space]));
-  }
-
-  async function handleInvite(spaceId: string) {
-    setInviteSpaceId(spaceId);
-    setInviteLink(null);
-    setInviteError(null);
-    setCopied(false);
-    setInviteLoading(true);
-    try {
-      const { token } = await createInviteLink(spaceId);
-      setInviteLink(`${APP_URL}/join/${token}`);
-    } catch (err) {
-      console.error(err);
-      setInviteError("Couldn't create an invite link. Try again.");
-    } finally {
-      setInviteLoading(false);
-    }
-  }
-
-  function closeInviteModal() {
-    setInviteSpaceId(null);
-    setInviteLink(null);
-    setInviteError(null);
-    setCopied(false);
-  }
-
-  async function handleCopy() {
-    if (!inviteLink) return;
-    try {
-      await navigator.clipboard.writeText(inviteLink);
-      setCopied(true);
-    } catch (err) {
-      console.error(err);
-    }
   }
 
   return (
@@ -137,7 +92,7 @@ export default function SharedSpacesPage() {
                 {space.role === "owner" && (
                   <button
                     type="button"
-                    onClick={() => handleInvite(space.id)}
+                    onClick={() => setInviteSpaceId(space.id)}
                     className="shrink-0 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-xl transition-all"
                   >
                     Invite
@@ -149,43 +104,7 @@ export default function SharedSpacesPage() {
         )}
       </div>
 
-      {inviteSpaceId && (
-        <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
-          onClick={closeInviteModal}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-lg p-6 w-full max-w-sm"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="text-lg font-bold text-gray-900 mb-3">Invite to this Space</h2>
-            {inviteLoading && <p className="text-gray-500 text-sm">Creating link…</p>}
-            {inviteError && <p className="text-red-600 text-sm mb-3">{inviteError}</p>}
-            {inviteLink && (
-              <>
-                <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-700 break-all mb-3">
-                  {inviteLink}
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCopy}
-                  className="w-full text-sm font-semibold bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-xl transition-all mb-2"
-                >
-                  {copied ? "Copied!" : "Copy Link"}
-                </button>
-                <p className="text-xs text-gray-400">Expires in 30 days. Anyone with this link can join.</p>
-              </>
-            )}
-            <button
-              type="button"
-              onClick={closeInviteModal}
-              className="mt-4 w-full text-sm text-gray-500 hover:text-gray-700"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
+      <InviteSpaceModal spaceId={inviteSpaceId} onClose={() => setInviteSpaceId(null)} />
     </main>
   );
 }

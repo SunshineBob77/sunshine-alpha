@@ -25,6 +25,7 @@ export default function DropCard({
   title,
   spaceId,
   sharedSpaces = [],
+  onInvite,
   content,
   createdAt,
   isUrgent = false,
@@ -61,6 +62,15 @@ export default function DropCard({
   // Space's actual name/icon/color via getSpaceTone/getSpaceAccentColor
   // below, instead of falling through to the generic "Unsorted" tone.
   sharedSpaces?: SharedSpaceLookup[];
+  // Present only when the caller has already confirmed the viewer owns
+  // this Drop's primary Space (see LifelineDropCard) - DropCard itself
+  // additionally re-checks isRealSharedSpace below before ever rendering
+  // the eyebrow as a button, but ownership itself is the caller's call to
+  // make, not this component's (same pattern as onEdit/onTogglePin
+  // elsewhere in this file). Opens the same Invite modal already used
+  // from the Shared Spaces list page, scoped to this Drop's Space,
+  // directly from the collapsed card - no expand, no navigating away.
+  onInvite?: () => void;
   content: string;
   createdAt: string;
   isUrgent?: boolean;
@@ -146,6 +156,12 @@ export default function DropCard({
   const accentColor = isSunshineDrop
     ? sunshineDropAccentColor
     : getSpaceAccentColor(spaceId, sharedSpaces);
+  // Drives both the "· Shared" suffix and whether the eyebrow below can
+  // become the invite trigger at all - re-checked here independently of
+  // whatever getSpaceTone/getSpaceAccentColor happened to resolve, so a
+  // caller passing onInvite for a personal-space Drop by mistake still
+  // can't make the eyebrow tappable.
+  const isRealSharedSpace = !isSunshineDrop && sharedSpaces.some((candidate) => candidate.id === spaceId);
   const isHero = size === "hero";
   const isDark = variant === "dark";
   const contentRef = useRef<HTMLDivElement>(null);
@@ -254,17 +270,36 @@ export default function DropCard({
     >
       <div className="flex items-start justify-between gap-3 mb-1.5">
         <div className="min-w-0 flex-1">
-          {isDark && (
-            // Eyebrow - the border color's meaning (which Space this is)
-            // needs to be legible on its own, not just decorative, so the
-            // Space name repeats the same accent color in text.
-            <p
-              className="text-[11px] font-bold uppercase tracking-wider mb-1"
-              style={{ color: accentColor }}
-            >
-              {tone.name}
-            </p>
-          )}
+          {isDark &&
+            (isRealSharedSpace && onInvite ? (
+              // Shared-Space invite trigger - the eyebrow's own label IS
+              // the entry point now, no separate icon/button needed.
+              // Text/color/sizing intentionally identical to the plain
+              // <p> below, just interactive - a Shared-Space Drop should
+              // never look meaningfully different depending on whether
+              // the viewer happens to own it.
+              <button
+                type="button"
+                onClick={onInvite}
+                className="text-[11px] font-bold uppercase tracking-wider mb-1 hover:underline"
+                style={{ color: accentColor }}
+              >
+                {tone.name} · Shared
+              </button>
+            ) : (
+              // Eyebrow - the border color's meaning (which Space this is)
+              // needs to be legible on its own, not just decorative, so the
+              // Space name repeats the same accent color in text. A real
+              // Shared Space still gets the "· Shared" suffix even when
+              // onInvite isn't present (a non-owner viewer, or a caller
+              // that doesn't wire invites at all) - just not tappable.
+              <p
+                className="text-[11px] font-bold uppercase tracking-wider mb-1"
+                style={{ color: accentColor }}
+              >
+                {isRealSharedSpace ? `${tone.name} · Shared` : tone.name}
+              </p>
+            ))}
           {onTitleTap ? (
             <button type="button" onClick={onTitleTap} className="block w-full text-left">
               <p

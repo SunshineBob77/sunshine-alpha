@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import DropDetailModal from "@/app/components/DropDetailModal";
+import InviteSpaceModal from "@/app/components/InviteSpaceModal";
 import LifelineFeed from "@/app/components/LifelineFeed";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import { defaultSpaces } from "@/app/lib/spaces";
@@ -38,6 +39,10 @@ export default function Home() {
   // from a previous selection.
   const [openInEditMode, setOpenInEditMode] = useState(false);
   const selectedCapture = captures.find((capture) => capture.id === selectedCaptureId) ?? null;
+  // Shared-Space invite trigger v1 - opened from a Drop card's own
+  // eyebrow badge (see LifelineDropCard's onInvite/onOpenInvite), same
+  // InviteSpaceModal component spaces/shared/page.tsx uses.
+  const [inviteSpaceId, setInviteSpaceId] = useState<string | null>(null);
 
   function handleSelectCapture(id: number, options?: { edit?: boolean }) {
     setSelectedCaptureId(id);
@@ -152,6 +157,7 @@ export default function Home() {
                 activeFilter={activeFilter}
                 onSelectCapture={handleSelectCapture}
                 onNavigateToSpace={setActiveFilter}
+                onOpenInvite={setInviteSpaceId}
               />
             </section>
           )}
@@ -167,6 +173,8 @@ export default function Home() {
             }}
           />
         )}
+
+        <InviteSpaceModal spaceId={inviteSpaceId} onClose={() => setInviteSpaceId(null)} />
       </main>
     </>
   );
