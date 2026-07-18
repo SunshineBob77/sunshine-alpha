@@ -3,7 +3,7 @@
 import DropCard from "./DropCard";
 import ShareButton from "./ShareButton";
 import DeleteDropButton from "./DeleteDropButton";
-import DailyBriefContent from "./DailyBriefContent";
+import DailyBriefCarousel from "./DailyBriefCarousel";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import { isAutoHidden } from "@/app/lib/autoHide";
 import { DAILY_BRIEF_SYSTEM_DROP_TYPE } from "@/app/lib/systemDrops";
@@ -48,7 +48,8 @@ export default function LifelineDropCard({
   // never even gets a tappable eyebrow to begin with.
   onOpenInvite?: (spaceId: string) => void;
 }) {
-  const { updatePinned, updateChecklistItems, addToGroup, user, sharedSpaces } = useCaptures();
+  const { updatePinned, updateChecklistItems, addToGroup, user, sharedSpaces, captures } =
+    useCaptures();
   const isUrgent = capture.tags?.includes("urgent") ?? false;
   const isDrop = kind === "drop";
   const isSunshineDrop = capture.source === "system";
@@ -104,17 +105,24 @@ export default function LifelineDropCard({
       filePath={capture.filePath}
       fileName={capture.fileName}
       isUrgent={isUrgent}
-      // Daily Brief v1 - swaps the default markdown-rendered `content`
-      // above for real tappable rows, one per Space with activity. Every
-      // other system Drop (and every ordinary Drop) is untouched -
-      // customContent stays undefined, same default markdown path as
-      // always. onNavigateToSpace is only ever undefined if a caller
-      // forgets to wire it; DailyBriefContent's rows would just no-op in
-      // that case rather than throw, but every real caller passes it.
+      // Daily Brief v2 - swaps the default markdown-rendered `content`
+      // above for a swipeable carousel: page 1 is the original per-Space
+      // activity delta (server-generated/frozen, unchanged), pages 2-4
+      // are live "mini dashboard" stats computed on every render from
+      // captures/sharedSpaces already loaded here - see
+      // DailyBriefCarousel.tsx and dailyBriefStats.ts. Every other system
+      // Drop (and every ordinary Drop) is untouched - customContent stays
+      // undefined, same default markdown path as always. onNavigateToSpace
+      // is only ever undefined if a caller forgets to wire it; the
+      // carousel's rows would just no-op in that case rather than throw,
+      // but every real caller passes it.
       customContent={
         isDailyBrief ? (
-          <DailyBriefContent
-            items={capture.dailyBriefActivity ?? []}
+          <DailyBriefCarousel
+            activity={capture.dailyBriefActivity ?? []}
+            captures={captures}
+            userId={user.id}
+            sharedSpaces={sharedSpaces}
             onNavigateToSpace={onNavigateToSpace ?? (() => {})}
           />
         ) : undefined
