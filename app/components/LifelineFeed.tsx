@@ -20,7 +20,7 @@ export default function LifelineFeed({
 }: {
   captures: Capture[];
   activeFilter: string;
-  onSelectCapture: (id: number) => void;
+  onSelectCapture: (id: number, options?: { edit?: boolean }) => void;
 }) {
   const { updateStatus, hideCapture, archiveCapture, undoCaptureState } = useCaptures();
   const [pendingRemovalIds, setPendingRemovalIds] = useState<Set<number>>(new Set());

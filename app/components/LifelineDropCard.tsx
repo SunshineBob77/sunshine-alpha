@@ -19,7 +19,12 @@ export default function LifelineDropCard({
   onUndo,
 }: {
   capture: Capture;
-  onSelect: (id: number) => void;
+  // Optional `edit` flag rides along to page.tsx, which threads it through
+  // to DropDetailModal's startInEditMode - lets onEdit below land straight
+  // in edit mode instead of the modal's default view mode. Plain onSelect(id)
+  // calls (title tap, moreActions' Edit) are unaffected - undefined options
+  // behaves exactly like the old single-arg signature did.
+  onSelect: (id: number, options?: { edit?: boolean }) => void;
   kind?: "drop" | "suggestion";
   onAccept?: () => void;
   onDismiss?: () => void;
@@ -79,9 +84,10 @@ export default function LifelineDropCard({
       onTitleTap={() => onSelect(capture.id)}
       isPinned={capture.pinned}
       onTogglePin={isDrop && isOwnCapture ? handleTogglePin : undefined}
-      // Same handler and gating as the Edit entry in moreActions below -
-      // both wired side by side for now to compare usage, per the plan.
-      onEdit={isDrop && isOwnCapture ? () => onSelect(capture.id) : undefined}
+      // Same gating as the Edit entry in moreActions below, but landing
+      // directly in the modal's edit mode (see onSelect's `edit` option)
+      // instead of its default view mode - no extra "More -> Edit" tap.
+      onEdit={isDrop && isOwnCapture ? () => onSelect(capture.id, { edit: true }) : undefined}
       checklistItems={capture.checklistItems}
       onToggleChecklistItem={isOwnCapture ? handleToggleChecklistItem : undefined}
       isHidden={isHiddenNow}

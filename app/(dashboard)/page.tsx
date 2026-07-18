@@ -32,7 +32,17 @@ export default function Home() {
   // check and React-escaped text).
   const requestedSpace = searchParams.get("space");
   const [selectedCaptureId, setSelectedCaptureId] = useState<number | null>(null);
+  // Set alongside selectedCaptureId by handleSelectCapture below, never on
+  // its own - so DropDetailModal's startInEditMode always reflects how the
+  // currently-open modal (if any) was opened, not a stale value left over
+  // from a previous selection.
+  const [openInEditMode, setOpenInEditMode] = useState(false);
   const selectedCapture = captures.find((capture) => capture.id === selectedCaptureId) ?? null;
+
+  function handleSelectCapture(id: number, options?: { edit?: boolean }) {
+    setSelectedCaptureId(id);
+    setOpenInEditMode(options?.edit ?? false);
+  }
   const [activeFilter, setActiveFilter] = useState(requestedSpace ?? "all");
 
   // Capturing while this specific Space's filtered Lifeline is in view
@@ -139,7 +149,7 @@ export default function Home() {
               <LifelineFeed
                 captures={captures}
                 activeFilter={activeFilter}
-                onSelectCapture={setSelectedCaptureId}
+                onSelectCapture={handleSelectCapture}
               />
             </section>
           )}
@@ -148,7 +158,11 @@ export default function Home() {
         {selectedCapture && (
           <DropDetailModal
             capture={selectedCapture}
-            onClose={() => setSelectedCaptureId(null)}
+            startInEditMode={openInEditMode}
+            onClose={() => {
+              setSelectedCaptureId(null);
+              setOpenInEditMode(false);
+            }}
           />
         )}
       </main>

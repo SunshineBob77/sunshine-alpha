@@ -499,9 +499,17 @@ function TemporalEditSuggestion({ capture }: { capture: Capture }) {
 export default function DropDetailModal({
   capture,
   onClose,
+  startInEditMode = false,
 }: {
   capture: Capture;
   onClose: () => void;
+  // Lets a caller (e.g. the header Edit button's onEdit) skip straight past
+  // the view state into the textarea, instead of landing on the modal in
+  // its default view mode and requiring an extra "More -> Edit" tap. Read
+  // only once, as the initial value of `editing` below - this component
+  // remounts fresh each time it opens (see the `selectedCapture &&` guard
+  // in page.tsx), so there's no stale-prop case to guard against.
+  startInEditMode?: boolean;
 }) {
   const {
     user,
@@ -514,7 +522,7 @@ export default function DropDetailModal({
     temporalSuggestions,
     spaceOverrides,
   } = useCaptures();
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(startInEditMode);
   const [draft, setDraft] = useState(capture.text);
   const [savingText, setSavingText] = useState(false);
   const [textError, setTextError] = useState<string | null>(null);
