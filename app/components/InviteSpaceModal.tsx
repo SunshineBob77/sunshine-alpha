@@ -29,6 +29,15 @@ export default function InviteSpaceModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // Checked client-side only (navigator is undefined during SSR/the
+  // initial server-rendered pass of this "use client" component) -
+  // starts false and flips true on mount if supported, rather than
+  // risking a hydration mismatch by reading navigator directly in render.
+  const [canShare, setCanShare] = useState(false);
+
+  useEffect(() => {
+    setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
+  }, []);
 
   useEffect(() => {
     if (!spaceId) return;
@@ -66,6 +75,28 @@ export default function InviteSpaceModal({
     }
   }
 
+  // Opens the OS-native share sheet (Messages/Mail/WhatsApp/etc. on
+  // mobile) with the invite link pre-filled - the person sending it never
+  // has to copy/paste manually. Only ever called when canShare is true
+  // (see the button below), so navigator.share is guaranteed to exist
+  // here.
+  async function handleShare() {
+    if (!inviteLink) return;
+    try {
+      await navigator.share({
+        title: "Join me on Sunshine",
+        text: "You're invited to a Shared Space on Sunshine.",
+        url: inviteLink,
+      });
+    } catch (err) {
+      // AbortError fires whenever the person just closes the native share
+      // sheet without picking anything - the overwhelmingly common case,
+      // not a real failure, so it's silently ignored rather than logged.
+      if (err instanceof Error && err.name === "AbortError") return;
+      console.error(err);
+    }
+  }
+
   if (!spaceId) return null;
 
   return (
@@ -85,13 +116,23 @@ export default function InviteSpaceModal({
             <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-700 break-all mb-3">
               {inviteLink}
             </div>
-            <button
-              type="button"
-              onClick={handleCopy}
-              className="w-full text-sm font-semibold bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-xl transition-all mb-2"
-            >
-              {copied ? "Copied!" : "Copy Link"}
-            </button>
+            {canShare ? (
+              <button
+                type="button"
+                onClick={handleShare}
+                className="w-full text-sm font-semibold bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-xl transition-all mb-2"
+              >
+                Share
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="w-full text-sm font-semibold bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-xl transition-all mb-2"
+              >
+                {copied ? "Copied!" : "Copy Link"}
+              </button>
+            )}
             <p className="text-xs text-gray-400">Expires in 30 days. Anyone with this link can join.</p>
           </>
         )}
