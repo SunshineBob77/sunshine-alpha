@@ -44,18 +44,46 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 // below, unchanged in spirit from before looping was added.
 export default function DropGroupCarousel({ slides }: { slides: React.ReactNode[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
   const canLoop = slides.length > 1;
 
   // DOM position 0 is the leading clone (of the last real slide) only
   // when looping - without it, DOM position 0 IS the first real slide.
   const domOffset = canLoop ? 1 : 0;
+  const [activeIndex, setActiveIndex] = useState(0);
+  // Raw scroll-DOM index (unlike activeIndex, not clamped/re-mapped for
+  // clones) - seeded from domOffset, not 0, so it matches where
+  // scrollToDom's own mount-time effect below actually positions the
+  // carousel. Height measurement keys off this rather than activeIndex:
+  // during an active loop-jump a clone can briefly be the visible slide,
+  // and this tracks whichever DOM position is really on-screen. A clone
+  // and its real counterpart render the same slide content, so this
+  // never measures a "wrong" height even when it points at a clone -
+  // just occasionally a different component instance of the same Drop.
+  const [activeDomIndex, setActiveDomIndex] = useState(domOffset);
   const displaySlides = canLoop ? [slides[slides.length - 1], ...slides, slides[0]] : slides;
   // Clamped for display only - activeIndex itself is never written to
   // directly from the shrink-effect below, only ever from a real scroll
   // event, so a momentarily-stale value can't render out-of-bounds dots
   // before that event catches up.
   const displayIndex = Math.min(activeIndex, Math.max(0, slides.length - 1));
+  // Explicit pixel height of the scroll container, tracking only the
+  // active slide's own content - same fix as an earlier same-night
+  // carousel's identical "stretches to the tallest member" bug:
+  // items-start below stops the flex row's default `align-items: stretch`
+  // from forcing every slide to the tallest one's height, and this state
+  // is what actually applies the active slide's own measured height to
+  // the container. undefined only until the very first layout-effect
+  // measurement runs (before the browser paints, so no flash).
+  const [height, setHeight] = useState<number | undefined>(undefined);
+
+  // useLayoutEffect specifically (not useEffect) so the height is correct
+  // before paint - no flash of the wrong (tallest-member) height on
+  // mount or on swipe.
+  useLayoutEffect(() => {
+    const activeEl = slideRefs.current[activeDomIndex];
+    if (activeEl) setHeight(activeEl.scrollHeight);
+  }, [activeDomIndex, displaySlides.length]);
 
   function scrollToDom(domIndex: number, smooth = true) {
     const el = scrollRef.current;
@@ -76,6 +104,8 @@ export default function DropGroupCarousel({ slides }: { slides: React.ReactNode[
     if (!el || el.clientWidth === 0) return;
     const domIndex = Math.round(el.scrollLeft / el.clientWidth);
     const realIndex = domIndex - domOffset;
+
+    setActiveDomIndex(domIndex);
 
     if (realIndex < 0) {
       setActiveIndex(slides.length - 1); // on the leading clone - dots show the last card
@@ -129,10 +159,17 @@ export default function DropGroupCarousel({ slides }: { slides: React.ReactNode[
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{ height }}
+        className="flex items-start overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth transition-[height] duration-300 ease-in-out [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {displaySlides.map((slide, index) => (
-          <div key={index} className="w-full shrink-0 snap-center">
+          <div
+            key={index}
+            ref={(el) => {
+              slideRefs.current[index] = el;
+            }}
+            className="w-full shrink-0 snap-center"
+          >
             {slide}
           </div>
         ))}
