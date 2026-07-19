@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import DailyBriefContent from "./DailyBriefContent";
 import {
   computeSpaceDropCounts,
@@ -22,7 +22,25 @@ import type { MySpace } from "@/app/lib/sharedSpaces";
 // like any ordinary paged UI.
 function PagedCarousel({ pages }: { pages: React.ReactNode[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
+  // Explicit pixel height of the scroll container, tracking only the
+  // active page's own content - undefined only until the very first
+  // layout-effect measurement below runs (which happens before the
+  // browser paints, so there's no visible flash of the wrong height).
+  const [height, setHeight] = useState<number | undefined>(undefined);
+
+  // Re-measures whenever the active page changes (a swipe) or the pages
+  // themselves change (fresh Daily Brief data) - items-start below stops
+  // the flex row's default `align-items: stretch` from forcing every
+  // page to the tallest one's height, so this always reflects the active
+  // page's OWN natural height, not whichever page happens to be tallest.
+  // useLayoutEffect specifically (not useEffect) so the height is correct
+  // before paint - no flash of the old page's height on swipe.
+  useLayoutEffect(() => {
+    const activeEl = pageRefs.current[activeIndex];
+    if (activeEl) setHeight(activeEl.scrollHeight);
+  }, [activeIndex, pages]);
 
   function scrollToIndex(index: number) {
     const el = scrollRef.current;
@@ -41,10 +59,17 @@ function PagedCarousel({ pages }: { pages: React.ReactNode[] }) {
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{ height }}
+        className="flex items-start overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth transition-[height] duration-300 ease-in-out [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {pages.map((page, index) => (
-          <div key={index} className="w-full shrink-0 snap-center">
+          <div
+            key={index}
+            ref={(el) => {
+              pageRefs.current[index] = el;
+            }}
+            className="w-full shrink-0 snap-center"
+          >
             {page}
           </div>
         ))}
