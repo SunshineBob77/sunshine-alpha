@@ -67,14 +67,14 @@ export default function DropGroupCarousel({ slides }: { slides: React.ReactNode[
   // event, so a momentarily-stale value can't render out-of-bounds dots
   // before that event catches up.
   const displayIndex = Math.min(activeIndex, Math.max(0, slides.length - 1));
-  // Explicit pixel height of the scroll container, tracking only the
-  // active slide's own content - same fix as an earlier same-night
-  // carousel's identical "stretches to the tallest member" bug:
-  // items-start below stops the flex row's default `align-items: stretch`
-  // from forcing every slide to the tallest one's height, and this state
-  // is what actually applies the active slide's own measured height to
-  // the container. undefined only until the very first layout-effect
-  // measurement runs (before the browser paints, so no flash).
+  // Explicit pixel height of the OUTER wrapper (see the JSX below, not
+  // scrollRef itself) - tracks only the active slide's own content,
+  // fixing the same "stretches to the tallest member" bug an earlier
+  // same-night carousel had. Applied to a separate wrapper rather than
+  // scrollRef directly - see that JSX comment for why animating height on
+  // the actual scroll-snap element broke native swipe mid-gesture.
+  // undefined only until the very first layout-effect measurement runs
+  // (before the browser paints, so no flash).
   const [height, setHeight] = useState<number | undefined>(undefined);
 
   // useLayoutEffect specifically (not useEffect) so the height is correct
@@ -156,23 +156,42 @@ export default function DropGroupCarousel({ slides }: { slides: React.ReactNode[
 
   return (
     <div>
+      {/* Height animation lives on THIS wrapper, not on the scrollable
+          element below - scrollRef (overflow-x-auto + snap-x, the actual
+          target of native touch/scroll-snap physics) must never itself
+          change size while a gesture is in progress, or the browser's
+          snap-settling math gets destabilized mid-drag (confirmed live:
+          swiping past the first card left an adjacent slide partially
+          visible instead of snapping cleanly - handleScroll fires on
+          every scroll tick, and re-triggering a height transition on the
+          element being dragged is what broke it). scrollRef goes back to
+          flex's default align-items: stretch below - a CONSTANT total
+          height (every slide stretched to the tallest, same value
+          regardless of which one is active) - and this wrapper's
+          overflow-y-hidden + measured height crops that down to just the
+          active slide's own content, exactly the same visual result,
+          with the actual scrolling element's own box never moving. */}
       <div
-        ref={scrollRef}
-        onScroll={handleScroll}
         style={{ height }}
-        className="flex items-start overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth transition-[height] duration-300 ease-in-out [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="overflow-y-hidden transition-[height] duration-300 ease-in-out"
       >
-        {displaySlides.map((slide, index) => (
-          <div
-            key={index}
-            ref={(el) => {
-              slideRefs.current[index] = el;
-            }}
-            className="w-full shrink-0 snap-center"
-          >
-            {slide}
-          </div>
-        ))}
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {displaySlides.map((slide, index) => (
+            <div
+              key={index}
+              ref={(el) => {
+                slideRefs.current[index] = el;
+              }}
+              className="w-full shrink-0 snap-center"
+            >
+              {slide}
+            </div>
+          ))}
+        </div>
       </div>
 
       {slides.length > 1 && (
