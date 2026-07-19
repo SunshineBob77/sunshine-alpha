@@ -130,9 +130,18 @@ function SpaceTotalsPage({
                 className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 -mx-2 text-left transition-all hover:bg-ink/5"
               >
                 <span className="text-base shrink-0">{space.spaceIcon}</span>
-                <span className="min-w-0 leading-relaxed">
-                  <span className="font-semibold">{space.spaceName}:</span> {space.count} Drop
-                  {space.count === 1 ? "" : "s"}
+                {/* Label and count are separate flex items now, not one
+                    combined text run - min-w-0 + flex-1 + truncate on the
+                    label absorbs all the width pressure (a long Space
+                    name shrinks/ellipsizes), and shrink-0 on the count
+                    means it's never a candidate for shrinking or wrapping
+                    itself - it just sits at the row's end, always fully
+                    visible regardless of how the label lays out. */}
+                <span className="min-w-0 flex-1 truncate font-semibold leading-relaxed">
+                  {space.spaceName}
+                </span>
+                <span className="shrink-0 text-ink-dim leading-relaxed">
+                  {space.count} Drop{space.count === 1 ? "" : "s"}
                 </span>
               </button>
             </li>
@@ -154,9 +163,12 @@ function CategoryBreakdownPage({ captures, userId }: { captures: Capture[]; user
       ) : (
         <ul className="space-y-1.5">
           {counts.map(({ category, count }) => (
-            <li key={category} className="flex items-center justify-between">
-              <span>{category}</span>
-              <span className="text-ink-dim">{count}</span>
+            <li key={category} className="flex items-center justify-between gap-2">
+              {/* Same fix as SpaceTotalsPage - min-w-0/truncate on the
+                  label, shrink-0 on the count, so the count is never
+                  squeezed/wrapped regardless of label length. */}
+              <span className="min-w-0 flex-1 truncate">{category}</span>
+              <span className="shrink-0 text-ink-dim">{count}</span>
             </li>
           ))}
         </ul>
