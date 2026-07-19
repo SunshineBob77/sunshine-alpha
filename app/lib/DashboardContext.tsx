@@ -230,14 +230,14 @@ export function DashboardProvider({
       body: JSON.stringify({ userId: user.id, localDate }),
     })
       .then((response) => response.json())
-      .then((data: { capture?: CaptureRow; skipped?: boolean }) => {
-        if (!data.capture) return;
-        const brief = mapRowToCapture(data.capture);
+      .then((data: { captures?: CaptureRow[]; skipped?: boolean }) => {
+        if (!data.captures || data.captures.length === 0) return;
+        const briefs = data.captures.map(mapRowToCapture);
         setCaptures((prev) => {
-          if (prev.some((capture) => capture.id === brief.id)) {
-            return prev.map((capture) => (capture.id === brief.id ? brief : capture));
-          }
-          return [brief, ...prev];
+          const briefById = new Map(briefs.map((brief) => [brief.id, brief]));
+          const updated = prev.map((capture) => briefById.get(capture.id) ?? capture);
+          const newOnes = briefs.filter((brief) => !prev.some((capture) => capture.id === brief.id));
+          return [...newOnes, ...updated];
         });
       })
       .catch((error) => {

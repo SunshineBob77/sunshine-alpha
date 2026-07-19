@@ -130,22 +130,25 @@ export default function LifelineFeed({
     );
   }
 
-  // Card Carousel v2 - a purely presentational grouping pass over
-  // restCaptures, which has ALREADY gone through every existing filter
-  // above (Space/Completed/Pinned/Hidden/Archived). This is deliberate:
-  // it means a group member that got individually filtered out of the
-  // current view (e.g. it was just completed) simply isn't part of
-  // `members` here either, with zero new logic - which is exactly what
-  // makes "the carousel advances to the next non-completed card"
-  // fall out for free instead of needing an explicit skip-completed step.
-  // Ordered by createdAt ascending (insertion order) within a group - no
-  // new order_index column; every capture already has a creation
-  // timestamp, and "the next one fills in" is naturally creation order.
-  const groupedRestItems = useMemo(() => {
+  // Card Carousel v2 (originally user-Drop-only, now also used by the
+  // Daily Brief carousel's 4 linked system Drops) - a purely
+  // presentational grouping pass over an already-filtered capture list.
+  // This is deliberate: it means a group member that got individually
+  // filtered out of the current view (e.g. it was just completed) simply
+  // isn't part of `members` here either, with zero new logic - which is
+  // exactly what makes "the carousel advances to the next non-completed
+  // card" fall out for free instead of needing an explicit skip-completed
+  // step. Ordered by createdAt ascending (insertion order) within a
+  // group, with id as a tiebreaker - a multi-row insert in one statement
+  // (see app/api/daily-brief/route.ts) can give every row in the group
+  // the exact same created_at (Postgres's now() is stable within a single
+  // statement), so createdAt alone isn't always a strict order; id always
+  // is, since it's a real per-row auto-incrementing sequence.
+  function groupByGroupId(list: Capture[]): { key: string; members: Capture[] }[] {
     const renderedGroupIds = new Set<string>();
     const items: { key: string; members: Capture[] }[] = [];
 
-    for (const capture of restCaptures) {
+    for (const capture of list) {
       if (!capture.groupId) {
         items.push({ key: String(capture.id), members: [capture] });
         continue;
@@ -153,18 +156,36 @@ export default function LifelineFeed({
       if (renderedGroupIds.has(capture.groupId)) continue;
       renderedGroupIds.add(capture.groupId);
 
-      const members = restCaptures
+      const members = list
         .filter((sibling) => sibling.groupId === capture.groupId)
-        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        .sort(
+          (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() || a.id - b.id
+        );
       items.push({ key: capture.groupId, members });
     }
 
     return items;
-  }, [restCaptures]);
+  }
+
+  function renderGroup({ key, members }: { key: string; members: Capture[] }) {
+    return members.length > 1 ? (
+      <DropGroupCarousel key={key} slides={members.map((member) => renderCard(member))} />
+    ) : (
+      renderCard(members[0])
+    );
+  }
+
+  // System captures (Daily Brief) go through the exact same grouping pass
+  // as user Drops - the Daily Brief's 4 linked cards render as one
+  // DropGroupCarousel here, not 4 stacked standalone cards, the same way
+  // any other group_id-linked set would.
+  const groupedSystemItems = useMemo(() => groupByGroupId(systemCaptures), [systemCaptures]);
+  const groupedRestItems = useMemo(() => groupByGroupId(restCaptures), [restCaptures]);
 
   return (
     <div className="space-y-3">
-      {systemCaptures.map(renderCard)}
+      {groupedSystemItems.map(renderGroup)}
 
       {activeFilter === "all" && <RemindersCard onSelectCapture={onSelectCapture} />}
 
@@ -181,13 +202,7 @@ export default function LifelineFeed({
                   : "No Drops in this Space yet."}
         </p>
       ) : (
-        groupedRestItems.map(({ key, members }) =>
-          members.length > 1 ? (
-            <DropGroupCarousel key={key} slides={members.map((member) => renderCard(member))} />
-          ) : (
-            renderCard(members[0])
-          )
-        )
+        groupedRestItems.map(renderGroup)
       )}
     </div>
   );

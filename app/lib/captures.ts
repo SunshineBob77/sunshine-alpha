@@ -1,6 +1,7 @@
 import { supabase } from "./supabaseClient";
 import type { RecognizedEntities } from "./recognizeEntities";
 import type { DailyBriefSpaceActivity } from "./dailyBrief";
+import type { DailyBriefStatsPayload } from "./dailyBriefStats";
 
 // AI research answers are stored as JSON-encoded bullet arrays in the
 // existing ai_research_result text column (no schema change) - but rows
@@ -119,11 +120,16 @@ export type Capture = {
   imagePath: string | null;
   filePath: string | null;
   fileName: string | null;
-  // Daily Brief v1 - only ever set on source='system'/
-  // system_drop_type='daily_brief' rows, computed once at generation time
-  // (see app/api/daily-brief/route.ts). Null for every other Drop,
-  // including old archived Morning Brief rows.
+  // Daily Brief v1 - only ever set on the source='system'/
+  // system_drop_type='daily_brief_activity' row (see
+  // app/api/daily-brief/route.ts). Null for every other Drop, including
+  // old archived Morning Brief rows and the other 3 Daily Brief cards.
   dailyBriefActivity: DailyBriefSpaceActivity[] | null;
+  // Daily Brief carousel v1 - the frozen stat snapshot for the 3
+  // non-Activity cards (Spaces/Categories/Completion), self-describing
+  // via its own `kind` field. Null for every other Drop, including the
+  // Activity card itself. See dailyBriefStats.ts.
+  dailyBriefStats: DailyBriefStatsPayload | null;
 };
 
 export type CaptureRow = {
@@ -172,6 +178,7 @@ export type CaptureRow = {
   file_path: string | null;
   file_name: string | null;
   daily_brief_activity: DailyBriefSpaceActivity[] | null;
+  daily_brief_stats: DailyBriefStatsPayload | null;
 };
 
 export function mapRowToCapture(row: CaptureRow): Capture {
@@ -221,6 +228,7 @@ export function mapRowToCapture(row: CaptureRow): Capture {
     filePath: row.file_path ?? null,
     fileName: row.file_name ?? null,
     dailyBriefActivity: row.daily_brief_activity ?? null,
+    dailyBriefStats: row.daily_brief_stats ?? null,
   };
 }
 

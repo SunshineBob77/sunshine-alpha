@@ -1,24 +1,37 @@
-// Daily Brief "mini dashboard" pages (v2, added alongside the original
-// Card 1 activity delta) - pure, synchronous stat computation over data
-// already loaded into DashboardContext (captures, sharedSpaces). No new
-// queries, no server generation, no storage - these are current-state
-// totals, not a "since you were last here" delta the way Card 1 is, so
-// there's nothing to freeze; they're just recomputed live whenever the
-// carousel renders.
+// Daily Brief "mini dashboard" cards (Spaces/Categories/Completion) -
+// pure stat computation, now called ONCE server-side at generation time
+// (app/api/daily-brief/route.ts), frozen into each card's own capture row
+// (daily_brief_stats), same as every other system Drop in this app. An
+// earlier same-night iteration called these same functions live,
+// client-side, on every render - reversed per explicit decision once
+// these became real independent Drops rather than sub-content inside one
+// capture's content area ("a Drop's content changing on every render"
+// would have been a first for this codebase).
 //
 // Deliberately scoped to the viewing user's OWN captures only
 // (capture.userId === userId), not every Drop they can see (which for a
 // Shared Space also includes teammates' Drops, via RLS). This is a
 // personal stats dashboard - "what does MY Sunshine look like right
 // now" - not a space-wide activity report the way Card 1's cross-member
-// delta is. Keeps every page on this carousel answering the same
-// question, rather than mixing personal totals with teammates' volume on
-// some pages and not others.
+// delta is. Keeps every card answering the same question, rather than
+// mixing personal totals with teammates' volume on some cards and not
+// others.
 import type { Capture } from "./captures";
 import type { MySpace } from "./sharedSpaces";
 import { defaultSpaces } from "./spaces";
 
-function ownCaptures(captures: Capture[], userId: string): Capture[] {
+// Narrowed to exactly the fields these functions touch, rather than the
+// full Capture/MySpace types - lets app/api/daily-brief/route.ts build
+// these straight from a lightweight server-side query (just these
+// columns) instead of needing to fabricate full client-shaped objects
+// (~30 required fields on Capture) it has no other reason to construct.
+// A real Capture/MySpace is still structurally assignable here - this is
+// a strict subset, not a divergent shape - so nothing about the client
+// side would need to change if these were ever called from there again.
+export type StatsCapture = Pick<Capture, "userId" | "source" | "category" | "spaceIds" | "status">;
+export type StatsSharedSpace = Pick<MySpace, "id" | "name" | "icon">;
+
+function ownCaptures(captures: StatsCapture[], userId: string): StatsCapture[] {
   return captures.filter((capture) => capture.userId === userId && capture.source === "user");
 }
 
@@ -35,9 +48,9 @@ export type SpaceDropCount = {
 // how the Space picker itself treats multi-Space assignment as a real,
 // independent membership in each.
 export function computeSpaceDropCounts(
-  captures: Capture[],
+  captures: StatsCapture[],
   userId: string,
-  sharedSpaces: MySpace[]
+  sharedSpaces: StatsSharedSpace[]
 ): SpaceDropCount[] {
   const counts = new Map<string, number>();
   for (const capture of ownCaptures(captures, userId)) {
@@ -78,7 +91,7 @@ export type CategoryCount = {
 // which category currently has the most Drops.
 const CATEGORY_ORDER = ["Achievement", "Task", "Work", "Memory"];
 
-export function computeCategoryCounts(captures: Capture[], userId: string): CategoryCount[] {
+export function computeCategoryCounts(captures: StatsCapture[], userId: string): CategoryCount[] {
   const counts = new Map<string, number>();
   for (const capture of ownCaptures(captures, userId)) {
     counts.set(capture.category, (counts.get(capture.category) ?? 0) + 1);
@@ -99,10 +112,45 @@ export type CompletionStats = {
 // is always a hard DELETE in this codebase (confirmed - no code path
 // ever writes status: "deleted"), so there's nothing to filter out here
 // in practice; every own capture is either "active" or "completed".
-export function computeCompletionStats(captures: Capture[], userId: string): CompletionStats {
+export function computeCompletionStats(captures: StatsCapture[], userId: string): CompletionStats {
   const own = ownCaptures(captures, userId);
   return {
     completed: own.filter((capture) => capture.status === "completed").length,
     active: own.filter((capture) => capture.status === "active").length,
   };
+}
+
+// Self-describing payload stored in captures.daily_brief_stats - a
+// renderer only needs this one column (via the `kind` tag) to know how
+// to interpret it, no separate cross-reference against system_drop_type
+// required. Null on every row except the 3 stat cards this covers - the
+// Activity card keeps using the existing daily_brief_activity column.
+export type DailyBriefStatsPayload =
+  | { kind: "spaces"; sharedSpaceCount: number; items: SpaceDropCount[] }
+  | { kind: "categories"; items: CategoryCount[] }
+  | { kind: "completion"; completed: number; active: number };
+
+// Plain-text fallbacks (content/formatted_text) - used everywhere that
+// isn't the Lifeline feed's own tappable rendering (search results, the
+// public share page, Ask's bare DropCard), same role
+// dailyBrief.ts's buildDailyBriefContent plays for the Activity card.
+
+export function buildDailyBriefSpacesContent(
+  sharedSpaceCount: number,
+  items: SpaceDropCount[]
+): string {
+  const header = `You're a member of ${sharedSpaceCount} Shared Space${sharedSpaceCount === 1 ? "" : "s"}.`;
+  if (items.length === 0) return `${header}\nNo Drops yet.`;
+
+  const lines = items.map((space) => `${space.spaceName}: ${space.count} Drop${space.count === 1 ? "" : "s"}`);
+  return [header, ...lines].join("\n");
+}
+
+export function buildDailyBriefCategoriesContent(items: CategoryCount[]): string {
+  if (items.length === 0) return "No Drops yet.";
+  return items.map(({ category, count }) => `${category}: ${count}`).join("\n");
+}
+
+export function buildDailyBriefCompletionContent({ completed, active }: CompletionStats): string {
+  return `${completed} completed\n${active} active`;
 }
