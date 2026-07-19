@@ -181,14 +181,26 @@ export default function DropGroupCarousel({ slides }: { slides: React.ReactNode[
           className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {displaySlides.map((slide, index) => (
-            <div
-              key={index}
-              ref={(el) => {
-                slideRefs.current[index] = el;
-              }}
-              className="w-full shrink-0 snap-center"
-            >
-              {slide}
+            <div key={index} className="w-full shrink-0 snap-center">
+              {/* Height is measured off THIS inner div, not the outer
+                  slide div above - the outer one is a flex item under
+                  scrollRef's default align-items: stretch, so its own
+                  scrollHeight is forced to match the tallest sibling for
+                  EVERY slide (confirmed empirically: a short slide's
+                  outer scrollHeight reads identical to a tall slide's -
+                  356 vs 356 - while this inner div, which isn't itself a
+                  flex item, reads its own real content height - 18 vs
+                  324). Measuring the outer div here would silently
+                  reproduce the exact "every card renders at the tallest
+                  member's height" bug this whole ref/height mechanism
+                  exists to fix. */}
+              <div
+                ref={(el) => {
+                  slideRefs.current[index] = el;
+                }}
+              >
+                {slide}
+              </div>
             </div>
           ))}
         </div>
