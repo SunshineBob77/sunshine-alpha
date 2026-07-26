@@ -156,7 +156,6 @@ export default function Home() {
                 captures={captures}
                 activeFilter={activeFilter}
                 onSelectCapture={handleSelectCapture}
-                onNavigateToSpace={setActiveFilter}
                 onOpenInvite={setInviteSpaceId}
               />
             </section>

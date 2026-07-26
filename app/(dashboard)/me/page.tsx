@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/app/lib/supabaseClient";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import {
@@ -8,6 +9,10 @@ import {
   updateUserPreferences,
   type UserPreferences,
 } from "@/app/lib/userPreferences";
+import LifelineDropCard from "@/app/components/LifelineDropCard";
+import DropGroupCarousel from "@/app/components/DropGroupCarousel";
+import DropDetailModal from "@/app/components/DropDetailModal";
+import { groupCapturesByGroupId } from "@/app/lib/dropGroups";
 
 function Toggle({
   checked,
@@ -38,11 +43,65 @@ function Toggle({
   );
 }
 
+// Daily Brief v1 - relocated here from the Lifeline (see
+// app/components/LifelineFeed.tsx, which no longer renders source='system'
+// captures at all). Same 4 linked system Drops, same generation/content
+// logic (app/api/daily-brief/route.ts, fired fire-and-forget from
+// DashboardContext on every app load, entirely unrelated to where the
+// result is displayed) - only the display location and the card's visual
+// theme (light here, vs. dark on the Lifeline) changed.
+function DailyBriefSection({
+  onSelectCapture,
+}: {
+  onSelectCapture: (id: number) => void;
+}) {
+  const { captures, updateStatus, hideCapture, archiveCapture, undoCaptureState } = useCaptures();
+  const router = useRouter();
+
+  const dailyBriefCaptures = captures.filter(
+    (capture) => capture.source === "system" && capture.userArchivedAt === null
+  );
+
+  if (dailyBriefCaptures.length === 0) return null;
+
+  function renderCard(capture: (typeof dailyBriefCaptures)[number]) {
+    return (
+      <LifelineDropCard
+        key={capture.id}
+        capture={capture}
+        variant="light"
+        onSelect={onSelectCapture}
+        onToggleStatus={() =>
+          updateStatus(capture.id, capture.status === "completed" ? "active" : "completed")
+        }
+        onToggleHide={() => hideCapture(capture.id)}
+        onArchive={() => archiveCapture(capture.id)}
+        onUndo={() => undoCaptureState(capture.id)}
+        onNavigateToSpace={(spaceId) => router.push(`/?space=${spaceId}`)}
+      />
+    );
+  }
+
+  return (
+    <div className="mt-6 space-y-3">
+      {groupCapturesByGroupId(dailyBriefCaptures).map(({ key, members }) =>
+        members.length > 1 ? (
+          <DropGroupCarousel key={key} slides={members.map(renderCard)} />
+        ) : (
+          renderCard(members[0])
+        )
+      )}
+    </div>
+  );
+}
+
 export default function MePage() {
-  const { user } = useCaptures();
+  const { user, captures } = useCaptures();
   const name = user.user_metadata?.full_name || user.email?.split("@")[0] || "there";
 
   const [prefs, setPrefs] = useState<UserPreferences | null>(null);
+  const [selectedCaptureId, setSelectedCaptureId] = useState<number | null>(null);
+  const selectedCapture = captures.find((capture) => capture.id === selectedCaptureId) ?? null;
 
   useEffect(() => {
     let cancelled = false;
@@ -79,9 +138,11 @@ export default function MePage() {
           </button>
         </section>
 
+        <DailyBriefSection onSelectCapture={setSelectedCaptureId} />
+
         {prefs && (
           <section className="bg-white rounded-3xl ring-1 ring-black/5 shadow-sm p-7 mt-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">Daily Brief</h2>
+            <h2 className="text-lg font-bold text-gray-900 mb-4">Daily Brief settings</h2>
 
             <div className="flex items-center justify-between gap-4">
               <div>
@@ -98,6 +159,10 @@ export default function MePage() {
           </section>
         )}
       </div>
+
+      {selectedCapture && (
+        <DropDetailModal capture={selectedCapture} onClose={() => setSelectedCaptureId(null)} />
+      )}
     </main>
   );
 }

@@ -6,6 +6,7 @@ import RemindersCard from "./RemindersCard";
 import DropGroupCarousel from "./DropGroupCarousel";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import { isAutoHidden } from "@/app/lib/autoHide";
+import { groupCapturesByGroupId } from "@/app/lib/dropGroups";
 import type { Capture } from "@/app/lib/captures";
 
 // Matches DropCard's own settle time, so the card doesn't get yanked out of
@@ -17,15 +18,11 @@ export default function LifelineFeed({
   captures,
   activeFilter,
   onSelectCapture,
-  onNavigateToSpace,
   onOpenInvite,
 }: {
   captures: Capture[];
   activeFilter: string;
   onSelectCapture: (id: number, options?: { edit?: boolean }) => void;
-  // Daily Brief v1 - passed straight through to LifelineDropCard, which
-  // only actually uses it when rendering the Daily Brief card itself.
-  onNavigateToSpace: (spaceId: string) => void;
   // Shared-Space invite trigger v1 - passed straight through to
   // LifelineDropCard, which only actually uses it for a Drop whose
   // primary Space the viewer owns.
@@ -47,6 +44,15 @@ export default function LifelineFeed({
   const filteredCaptures = useMemo(() => {
     return captures.filter((capture) => {
       if (pendingRemovalIds.has(capture.id)) return true;
+
+      // Daily Brief v1 relocated to the Me screen (see
+      // app/(dashboard)/me/page.tsx) - system Drops no longer have any
+      // presence on the Lifeline at all, not even indirectly. Excluded
+      // here (not just at render time) so the empty-state message below
+      // still reflects "any real Drops in this view", not just "any rows
+      // at all" - a user with zero real Drops but a Daily Brief must
+      // still see "No Drops yet.", not a blank space with no explanation.
+      if (capture.source === "system") return false;
 
       const isArchived = capture.userArchivedAt !== null;
       if (activeFilter === "archived") return isArchived;
@@ -103,17 +109,6 @@ export default function LifelineFeed({
     await undoCaptureState(id);
   }
 
-  // Reminders is a synthetic card, not a capture in this list - it's kept
-  // out of the "no Drops yet" empty-state decision entirely and rendered
-  // right after any system captures (Daily Brief) so a day with no real
-  // Drops but upcoming reminders still shows something useful. Only shown
-  // on the literal "all" Lifeline view, same scope Daily Brief itself
-  // isn't restricted to but Reminders deliberately is, since a per-Space
-  // or Completed/Archived/Pinned view has no "upcoming" framing that
-  // makes sense.
-  const systemCaptures = filteredCaptures.filter((capture) => capture.source === "system");
-  const restCaptures = filteredCaptures.filter((capture) => capture.source !== "system");
-
   function renderCard(capture: Capture) {
     return (
       <LifelineDropCard
@@ -124,48 +119,9 @@ export default function LifelineFeed({
         onToggleHide={() => handleToggleHide(capture.id)}
         onArchive={() => handleArchive(capture.id)}
         onUndo={() => handleUndo(capture.id)}
-        onNavigateToSpace={onNavigateToSpace}
         onOpenInvite={onOpenInvite}
       />
     );
-  }
-
-  // Card Carousel v2 (originally user-Drop-only, now also used by the
-  // Daily Brief carousel's 4 linked system Drops) - a purely
-  // presentational grouping pass over an already-filtered capture list.
-  // This is deliberate: it means a group member that got individually
-  // filtered out of the current view (e.g. it was just completed) simply
-  // isn't part of `members` here either, with zero new logic - which is
-  // exactly what makes "the carousel advances to the next non-completed
-  // card" fall out for free instead of needing an explicit skip-completed
-  // step. Ordered by createdAt ascending (insertion order) within a
-  // group, with id as a tiebreaker - a multi-row insert in one statement
-  // (see app/api/daily-brief/route.ts) can give every row in the group
-  // the exact same created_at (Postgres's now() is stable within a single
-  // statement), so createdAt alone isn't always a strict order; id always
-  // is, since it's a real per-row auto-incrementing sequence.
-  function groupByGroupId(list: Capture[]): { key: string; members: Capture[] }[] {
-    const renderedGroupIds = new Set<string>();
-    const items: { key: string; members: Capture[] }[] = [];
-
-    for (const capture of list) {
-      if (!capture.groupId) {
-        items.push({ key: String(capture.id), members: [capture] });
-        continue;
-      }
-      if (renderedGroupIds.has(capture.groupId)) continue;
-      renderedGroupIds.add(capture.groupId);
-
-      const members = list
-        .filter((sibling) => sibling.groupId === capture.groupId)
-        .sort(
-          (a, b) =>
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() || a.id - b.id
-        );
-      items.push({ key: capture.groupId, members });
-    }
-
-    return items;
   }
 
   function renderGroup({ key, members }: { key: string; members: Capture[] }) {
@@ -176,17 +132,18 @@ export default function LifelineFeed({
     );
   }
 
-  // System captures (Daily Brief) go through the exact same grouping pass
-  // as user Drops - the Daily Brief's 4 linked cards render as one
-  // DropGroupCarousel here, not 4 stacked standalone cards, the same way
-  // any other group_id-linked set would.
-  const groupedSystemItems = useMemo(() => groupByGroupId(systemCaptures), [systemCaptures]);
-  const groupedRestItems = useMemo(() => groupByGroupId(restCaptures), [restCaptures]);
+  const groupedItems = useMemo(
+    () => groupCapturesByGroupId(filteredCaptures),
+    [filteredCaptures]
+  );
 
   return (
     <div className="space-y-3">
-      {groupedSystemItems.map(renderGroup)}
-
+      {/* Reminders is a synthetic card, not a capture in this list - kept
+          out of the "no Drops yet" empty-state decision entirely. Only
+          shown on the literal "all" Lifeline view - a per-Space or
+          Completed/Archived/Pinned view has no "upcoming" framing that
+          makes sense. */}
       {activeFilter === "all" && <RemindersCard onSelectCapture={onSelectCapture} />}
 
       {filteredCaptures.length === 0 ? (
@@ -202,7 +159,7 @@ export default function LifelineFeed({
                   : "No Drops in this Space yet."}
         </p>
       ) : (
-        groupedRestItems.map(renderGroup)
+        groupedItems.map(renderGroup)
       )}
     </div>
   );
