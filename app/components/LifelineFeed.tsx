@@ -7,6 +7,7 @@ import DropGroupCarousel from "./DropGroupCarousel";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import { isAutoHidden } from "@/app/lib/autoHide";
 import { groupCapturesByGroupId } from "@/app/lib/dropGroups";
+import { NON_SPACE_FILTER_IDS } from "@/app/lib/spaces";
 import type { Capture } from "@/app/lib/captures";
 
 // Matches DropCard's own settle time, so the card doesn't get yanked out of
@@ -35,12 +36,12 @@ export default function LifelineFeed({
   // away everywhere except its own Space) except the Archived filter
   // itself. isHiddenNow only ever gates the literal "all" Lifeline view -
   // a hidden Drop stays fully visible in its own Space, and in the
-  // Completed/Pinned cross-cutting views, per spec. isHiddenNow itself is
-  // two independent things ORed together: a manual hide (hiddenUntil is
-  // now just a presence marker, not an expiry to compare against "now" -
-  // Hide v2 has no duration) and a computed auto-hide for dated Drops more
-  // than a week out (see isAutoHidden in autoHide.ts - purely derived,
-  // nothing stored for this half).
+  // Completed cross-cutting view, per spec. isHiddenNow itself is two
+  // independent things ORed together: a manual hide (hiddenUntil is now
+  // just a presence marker, not an expiry to compare against "now" - Hide
+  // v2 has no duration) and a computed auto-hide for dated Drops more than
+  // a week out (see isAutoHidden in autoHide.ts - purely derived, nothing
+  // stored for this half).
   const filteredCaptures = useMemo(() => {
     return captures.filter((capture) => {
       if (pendingRemovalIds.has(capture.id)) return true;
@@ -59,7 +60,6 @@ export default function LifelineFeed({
       if (isArchived) return false;
 
       if (activeFilter === "completed") return capture.status === "completed";
-      if (activeFilter === "pinned") return capture.pinned === true;
 
       const isManuallyHidden = capture.hiddenUntil !== null;
       const isHiddenNow = isManuallyHidden || isAutoHidden(capture);
@@ -71,6 +71,22 @@ export default function LifelineFeed({
       return activeFilter === "all" || capture.spaceIds?.includes(activeFilter);
     });
   }, [captures, activeFilter, pendingRemovalIds]);
+
+  // Pinned v2 - no longer a global cross-Space system filter (see
+  // spaces.ts). Only meaningful while viewing one specific, real Space
+  // (not "all"/Completed/Hidden/Archived, none of which have a single
+  // Space's membership to scope pinned-ness by) - filteredCaptures is
+  // already scoped to that Space's own Drops at this point, so splitting
+  // it by `pinned` here needs no separate spaceIds check of its own.
+  const isRealSpaceView = !NON_SPACE_FILTER_IDS.has(activeFilter);
+  const pinnedInSpace = useMemo(
+    () => (isRealSpaceView ? filteredCaptures.filter((capture) => capture.pinned) : []),
+    [filteredCaptures, isRealSpaceView]
+  );
+  const restCaptures = useMemo(
+    () => (isRealSpaceView ? filteredCaptures.filter((capture) => !capture.pinned) : filteredCaptures),
+    [filteredCaptures, isRealSpaceView]
+  );
 
   // Shared settle-then-remove helper - whichever action just fired, the
   // item may be about to leave the currently visible filtered view (or
@@ -132,17 +148,28 @@ export default function LifelineFeed({
     );
   }
 
-  const groupedItems = useMemo(
-    () => groupCapturesByGroupId(filteredCaptures),
-    [filteredCaptures]
+  const pinnedGroupedItems = useMemo(
+    () => groupCapturesByGroupId(pinnedInSpace),
+    [pinnedInSpace]
   );
+  const groupedItems = useMemo(() => groupCapturesByGroupId(restCaptures), [restCaptures]);
 
   return (
     <div className="space-y-3">
+      {pinnedGroupedItems.length > 0 && (
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-gold py-1">📌 Pinned</p>
+          <div className="space-y-3">{pinnedGroupedItems.map(renderGroup)}</div>
+          {groupedItems.length > 0 && (
+            <div className="border-t border-ink/10 mt-3" aria-hidden="true" />
+          )}
+        </div>
+      )}
+
       {/* Reminders is a synthetic card, not a capture in this list - kept
           out of the "no Drops yet" empty-state decision entirely. Only
           shown on the literal "all" Lifeline view - a per-Space or
-          Completed/Archived/Pinned view has no "upcoming" framing that
+          Completed/Hidden/Archived view has no "upcoming" framing that
           makes sense. */}
       {activeFilter === "all" && <RemindersCard onSelectCapture={onSelectCapture} />}
 

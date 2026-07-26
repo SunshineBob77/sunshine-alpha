@@ -6,13 +6,7 @@ import DropDetailModal from "@/app/components/DropDetailModal";
 import InviteSpaceModal from "@/app/components/InviteSpaceModal";
 import LifelineFeed from "@/app/components/LifelineFeed";
 import { useCaptures } from "@/app/lib/DashboardContext";
-import { defaultSpaces } from "@/app/lib/spaces";
-
-// Cross-cutting filters shown in this same pill row that aren't a real,
-// single Space to tag a new capture into - only a genuine personal or
-// shared Space id (including a real spaces-table uuid, which never
-// collides with any of these fixed strings) should set currentSpaceId.
-const NON_SPACE_FILTER_IDS = new Set(["all", "pinned", "completed", "hidden", "archived"]);
+import { defaultSpaces, NON_SPACE_FILTER_IDS } from "@/app/lib/spaces";
 
 export default function Home() {
   const { captures, capturesLoading, capturesError, spaceOverrides, setCurrentSpaceId } =
@@ -67,24 +61,16 @@ export default function Home() {
     return () => setCurrentSpaceId(null);
   }, [setCurrentSpaceId]);
 
-  // Otherwise still defaultSpaces' fixed order (the pinned-first/recency
+  // Otherwise still defaultSpaces' fixed order - the pinned-first/recency
   // ordering rule applies to Organization and the calendar pill toolbar,
-  // not this row) - "pinned" is pulled out and reinserted right after
-  // "all" as the one deliberate exception, so it reads All, Pinned,
-  // Personal, Work... instead of sitting next to Completed at the end.
+  // not this row.
   const filterOptions = useMemo(() => {
     const spaceOptions = defaultSpaces.map((space) => ({
       id: space.id,
       name: spaceOverrides[space.id] ?? space.name,
     }));
-    const pinnedIndex = spaceOptions.findIndex((option) => option.id === "pinned");
-    const pinnedOption = pinnedIndex === -1 ? null : spaceOptions.splice(pinnedIndex, 1)[0];
 
-    return [
-      { id: "all", name: "All" },
-      ...(pinnedOption ? [pinnedOption] : []),
-      ...spaceOptions,
-    ];
+    return [{ id: "all", name: "All" }, ...spaceOptions];
   }, [spaceOverrides]);
 
   const headerRef = useRef<HTMLElement>(null);
