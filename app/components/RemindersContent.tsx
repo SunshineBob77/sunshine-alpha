@@ -79,6 +79,54 @@ function ReminderSection({
   );
 }
 
+// Preview row for the collapsed default state - a lighter-weight rendering
+// of a single ReminderItem than ReminderSection's own <li> (no section
+// context to sit inside), but the same checkbox/tap-to-open/date-label
+// shape so toggling or opening a Drop from the collapsed preview behaves
+// identically to doing it from the expanded sections below.
+function PreviewRow({
+  item,
+  todayKey,
+  onToggle,
+  onSelectCapture,
+}: {
+  item: ReminderItem;
+  todayKey: string;
+  onToggle: (captureId: number, dateKey: string) => void;
+  onSelectCapture: (id: number) => void;
+}) {
+  return (
+    <li className="flex items-start gap-2">
+      <input
+        type="checkbox"
+        checked={item.checked}
+        onChange={() => onToggle(item.captureId, item.dateKey)}
+        className="mt-1 h-4 w-4 shrink-0 accent-gold cursor-pointer"
+      />
+      <button
+        type="button"
+        onClick={() => onSelectCapture(item.captureId)}
+        className={`flex-1 min-w-0 text-left break-words leading-relaxed ${
+          item.checked ? "line-through text-ink-dim" : "text-ink"
+        }`}
+      >
+        {item.title}
+      </button>
+      <span className="text-xs text-ink-dim shrink-0 mt-0.5">
+        {formatDateLabel(item.dateKey, todayKey)}
+      </span>
+    </li>
+  );
+}
+
+// Collapsed by default (see PREVIEW_ITEM_COUNT) - shows only the soonest
+// item(s) so the Reminders card reads as a quick glance, not a full
+// agenda dump, every time the Lifeline loads. Tapping reveals the exact
+// same "This week" / "Coming up" section UI that rendered unconditionally
+// before this collapse behavior existed - nothing about that structure
+// changed, it's just gated behind one extra tap now.
+const PREVIEW_ITEM_COUNT = 2;
+
 export default function RemindersContent({
   thisWeek,
   comingUp,
@@ -92,6 +140,42 @@ export default function RemindersContent({
   onToggle: (captureId: number, dateKey: string) => void;
   onSelectCapture: (id: number) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (!expanded) {
+    // thisWeek and comingUp are each already date-ascending (they're built
+    // from buildOccurrences' chronologically-sorted output, see
+    // reminders.ts), and thisWeek's date range entirely precedes comingUp's
+    // - so concatenating them, then taking the first few, is already "the
+    // N soonest items overall" with no extra sort needed.
+    const combined = [...thisWeek, ...comingUp];
+    const previewItems = combined.slice(0, PREVIEW_ITEM_COUNT);
+    const remaining = combined.length - previewItems.length;
+
+    return (
+      <div>
+        <ul className="space-y-1.5">
+          {previewItems.map((item) => (
+            <PreviewRow
+              key={`${item.captureId}-${item.dateKey}`}
+              item={item}
+              todayKey={todayKey}
+              onToggle={onToggle}
+              onSelectCapture={onSelectCapture}
+            />
+          ))}
+        </ul>
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="mt-2 text-xs font-semibold text-gold"
+        >
+          {remaining > 0 ? `▸ Show ${remaining} more` : "▸ Show all"}
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
       <ReminderSection
@@ -108,6 +192,13 @@ export default function RemindersContent({
         onToggle={onToggle}
         onSelectCapture={onSelectCapture}
       />
+      <button
+        type="button"
+        onClick={() => setExpanded(false)}
+        className="text-xs font-semibold text-gold"
+      >
+        ▾ Show less
+      </button>
     </div>
   );
 }
