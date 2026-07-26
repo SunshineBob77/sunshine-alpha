@@ -74,6 +74,15 @@ export type Capture = {
   extractedAddress: string | null;
   formattedText: string | null;
   title: string | null;
+  // Analyze-drop failure tracking v1 - see docs/analysis-status-schema.sql.
+  // 'pending' until the analyze-drop pass finishes (success or failure);
+  // distinguishes a Drop that's still processing/never got analyzed from
+  // one the model legitimately judged to have nothing more to add
+  // ('complete' with e.g. aiResearchResult still null). analysisAttempts
+  // only counts failures, and only gates DashboardContext's automatic
+  // retry-on-load - a manual Retry tap always fires regardless.
+  analysisStatus: "pending" | "complete" | "failed";
+  analysisAttempts: number;
   status: "active" | "completed" | "deleted";
   isActionable: boolean;
   spaceManuallySet: boolean;
@@ -148,6 +157,8 @@ export type CaptureRow = {
   extracted_address: string | null;
   formatted_text: string | null;
   title: string | null;
+  analysis_status: "pending" | "complete" | "failed" | null;
+  analysis_attempts: number | null;
   status: "active" | "completed" | "deleted";
   is_actionable: boolean;
   space_manually_set: boolean;
@@ -198,6 +209,12 @@ export function mapRowToCapture(row: CaptureRow): Capture {
     extractedAddress: row.extracted_address ?? null,
     formattedText: row.formatted_text ?? null,
     title: row.title ?? null,
+    // Defaults to "complete" (not "pending") for any row missing this
+    // column - e.g. a row read back before the migration backfill runs -
+    // so it's never mistaken for a stuck-in-progress analysis and queued
+    // for an automatic retry it doesn't need.
+    analysisStatus: row.analysis_status ?? "complete",
+    analysisAttempts: row.analysis_attempts ?? 0,
     status: row.status ?? "active",
     isActionable: row.is_actionable ?? false,
     spaceManuallySet: row.space_manually_set ?? false,

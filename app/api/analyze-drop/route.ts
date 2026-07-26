@@ -529,7 +529,7 @@ export async function POST(request: Request) {
     if (captureRow.source === "system") {
       const { error: systemUpdateError } = await supabaseAdmin
         .from("captures")
-        .update({ category: SUNSHINE_DROP_CATEGORY, space_ids: [] })
+        .update({ category: SUNSHINE_DROP_CATEGORY, space_ids: [], analysis_status: "complete" })
         .eq("id", id);
 
       if (systemUpdateError) throw systemUpdateError;
@@ -668,6 +668,15 @@ export async function POST(request: Request) {
       category,
       space_ids: nextSpaceIds,
       checklist_items: checklistItems,
+      // A completed pass, even one where every task legitimately came back
+      // null/default (e.g. RESEARCH: null), is still 'complete' - that's
+      // what distinguishes "the model looked and found nothing" from
+      // 'failed' (the pass never finished at all, see the catch block
+      // below). Reset attempts too, so a Drop that fails once, then
+      // succeeds on a later edit-triggered re-analysis, doesn't carry a
+      // stale failure count into any future failure.
+      analysis_status: "complete",
+      analysis_attempts: 0,
     };
 
     let temporalResolution: TemporalResolutionOutput | null = null;
@@ -749,6 +758,33 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("analyze-drop failed", error);
+
+    // Best-effort status write, deliberately isolated in its own try/catch -
+    // whatever broke the main pass above (a bad API key, a timeout, a
+    // malformed response) must never also swallow the fact that we tried
+    // to record the failure. temporalPreviewOnly never touches this
+    // column at all (it's not the main analysis pass), and a request that
+    // failed validation before `id` was ever confirmed has nothing to mark.
+    if (!temporalPreviewOnly && id) {
+      try {
+        const { data: statusRow } = await supabaseAdmin
+          .from("captures")
+          .select("analysis_attempts")
+          .eq("id", id)
+          .single();
+
+        await supabaseAdmin
+          .from("captures")
+          .update({
+            analysis_status: "failed",
+            analysis_attempts: (statusRow?.analysis_attempts ?? 0) + 1,
+          })
+          .eq("id", id);
+      } catch (statusError) {
+        console.error("Couldn't record analyze-drop failure status", statusError);
+      }
+    }
+
     return NextResponse.json({ error: "Analysis failed" }, { status: 500 });
   }
 }

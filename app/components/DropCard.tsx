@@ -52,6 +52,8 @@ export default function DropCard({
   imagePath = null,
   filePath = null,
   fileName = null,
+  analysisFailed = false,
+  onRetryAnalysis,
 }: {
   title: string;
   spaceId: string | null | undefined;
@@ -148,6 +150,12 @@ export default function DropCard({
   imagePath?: string | null;
   filePath?: string | null;
   fileName?: string | null;
+  // Analyze-drop failure tracking v1 - true only when the analyze-drop
+  // pass genuinely failed/never completed, never for a Drop the model
+  // simply judged to have nothing more to add (that case looks like an
+  // ordinary Drop, no badge). See docs/analysis-status-schema.sql.
+  analysisFailed?: boolean;
+  onRetryAnalysis?: () => void;
 }) {
   // spaceId is intentionally ignored entirely when isSunshineDrop is true -
   // not just overridden after the fact - so a corrupted/stale spaceId can
@@ -451,7 +459,11 @@ export default function DropCard({
         </p>
       )}
 
-      {(extraPrimaryActions || moreActions || showCompletedToggle || showHideToggle) && (
+      {(extraPrimaryActions ||
+        moreActions ||
+        showCompletedToggle ||
+        showHideToggle ||
+        (analysisFailed && onRetryAnalysis)) && (
         <div className={`mt-2 pt-2 border-t ${isDark ? "border-ink/10" : "border-gray-100"}`}>
           <div className="flex items-center gap-1.5 flex-wrap">
             {showCompletedToggle &&
@@ -503,6 +515,21 @@ export default function DropCard({
               ))}
 
             {extraPrimaryActions}
+
+            {analysisFailed && onRetryAnalysis && (
+              <button
+                type="button"
+                onClick={onRetryAnalysis}
+                title="Sunshine couldn't finish analyzing this Drop"
+                className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
+                  isDark
+                    ? "bg-amber-500/20 hover:bg-amber-500/30 text-amber-300"
+                    : "bg-amber-50 hover:bg-amber-100 text-amber-700"
+                }`}
+              >
+                ⚠️ Retry analysis
+              </button>
+            )}
 
             {showHideToggle && (
               <button

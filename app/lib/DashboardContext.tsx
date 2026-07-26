@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import {
   fetchCaptures,
@@ -46,6 +46,17 @@ import CaptureModal, { type PendingAttachment } from "../components/CaptureModal
 // phrases they contain is identical - used only to decide whether a
 // locked Drop needs the "update date from text?" suggestion surfaced, never
 // to auto-write anything.
+// Analyze-drop failure tracking v1 - see docs/analysis-status-schema.sql.
+// A failed pass auto-retries on the next app load, up to this many times,
+// so a persistently broken call (e.g. a revoked API key) doesn't retry
+// forever on every load - the manual "Retry" affordance on the Drop
+// itself bypasses this cap deliberately. A Drop stuck on 'pending' this
+// long means the client's fire-and-forget analyzeDrop() fetch never even
+// landed (app closed / offline right after saveCapture) - also worth a
+// retry on next load, not just an explicit 'failed'.
+const MAX_AUTO_RETRY_ATTEMPTS = 3;
+const PENDING_STUCK_MS = 3 * 60 * 1000;
+
 function temporalCandidatesChanged(oldText: string, newText: string): boolean {
   const oldRaws = recognizeEntities(oldText)
     .dates.map((candidate) => candidate.raw.toLowerCase())
@@ -77,6 +88,10 @@ type DashboardContextValue = {
   removeCapture: (id: number) => Promise<void>;
   updateSpaces: (id: number, spaceIds: string[]) => Promise<void>;
   updateText: (id: number, text: string) => Promise<void>;
+  // Analyze-drop failure tracking v1 - manual retry, always fires
+  // regardless of analysisAttempts (an explicit user tap bypasses the
+  // automatic-retry cap). No-op if the capture isn't found locally.
+  retryAnalysis: (id: number) => void;
   updateStatus: (id: number, status: "active" | "completed") => Promise<void>;
   updatePinned: (id: number, pinned: boolean) => Promise<void>;
   updateChecklistItems: (id: number, items: ChecklistItem[]) => Promise<void>;
@@ -162,6 +177,7 @@ export function DashboardProvider({
     let cancelled = false;
     setCaptures([]);
     setCapturesLoading(true);
+    retriedStuckAnalysisRef.current = false;
 
     fetchCaptures()
       .then((data) => {
@@ -253,34 +269,60 @@ export function DashboardProvider({
   function analyzeDrop(id: number, text: string, imagePath?: string) {
     const captureTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
+    function markAnalysisFailed() {
+      setCaptures((prev) =>
+        prev.map((capture) =>
+          capture.id === id ? { ...capture, analysisStatus: "failed" } : capture
+        )
+      );
+    }
+
     fetch("/api/analyze-drop", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, text, captureTimezone, imagePath }),
     })
-      .then((response) => response.json())
+      .then((response) =>
+        response.json().then((data) => ({ ok: response.ok, data }))
+      )
       .then(
-        (data: {
-          result?: string[] | null;
-          address?: string | null;
-          formatted?: string | null;
-          title?: string | null;
-          isActionable?: boolean;
-          category?: string;
-          spaceIds?: string[];
-          eventAt?: string | null;
-          eventHasTime?: boolean | null;
-          eventTimezone?: string | null;
-          eventStatus?: "none" | "resolved" | "unresolved" | "dismissed";
-          temporalConfidence?: "high" | "low" | null;
-          temporalRawText?: string | null;
-          recurring?: boolean;
-          recurrenceType?: "yearly" | "day" | "week" | "month" | "year" | null;
-          recurrenceRawText?: string | null;
-          recurrenceInterval?: number | null;
-          checklistItems?: ChecklistItem[];
+        ({
+          ok,
+          data,
+        }: {
+          ok: boolean;
+          data: {
+            error?: string;
+            result?: string[] | null;
+            address?: string | null;
+            formatted?: string | null;
+            title?: string | null;
+            isActionable?: boolean;
+            category?: string;
+            spaceIds?: string[];
+            eventAt?: string | null;
+            eventHasTime?: boolean | null;
+            eventTimezone?: string | null;
+            eventStatus?: "none" | "resolved" | "unresolved" | "dismissed";
+            temporalConfidence?: "high" | "low" | null;
+            temporalRawText?: string | null;
+            recurring?: boolean;
+            recurrenceType?: "yearly" | "day" | "week" | "month" | "year" | null;
+            recurrenceRawText?: string | null;
+            recurrenceInterval?: number | null;
+            checklistItems?: ChecklistItem[];
+          };
         }) => {
-          if (data.result === undefined) return;
+          // Analyze-drop failure tracking v1 - a non-2xx response (or an
+          // explicit error field) means route.ts's own catch block already
+          // recorded analysis_status: 'failed' server-side; mirror that
+          // locally right away instead of waiting for the next full
+          // fetchCaptures() reload to find out. See docs/analysis-status-schema.sql.
+          if (!ok || data.error || data.result === undefined) {
+            if (!ok || data.error) markAnalysisFailed();
+            return;
+          }
+
           setCaptures((prev) =>
             prev.map((capture) =>
               capture.id === id
@@ -293,6 +335,8 @@ export function DashboardProvider({
                     isActionable: data.isActionable ?? false,
                     category: data.category ?? capture.category,
                     spaceIds: data.spaceIds ?? capture.spaceIds,
+                    analysisStatus: "complete",
+                    analysisAttempts: 0,
                     // The route omits these entirely for a locked Drop -
                     // fall back to whatever's already in local state
                     // instead of clobbering it with undefined.
@@ -332,8 +376,66 @@ export function DashboardProvider({
       )
       .catch((error) => {
         console.error("analyze-drop request failed", error);
+        // The request never reached (or never came back from) the server
+        // at all, so route.ts never got a chance to write
+        // analysis_status: 'failed' itself - mark it locally so the
+        // failure is visible immediately rather than only after the next
+        // full reload's stuck-pending sweep picks it up.
+        markAnalysisFailed();
       });
   }
+
+  // Analyze-drop failure tracking v1 - always fires analyzeDrop again
+  // regardless of analysisAttempts (an explicit user tap bypasses the
+  // automatic-retry cap enforced by the stuck-analysis sweep below).
+  function retryAnalysis(id: number) {
+    const capture = captures.find((existing) => existing.id === id);
+    if (!capture) return;
+    analyzeDrop(capture.id, capture.text, capture.imagePath ?? undefined);
+  }
+
+  // Analyze-drop failure tracking v1 - runs once per app load, after the
+  // initial fetchCaptures() resolves, and retries analysis for any Drop
+  // that's either explicitly 'failed' (under the auto-retry cap) or stuck
+  // on 'pending' long enough that the original triggering fetch() almost
+  // certainly never landed (app closed / offline right after save - see
+  // saveCapture below). System Drops skip their own analysis entirely
+  // (route.ts marks them 'complete' immediately) so never qualify here.
+  const retriedStuckAnalysisRef = useRef(false);
+
+  useEffect(() => {
+    if (capturesLoading) return;
+
+    // The retried-guard is mutated inside this deferred callback, not
+    // synchronously in the effect body itself - same "only touch a ref
+    // from within an async/event callback, never inline in the effect's
+    // own top-level flow" convention DropTimeline.tsx's extendingRef/
+    // hasScrolledRef already follow elsewhere in this codebase.
+    const timeoutId = setTimeout(() => {
+      if (retriedStuckAnalysisRef.current) return;
+      retriedStuckAnalysisRef.current = true;
+
+      const now = Date.now();
+
+      for (const capture of captures) {
+        if (capture.source !== "user") continue;
+
+        const isStuckPending =
+          capture.analysisStatus === "pending" &&
+          now - new Date(capture.createdAt).getTime() > PENDING_STUCK_MS;
+        const isRetryableFailure =
+          capture.analysisStatus === "failed" &&
+          capture.analysisAttempts < MAX_AUTO_RETRY_ATTEMPTS;
+
+        if (isStuckPending || isRetryableFailure) {
+          analyzeDrop(capture.id, capture.text, capture.imagePath ?? undefined);
+        }
+      }
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [capturesLoading]);
 
   async function saveCapture() {
     if (!captureText.trim() && !pendingAttachment) return;
@@ -745,6 +847,7 @@ export function DashboardProvider({
         removeCapture,
         updateSpaces,
         updateText,
+        retryAnalysis,
         updateStatus,
         updatePinned,
         updateChecklistItems,

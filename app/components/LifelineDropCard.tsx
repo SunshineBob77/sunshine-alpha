@@ -57,7 +57,8 @@ export default function LifelineDropCard({
   // never even gets a tappable eyebrow to begin with.
   onOpenInvite?: (spaceId: string) => void;
 }) {
-  const { updatePinned, updateChecklistItems, addToGroup, user, sharedSpaces } = useCaptures();
+  const { updatePinned, updateChecklistItems, addToGroup, retryAnalysis, user, sharedSpaces } =
+    useCaptures();
   const isUrgent = capture.tags?.includes("urgent") ?? false;
   const isDrop = kind === "drop";
   const isSunshineDrop = capture.source === "system";
@@ -111,6 +112,14 @@ export default function LifelineDropCard({
       imagePath={capture.imagePath}
       filePath={capture.filePath}
       fileName={capture.fileName}
+      // Analyze-drop failure tracking v1 - only for the viewer's own real
+      // Drops, same gating as every other write action here (Pin, Hide,
+      // Edit). System Drops are always marked 'complete' server-side, so
+      // this never fires for them regardless.
+      analysisFailed={isDrop && isOwnCapture && capture.analysisStatus === "failed"}
+      onRetryAnalysis={
+        isDrop && isOwnCapture ? () => retryAnalysis(capture.id) : undefined
+      }
       isUrgent={isUrgent}
       // Daily Brief carousel v1 - each of the 4 Daily Brief cards is now
       // its own independent system Drop (sharing one group_id, rendered

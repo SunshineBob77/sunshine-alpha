@@ -519,6 +519,7 @@ export default function DropDetailModal({
     updateText,
     updateStatus,
     updateChecklistItems,
+    retryAnalysis,
     hideCapture,
     archiveCapture,
     undoCaptureState,
@@ -535,6 +536,7 @@ export default function DropDetailModal({
   // Only "More" expands into a panel now - Hide is a direct single-tap
   // toggle, same simplification as DropCard.tsx.
   const [moreOpen, setMoreOpen] = useState(false);
+  const [retryingAnalysis, setRetryingAnalysis] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
 
@@ -657,6 +659,17 @@ export default function DropDetailModal({
     setDraft(capture.text);
     setTextError(null);
     setEditing((prev) => !prev);
+  }
+
+  // Analyze-drop failure tracking v1 - fire-and-forget, same as every
+  // other analyze-drop trigger (saveCapture, updateText). The brief local
+  // "Retrying…" disabled state just guards against a double-tap; the
+  // banner itself disappears on its own once retryAnalysis's response
+  // flips capture.analysisStatus away from 'failed'.
+  function handleRetryAnalysis() {
+    setRetryingAnalysis(true);
+    retryAnalysis(capture.id);
+    setTimeout(() => setRetryingAnalysis(false), 2000);
   }
 
   return (
@@ -784,6 +797,30 @@ export default function DropDetailModal({
             ) : (
               <p className="text-sm text-gray-800 break-words">{capture.aiResearchResult}</p>
             )}
+          </div>
+        )}
+
+        {/* Analyze-drop failure tracking v1 - distinguishes "the pass
+            failed/never completed" from "the model looked and legitimately
+            found nothing" (the aiResearchResult block above, which stays
+            silent in that case). Only the owner can retry - matches every
+            other write action in this modal. */}
+        {capture.analysisStatus === "failed" && isOwnCapture && (
+          <div className="mt-4 rounded-2xl bg-amber-50 p-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm bg-amber-100">
+                ⚠️
+              </span>
+              <p className="text-sm text-amber-800">Sunshine couldn&apos;t finish analyzing this Drop.</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleRetryAnalysis}
+              disabled={retryingAnalysis}
+              className="text-xs font-semibold bg-amber-400 hover:bg-amber-500 text-gray-900 px-3 py-1.5 rounded-full transition-all disabled:opacity-60 shrink-0"
+            >
+              {retryingAnalysis ? "Retrying…" : "Retry"}
+            </button>
           </div>
         )}
 
