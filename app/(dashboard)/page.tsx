@@ -93,6 +93,47 @@ export default function Home() {
     return () => observer.disconnect();
   }, []);
 
+  // Pill toolbar scroll affordance v1 - drives both the leading/trailing
+  // fade overlays and the desktop arrow buttons below from the same
+  // scroll-position data, since they need to appear/disappear together
+  // (no fade or arrow on a side there's nothing left to scroll toward).
+  // Absolutely-positioned overlays/buttons don't add to the row's own
+  // flow height, so they don't affect the headerHeight measurement above.
+  const pillScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollPillsLeft, setCanScrollPillsLeft] = useState(false);
+  const [canScrollPillsRight, setCanScrollPillsRight] = useState(false);
+
+  function updatePillScrollState() {
+    const el = pillScrollRef.current;
+    if (!el) return;
+    // 1px tolerance guards against float-rounding flicker right at either end.
+    setCanScrollPillsLeft(el.scrollLeft > 1);
+    setCanScrollPillsRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+  }
+
+  useLayoutEffect(() => {
+    const el = pillScrollRef.current;
+    if (!el) return;
+
+    updatePillScrollState();
+    el.addEventListener("scroll", updatePillScrollState, { passive: true });
+    // Same ResizeObserver technique as headerHeight above - catches both a
+    // viewport resize and filterOptions changing the row's own content
+    // width (e.g. a renamed Space), neither of which fires a scroll event
+    // on its own.
+    const observer = new ResizeObserver(updatePillScrollState);
+    observer.observe(el);
+
+    return () => {
+      el.removeEventListener("scroll", updatePillScrollState);
+      observer.disconnect();
+    };
+  }, [filterOptions]);
+
+  function scrollPillsBy(amount: number) {
+    pillScrollRef.current?.scrollBy({ left: amount, behavior: "smooth" });
+  }
+
   return (
     <>
       {/* Filter row only - greeting/weather/quote removed per spec (that
@@ -104,27 +145,66 @@ export default function Home() {
         ref={headerRef}
         className="fixed top-14 inset-x-0 z-30 bg-night/90 backdrop-blur-md border-b border-ink/10 px-4 sm:px-8 py-2"
       >
-        <div className="w-full max-w-2xl mx-auto flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {filterOptions.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              // "Shared Spaces" is a folder/entry-point, not a filterable
-              // Space itself (see spaces.ts) - it navigates to the
-              // sub-list instead of setting activeFilter, same as tapping
-              // its Spaces-tab tile does (SharedSpacesTile.tsx).
-              onClick={() =>
-                option.id === "shared" ? router.push("/spaces/shared") : setActiveFilter(option.id)
-              }
-              className={`shrink-0 whitespace-nowrap text-xs font-semibold px-3 py-1.5 rounded-full transition-all ${
-                activeFilter === option.id
-                  ? "bg-gold text-night"
-                  : "bg-ink/5 text-ink-dim ring-1 ring-ink/10 hover:ring-ink/20"
-              }`}
-            >
-              {option.name}
-            </button>
-          ))}
+        <div className="relative w-full max-w-2xl mx-auto">
+          {canScrollPillsLeft && (
+            <>
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 bg-gradient-to-r from-night/90 to-transparent"
+              />
+              <button
+                type="button"
+                onClick={() => scrollPillsBy(-220)}
+                aria-label="Scroll filters left"
+                className="hidden sm:flex absolute left-0.5 top-1/2 -translate-y-1/2 z-20 h-7 w-7 items-center justify-center rounded-full bg-dusk text-ink shadow-sm ring-1 ring-ink/10 hover:bg-ink/10 transition-all"
+              >
+                ‹
+              </button>
+            </>
+          )}
+
+          <div
+            ref={pillScrollRef}
+            className="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {filterOptions.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                // "Shared Spaces" is a folder/entry-point, not a filterable
+                // Space itself (see spaces.ts) - it navigates to the
+                // sub-list instead of setting activeFilter, same as tapping
+                // its Spaces-tab tile does (SharedSpacesTile.tsx).
+                onClick={() =>
+                  option.id === "shared" ? router.push("/spaces/shared") : setActiveFilter(option.id)
+                }
+                className={`shrink-0 whitespace-nowrap text-sm font-semibold px-4 py-2.5 rounded-full transition-all ${
+                  activeFilter === option.id
+                    ? "bg-gold text-night"
+                    : "bg-ink/5 text-ink-dim ring-1 ring-ink/10 hover:ring-ink/20"
+                }`}
+              >
+                {option.name}
+              </button>
+            ))}
+          </div>
+
+          {canScrollPillsRight && (
+            <>
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-night/90 to-transparent"
+              />
+              <button
+                type="button"
+                onClick={() => scrollPillsBy(220)}
+                aria-label="Scroll filters right"
+                className="hidden sm:flex absolute right-0.5 top-1/2 -translate-y-1/2 z-20 h-7 w-7 items-center justify-center rounded-full bg-dusk text-ink shadow-sm ring-1 ring-ink/10 hover:bg-ink/10 transition-all"
+              >
+                ›
+              </button>
+            </>
+          )}
         </div>
       </header>
 
