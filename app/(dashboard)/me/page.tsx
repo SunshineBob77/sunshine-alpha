@@ -4,12 +4,14 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/app/lib/supabaseClient";
 import { useCaptures } from "@/app/lib/DashboardContext";
+import { fetchTotalDropsCount } from "@/app/lib/captures";
 import {
   getOrCreateUserPreferences,
   updateUserPreferences,
   type UserPreferences,
 } from "@/app/lib/userPreferences";
 import LifelineDropCard from "@/app/components/LifelineDropCard";
+import DropCard from "@/app/components/DropCard";
 import DropGroupCarousel from "@/app/components/DropGroupCarousel";
 import DropDetailModal from "@/app/components/DropDetailModal";
 import { groupCapturesByGroupId } from "@/app/lib/dropGroups";
@@ -43,6 +45,17 @@ function Toggle({
   );
 }
 
+// Total Drops stat v1 - warm/narrative phrasing to match the existing
+// Daily Brief cards' tone (e.g. DailyBriefSpacesContent's "You're a
+// member of N Shared Spaces."), not a bare number.
+function TotalDropsContent({ count }: { count: number }) {
+  return (
+    <p className="text-ink-dim leading-relaxed">
+      You&apos;ve captured {count} Drop{count === 1 ? "" : "s"} so far.
+    </p>
+  );
+}
+
 // Daily Brief v1 - relocated here from the Lifeline (see
 // app/components/LifelineFeed.tsx, which no longer renders source='system'
 // captures at all). Same 4 linked system Drops, same generation/content
@@ -50,21 +63,43 @@ function Toggle({
 // DashboardContext on every app load, entirely unrelated to where the
 // result is displayed) - only the display location and the card's visual
 // theme (light here, vs. dark on the Lifeline) changed.
-function DailyBriefSection({
+//
+// Total Drops stat v1 added alongside it here, as a 5th slide in the same
+// carousel - deliberately NOT a server-generated Daily Brief system Drop
+// like the other 4: those are frozen "since your last visit" snapshots by
+// design, but a lifetime total needs no such freezing, so it's computed
+// live client-side instead (fetchTotalDropsCount, a direct count query -
+// the already-loaded `captures` array excludes archived Drops entirely
+// and would undercount). Positioned first - a simple, always-current
+// "here's your total" opener before the more detailed since-last-visit
+// breakdowns.
+function StatsSection({
   onSelectCapture,
 }: {
   onSelectCapture: (id: number) => void;
 }) {
-  const { captures, updateStatus, hideCapture, archiveCapture, undoCaptureState } = useCaptures();
+  const { captures, user, updateStatus, hideCapture, archiveCapture, undoCaptureState } =
+    useCaptures();
   const router = useRouter();
+  const [totalDrops, setTotalDrops] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchTotalDropsCount(user.id)
+      .then((count) => {
+        if (!cancelled) setTotalDrops(count);
+      })
+      .catch((error) => console.error("Couldn't load total Drops count", error));
+    return () => {
+      cancelled = true;
+    };
+  }, [user.id]);
 
   const dailyBriefCaptures = captures.filter(
     (capture) => capture.source === "system" && capture.userArchivedAt === null
   );
 
-  if (dailyBriefCaptures.length === 0) return null;
-
-  function renderCard(capture: (typeof dailyBriefCaptures)[number]) {
+  function renderDailyBriefCard(capture: (typeof dailyBriefCaptures)[number]) {
     return (
       <LifelineDropCard
         key={capture.id}
@@ -82,15 +117,49 @@ function DailyBriefSection({
     );
   }
 
+  const totalDropsSlide =
+    totalDrops !== null ? (
+      <DropCard
+        key="total-drops"
+        variant="light"
+        title="✨ Total Drops"
+        spaceId={null}
+        content=""
+        createdAt={new Date().toISOString()}
+        hideTimestamp
+        clipped={false}
+        customContent={<TotalDropsContent count={totalDrops} />}
+      />
+    ) : null;
+
+  // Daily Brief disabled/not generated yet - Total Drops still stands on
+  // its own (it doesn't depend on Daily Brief at all), no carousel needed
+  // for a single slide.
+  if (dailyBriefCaptures.length === 0) {
+    return totalDropsSlide ? <div className="mt-6">{totalDropsSlide}</div> : null;
+  }
+
+  const groups = groupCapturesByGroupId(dailyBriefCaptures);
+
   return (
     <div className="mt-6 space-y-3">
-      {groupCapturesByGroupId(dailyBriefCaptures).map(({ key, members }) =>
-        members.length > 1 ? (
-          <DropGroupCarousel key={key} slides={members.map(renderCard)} />
+      {groups.map(({ key, members }, index) => {
+        // Only ever one Daily Brief group per day in practice (route.ts
+        // archives the prior day's before generating a new one) - Total
+        // Drops rides along with whichever group renders first so it's
+        // never duplicated across groups in the (currently unreachable)
+        // multi-group edge case.
+        const slides =
+          index === 0 && totalDropsSlide
+            ? [totalDropsSlide, ...members.map(renderDailyBriefCard)]
+            : members.map(renderDailyBriefCard);
+
+        return slides.length > 1 ? (
+          <DropGroupCarousel key={key} slides={slides} />
         ) : (
-          renderCard(members[0])
-        )
-      )}
+          slides[0]
+        );
+      })}
     </div>
   );
 }
@@ -166,7 +235,7 @@ export default function MePage() {
       <div className="w-full max-w-2xl">
         <h1 className="text-3xl font-bold text-center mb-8 tracking-tight text-gray-900">Me</h1>
 
-        <DailyBriefSection onSelectCapture={setSelectedCaptureId} />
+        <StatsSection onSelectCapture={setSelectedCaptureId} />
 
         {prefs && (
           <section className="bg-white rounded-3xl ring-1 ring-black/5 shadow-sm p-7 mt-6">

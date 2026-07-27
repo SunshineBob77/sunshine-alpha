@@ -273,6 +273,24 @@ export async function fetchCaptures(): Promise<Capture[]> {
   });
 }
 
+// Me screen "Total Drops" stat v1 - a true lifetime count (every real
+// Drop the user has ever captured), not derived from the already-loaded
+// `captures` array in DashboardContext: that array excludes archived rows
+// entirely (see fetchCaptures' .is("archived_at", null) above), which
+// would silently undercount anyone who's archived even one Drop. A
+// head-only count query avoids fetching rows just to count them, and
+// source="user" excludes Daily Brief's own system Drops from the total.
+export async function fetchTotalDropsCount(userId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from("captures")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("source", "user");
+
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export async function insertCapture(input: {
   text: string;
   category: string;
