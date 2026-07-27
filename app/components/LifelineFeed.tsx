@@ -60,6 +60,12 @@ export default function LifelineFeed({
       if (isArchived) return false;
 
       if (activeFilter === "completed") return capture.status === "completed";
+      // Global Pinned v2 - restored. Cross-Space by design: every pinned
+      // Drop regardless of which Space(s) it belongs to. Short-circuits
+      // here same as "completed" above, so (like before) a hidden or
+      // completed-but-pinned Drop still shows in this view - only the
+      // earlier archived check already excludes an archived one.
+      if (activeFilter === "pinned") return capture.pinned === true;
 
       const isManuallyHidden = capture.hiddenUntil !== null;
       const isHiddenNow = isManuallyHidden || isAutoHidden(capture);
@@ -72,12 +78,15 @@ export default function LifelineFeed({
     });
   }, [captures, activeFilter, pendingRemovalIds]);
 
-  // Pinned v2 - no longer a global cross-Space system filter (see
-  // spaces.ts). Only meaningful while viewing one specific, real Space
-  // (not "all"/Completed/Hidden/Archived, none of which have a single
-  // Space's membership to scope pinned-ness by) - filteredCaptures is
-  // already scoped to that Space's own Drops at this point, so splitting
-  // it by `pinned` here needs no separate spaceIds check of its own.
+  // Pinned v2 - this per-Space sub-section is separate from (and coexists
+  // with) the global Pinned filter branch above. Only meaningful while
+  // viewing one specific, real Space (not "all"/Pinned/Completed/Hidden/
+  // Archived, none of which have a single Space's membership to scope
+  // pinned-ness by - "pinned" itself is in NON_SPACE_FILTER_IDS
+  // specifically so the global Pinned view doesn't also try to render
+  // this sub-section on top of itself) - filteredCaptures is already
+  // scoped to that Space's own Drops at this point, so splitting it by
+  // `pinned` here needs no separate spaceIds check of its own.
   const isRealSpaceView = !NON_SPACE_FILTER_IDS.has(activeFilter);
   const pinnedInSpace = useMemo(
     () => (isRealSpaceView ? filteredCaptures.filter((capture) => capture.pinned) : []),

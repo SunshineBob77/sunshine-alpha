@@ -26,10 +26,14 @@ export const defaultSpaces: Space[] = [
   // tile's look and the Lifeline pill's label - both read from
   // defaultSpaces the same way they read every other entry here.
   { id: "shared", name: "Shared Spaces", icon: "👥", color: "bg-pink-100", border: "border-pink-400", isShared: true },
-  // Pinned v2 - no longer a global cross-Space system Space (removed here
-  // and from LifelineFeed.tsx's filter). Pinned Drops now surface as a
-  // sub-section at the top of each individual Space's own Lifeline view
-  // instead - see LifelineFeed.tsx.
+  // Pinned v2 - no longer a full system Space entry here (a global "Pinned"
+  // filter still exists, restored as a hardcoded pill in page.tsx's
+  // filterOptions instead, since that row only ever needed {id, name} -
+  // see the NON_SPACE_FILTER_IDS comment below). Pinned Drops ALSO surface
+  // as a sub-section at the top of each individual Space's own Lifeline
+  // view - see LifelineFeed.tsx. Both coexist: the global pill shows every
+  // pinned Drop across every Space, the per-Space sub-section shows just
+  // that one Space's.
   { id: "completed", name: "Completed", icon: "✅", color: "bg-orange-100", border: "border-orange-400", isShared: false, isSystem: true },
   { id: "hidden", name: "Hidden", icon: "🙈", color: "bg-slate-200", border: "border-slate-400", isShared: false, isSystem: true },
   { id: "archived", name: "Archived", icon: "🗄️", color: "bg-gray-200", border: "border-gray-400", isShared: false, isSystem: true },
@@ -39,9 +43,15 @@ export const assignableSpaces = defaultSpaces.filter((space) => !space.isSystem)
 
 // Cross-cutting filters/ids that aren't a real, single Space to scope a
 // Pinned sub-section (or a new capture) into - shared between page.tsx
-// (the top-level filter pill row) and LifelineFeed.tsx (deciding whether
-// the current activeFilter is "a specific Space" for the Pinned
-// sub-section - see Pinned v2 above). A real personal or shared-Space id
-// (including a spaces-table uuid, which never collides with any of these
-// fixed strings) is anything NOT in this set.
-export const NON_SPACE_FILTER_IDS = new Set(["all", "completed", "hidden", "archived"]);
+// (the top-level filter pill row, and deciding whether a new capture
+// should auto-tag into "this Space") and LifelineFeed.tsx (deciding
+// whether the current activeFilter is "a specific Space" for the
+// per-Space Pinned sub-section - see Pinned v2 above). "pinned" belongs
+// here same as the rest: it's the global cross-Space filter, not a real
+// Space's spaceIds value - without it here, a capture saved while the
+// global Pinned filter is active would wrongly try to tag into a
+// nonexistent "pinned" Space, and LifelineFeed would wrongly try to
+// render a per-Space Pinned sub-section for it. A real personal or
+// shared-Space id (including a spaces-table uuid, which never collides
+// with any of these fixed strings) is anything NOT in this set.
+export const NON_SPACE_FILTER_IDS = new Set(["all", "pinned", "completed", "hidden", "archived"]);

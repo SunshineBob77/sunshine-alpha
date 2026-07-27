@@ -63,14 +63,17 @@ export default function Home() {
 
   // Otherwise still defaultSpaces' fixed order - the pinned-first/recency
   // ordering rule applies to Organization and the calendar pill toolbar,
-  // not this row.
+  // not this row. "Pinned" itself is a hardcoded entry, not sourced from
+  // defaultSpaces (it isn't a real, renamable Space - see spaces.ts) -
+  // this pill row only ever needed {id, name} anyway (no icon/color
+  // rendering here, unlike the Organization tab's tiles).
   const filterOptions = useMemo(() => {
     const spaceOptions = defaultSpaces.map((space) => ({
       id: space.id,
       name: spaceOverrides[space.id] ?? space.name,
     }));
 
-    return [{ id: "all", name: "All" }, ...spaceOptions];
+    return [{ id: "all", name: "All" }, { id: "pinned", name: "Pinned" }, ...spaceOptions];
   }, [spaceOverrides]);
 
   const headerRef = useRef<HTMLElement>(null);
