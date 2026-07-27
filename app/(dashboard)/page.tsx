@@ -5,6 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import DropDetailModal from "@/app/components/DropDetailModal";
 import InviteSpaceModal from "@/app/components/InviteSpaceModal";
 import LifelineFeed from "@/app/components/LifelineFeed";
+import WeatherWidget from "@/app/components/WeatherWidget";
+import TwoWeekCalendarStrip from "@/app/components/TwoWeekCalendarStrip";
+import TodaysFocusCard from "@/app/components/TodaysFocusCard";
+import RecentCaptureCard from "@/app/components/RecentCaptureCard";
+import OnboardingTip from "@/app/components/OnboardingTip";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import { defaultSpaces, NON_SPACE_FILTER_IDS } from "@/app/lib/spaces";
 
@@ -215,6 +220,26 @@ export default function Home() {
         <div className="w-full max-w-2xl">
           {capturesError && (
             <p className="text-sm text-red-400 mb-6 text-center">{capturesError}</p>
+          )}
+
+          {/* Home screen v1 - Quote/Weather/two-week calendar/Today's
+              Focus/Recent Capture/Onboarding Tip, in that order (matching
+              how they were listed), sitting above the Lifeline feed which
+              stays fully intact below. Quote is deliberately not built
+              here - no content source exists anywhere in this app (the
+              old morning_brief_quote_enabled preference is defunct), and
+              inventing quote text would mean fabricating content rather
+              than surfacing something real. Flagging rather than
+              guessing at a source (static bundled list? external API?
+              AI-generated?). */}
+          {!capturesLoading && (
+            <div className="space-y-4 mb-6">
+              <WeatherWidget />
+              <TwoWeekCalendarStrip />
+              <TodaysFocusCard onSelectCapture={handleSelectCapture} />
+              <RecentCaptureCard onSelectCapture={handleSelectCapture} />
+              <OnboardingTip />
+            </div>
           )}
 
           {capturesLoading ? (

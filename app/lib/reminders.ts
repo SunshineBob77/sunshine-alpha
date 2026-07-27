@@ -25,8 +25,10 @@ function addDaysToKey(key: string, days: number): string {
 // actively hidden) - a Drop the user has already dismissed from the
 // Lifeline shouldn't resurface here. Only dated (resolved) Drops have a
 // real occurrence to project, so unresolved/no-date Drops are never
-// eligible regardless of status.
-function isEligible(capture: Capture): boolean {
+// eligible regardless of status. Exported for reuse by TodaysFocusCard
+// (Home screen v1) - it wants the exact same "still relevant today"
+// definition Reminders already established, not a slightly different one.
+export function isEligible(capture: Capture): boolean {
   if (capture.eventStatus !== "resolved" || !capture.eventAt) return false;
   if (capture.status === "completed") return false;
   if (capture.userArchivedAt) return false;
