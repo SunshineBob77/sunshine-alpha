@@ -95,6 +95,47 @@ function DailyBriefSection({
   );
 }
 
+// Account section v2 - collapsed to a compact avatar + name row by
+// default (people rarely touch email/log-out, so this shouldn't compete
+// with Stats/Daily Brief for attention at the top of the page). "Manage
+// account" reveals email + Log out inline - same expand-in-place pill
+// pattern already used elsewhere (e.g. DropDetailModal's SpacePicker
+// "+ Add to Space"/"Done" toggle), not a new component/pattern.
+function AccountSection({ name, email }: { name: string; email: string | undefined }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <section className="bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-4 mt-6">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="text-2xl shrink-0">🙂</span>
+          <p className="font-semibold text-gray-900 truncate">{name}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setExpanded((prev) => !prev)}
+          aria-expanded={expanded}
+          className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-2.5 py-1 rounded-full transition-all shrink-0"
+        >
+          {expanded ? "Done" : "Manage account"}
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="mt-4 pt-4 border-t border-gray-100 text-center">
+          <p className="text-gray-500">{email}</p>
+          <button
+            onClick={() => supabase.auth.signOut()}
+            className="mt-4 bg-gray-100 hover:bg-gray-200 text-gray-900 font-bold py-3 px-6 rounded-xl transition-all"
+          >
+            Log out
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function MePage() {
   const { user, captures } = useCaptures();
   const name = user.user_metadata?.full_name || user.email?.split("@")[0] || "there";
@@ -125,19 +166,6 @@ export default function MePage() {
       <div className="w-full max-w-2xl">
         <h1 className="text-3xl font-bold text-center mb-8 tracking-tight text-gray-900">Me</h1>
 
-        <section className="bg-white rounded-3xl ring-1 ring-black/5 shadow-sm p-7 text-center">
-          <div className="text-4xl mb-3">🙂</div>
-          <p className="text-xl font-semibold text-gray-900">{name}</p>
-          <p className="text-gray-500 mt-1">{user.email}</p>
-
-          <button
-            onClick={() => supabase.auth.signOut()}
-            className="mt-6 bg-gray-100 hover:bg-gray-200 text-gray-900 font-bold py-3 px-6 rounded-xl transition-all"
-          >
-            Log out
-          </button>
-        </section>
-
         <DailyBriefSection onSelectCapture={setSelectedCaptureId} />
 
         {prefs && (
@@ -158,6 +186,8 @@ export default function MePage() {
             </div>
           </section>
         )}
+
+        <AccountSection name={name} email={user.email} />
       </div>
 
       {selectedCapture && (
