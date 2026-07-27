@@ -97,6 +97,23 @@ export default function LifelineFeed({
     [filteredCaptures, isRealSpaceView]
   );
 
+  // Per-Space mini-dashboard v1 - Recent, same scoping/exclusion pattern
+  // Pinned already established: only meaningful in a real Space view, and
+  // excluded from the list below it rather than duplicated (see
+  // RECENT_COUNT). restCaptures is already recency-ordered (inherited
+  // from captures' own fetchCaptures sort + saveCapture's prepend-on-
+  // insert - never re-sorted here), so the first N of it are already
+  // "the N most recent", no separate sort needed.
+  const RECENT_COUNT = 3;
+  const recentInSpace = useMemo(
+    () => (isRealSpaceView ? restCaptures.slice(0, RECENT_COUNT) : []),
+    [restCaptures, isRealSpaceView]
+  );
+  const remainingCaptures = useMemo(
+    () => (isRealSpaceView ? restCaptures.slice(RECENT_COUNT) : restCaptures),
+    [restCaptures, isRealSpaceView]
+  );
+
   // Shared settle-then-remove helper - whichever action just fired, the
   // item may be about to leave the currently visible filtered view (or
   // move to a different one), so it stays visible through its own settle
@@ -161,7 +178,14 @@ export default function LifelineFeed({
     () => groupCapturesByGroupId(pinnedInSpace),
     [pinnedInSpace]
   );
-  const groupedItems = useMemo(() => groupCapturesByGroupId(restCaptures), [restCaptures]);
+  const recentGroupedItems = useMemo(
+    () => groupCapturesByGroupId(recentInSpace),
+    [recentInSpace]
+  );
+  const groupedItems = useMemo(
+    () => groupCapturesByGroupId(remainingCaptures),
+    [remainingCaptures]
+  );
 
   return (
     <div className="space-y-3">
@@ -169,6 +193,19 @@ export default function LifelineFeed({
         <div>
           <p className="text-xs font-bold uppercase tracking-wider text-gold py-1">📌 Pinned</p>
           <div className="space-y-3">{pinnedGroupedItems.map(renderGroup)}</div>
+          {(recentGroupedItems.length > 0 || groupedItems.length > 0) && (
+            <div className="border-t border-ink/10 mt-3" aria-hidden="true" />
+          )}
+        </div>
+      )}
+
+      {/* Per-Space mini-dashboard v1 - Recent, same structure as Pinned
+          above (curated Pinned content leads, since it's deliberate; the
+          purely-chronological Recent convenience follows). */}
+      {recentGroupedItems.length > 0 && (
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-ink-dim py-1">🕐 Recent</p>
+          <div className="space-y-3">{recentGroupedItems.map(renderGroup)}</div>
           {groupedItems.length > 0 && (
             <div className="border-t border-ink/10 mt-3" aria-hidden="true" />
           )}
