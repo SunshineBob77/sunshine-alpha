@@ -5,8 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import DropDetailModal from "@/app/components/DropDetailModal";
 import InviteSpaceModal from "@/app/components/InviteSpaceModal";
 import LifelineFeed from "@/app/components/LifelineFeed";
-import RecentCaptureCard from "@/app/components/RecentCaptureCard";
-import OnboardingTip from "@/app/components/OnboardingTip";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import { defaultSpaces, NON_SPACE_FILTER_IDS } from "@/app/lib/spaces";
 
@@ -219,22 +217,16 @@ export default function Home() {
             <p className="text-sm text-red-400 mb-6 text-center">{capturesError}</p>
           )}
 
-          {/* Home screen v1, scaled back - Weather, the two-week calendar
-              strip, and Today's Focus were all removed: Weather added no
-              real value here, the calendar strip duplicated the existing
-              /calendar tab, and Today's Focus kept surfacing an empty
-              "Nothing scheduled today" state with no clear source (same
-              reason it was already cut back once before). Recent Capture
-              and Onboarding Tip stay, sitting above the Lifeline feed
-              which is untouched below. A future Calendar-tab-owns-
-              events/reminders/recurring/due-dates direction may revisit
-              this, but that's out of scope for now. */}
-          {!capturesLoading && (
-            <div className="space-y-4 mb-6">
-              <RecentCaptureCard onSelectCapture={handleSelectCapture} />
-              <OnboardingTip />
-            </div>
-          )}
+          {/* Home screen v1, scaled all the way back down to just the
+              feed - Weather, the two-week calendar strip, Today's Focus,
+              Recent Capture, and the Onboarding Tip banner have all been
+              removed from Home (see git history for the reasoning on
+              each). Nothing renders above LifelineFeed anymore; nothing
+              new takes their place yet - still being decided. The
+              Onboarding Tip's copy isn't gone - OnboardingTip.tsx still
+              exists, just unrendered here, holding that content until it
+              has a real onboarding-flow home to move into (no such flow
+              exists in this app yet). */}
 
           {capturesLoading ? (
             <p className="text-ink-dim text-center">Loading your day…</p>
