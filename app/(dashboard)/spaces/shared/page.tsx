@@ -41,11 +41,11 @@ export default function SharedSpacesPage() {
             type="button"
             onClick={() => router.push("/spaces")}
             aria-label="Back to Spaces"
-            className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+            className="text-ink-dim hover:text-ink text-xl leading-none"
           >
             ←
           </button>
-          <h1 className="text-2xl font-bold text-gray-900">Shared Spaces</h1>
+          <h1 className="text-2xl font-bold text-ink">Shared Spaces</h1>
         </div>
         {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
         <div className="mb-4">
@@ -66,15 +66,15 @@ export default function SharedSpacesPage() {
           )}
         </div>
         {spaces === null ? (
-          <p className="text-gray-500">Loading…</p>
+          <p className="text-ink-dim">Loading…</p>
         ) : spaces.length === 0 ? (
-          <p className="text-gray-500">No shared spaces yet.</p>
+          <p className="text-ink-dim">No shared spaces yet.</p>
         ) : (
           <div className="space-y-2">
             {spaces.map((space) => (
               <div
                 key={space.id}
-                className="w-full flex items-center gap-3 bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-4 hover:ring-amber-300 transition-all"
+                className="w-full flex items-center gap-3 bg-dusk rounded-2xl ring-1 ring-ink/10 shadow-sm p-4 hover:ring-amber-300 transition-all"
               >
                 <button
                   type="button"
@@ -83,8 +83,8 @@ export default function SharedSpacesPage() {
                 >
                   <span className="text-2xl shrink-0">{space.icon}</span>
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-gray-900 truncate">{space.name}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="font-semibold text-ink truncate">{space.name}</p>
+                    <p className="text-xs text-ink-dim">
                       {space.role === "owner" ? "You own this" : "Member"}
                     </p>
                   </div>

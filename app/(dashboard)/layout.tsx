@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuthUser } from "@/app/lib/useAuthUser";
 import AuthForm from "@/app/components/AuthForm";
 import { DashboardProvider } from "@/app/lib/DashboardContext";
+import { ThemeProvider } from "@/app/lib/ThemeContext";
 import DashboardHeader from "@/app/components/DashboardHeader";
 import BottomNav from "@/app/components/BottomNav";
 
@@ -39,9 +40,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [loading, user, router]);
 
   if (loading) {
-    return (
-      <main className="min-h-dvh bg-gradient-to-b from-amber-50 via-orange-50/50 to-white" />
-    );
+    // No user yet, so no profile theme_preference to read - falls back
+    // to the plain bg-night token, which resolves dark by default (see
+    // globals.css's :root values) same as everywhere else pre-theme-load.
+    return <main className="min-h-dvh bg-night" />;
   }
 
   if (!user) {
@@ -49,12 +51,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <DashboardProvider user={user}>
-      <DashboardHeader />
-      <div className="relative z-0 min-h-dvh bg-gradient-to-b from-amber-50 via-orange-50/50 to-white pt-14 pb-28">
-        {children}
-      </div>
-      <BottomNav />
-    </DashboardProvider>
+    <ThemeProvider user={user}>
+      <DashboardProvider user={user}>
+        <DashboardHeader />
+        <div className="relative z-0 min-h-dvh bg-night pt-14 pb-28">{children}</div>
+        <BottomNav />
+      </DashboardProvider>
+    </ThemeProvider>
   );
 }

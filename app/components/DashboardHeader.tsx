@@ -13,8 +13,11 @@ import { useInviteShare } from "@/app/lib/useInviteShare";
 //
 // sunshine-logo.png is the real icon+wordmark lockup (cropped tight from
 // the original asset, background keyed to transparent - the source file
-// had an opaque near-white canvas with large padding, neither of which
-// worked against this header's cream background).
+// had an opaque near-white canvas with large padding). Unified theme
+// system v1 - this header used to be permanently light (cream) regardless
+// of the Lifeline's own forced-dark styling; now routes through the same
+// bg-night token every other fixed header bar already uses (e.g. the
+// Lifeline pill toolbar), so it tracks the real theme instead.
 export default function DashboardHeader() {
   const { status: inviteStatus, handleInvite } = useInviteShare();
 
@@ -28,7 +31,7 @@ export default function DashboardHeader() {
           : "Error";
 
   return (
-    <header className="fixed top-0 inset-x-0 z-30 h-14 bg-amber-50/95 backdrop-blur-md border-b border-black/5 px-4 sm:px-8">
+    <header className="fixed top-0 inset-x-0 z-30 h-14 bg-night/90 backdrop-blur-md border-b border-ink/10 px-4 sm:px-8">
       <div className="w-full max-w-2xl mx-auto h-full flex items-center justify-between gap-3">
         <Link href="/" aria-label="Sunshine home" className="flex items-center shrink-0">
           <Image
@@ -56,7 +59,7 @@ export default function DashboardHeader() {
             href="/ask"
             aria-label="Search"
             title="Search"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-gray-600 hover:bg-black/5 transition-colors"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-ink-dim hover:bg-ink/10 transition-colors"
           >
             <svg
               width="18"
@@ -79,7 +82,7 @@ export default function DashboardHeader() {
             disabled={inviteStatus === "sharing"}
             aria-label="Invite a friend"
             title="Invite"
-            className="flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-gray-600 hover:bg-black/5 transition-colors disabled:opacity-40"
+            className="flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-ink-dim hover:bg-ink/10 transition-colors disabled:opacity-40"
           >
             <svg
               width="16"
@@ -105,7 +108,7 @@ export default function DashboardHeader() {
             href="/me"
             aria-label="Profile"
             title="Me"
-            className="flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-gray-600 hover:bg-black/5 transition-colors"
+            className="flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-ink-dim hover:bg-ink/10 transition-colors"
           >
             <span className="text-base leading-none">🙂</span>
             <span className="text-[9px] font-semibold leading-none">Me</span>

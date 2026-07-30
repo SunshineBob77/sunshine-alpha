@@ -167,6 +167,15 @@ export default function AskSunshinePage() {
                   // regardless of how it was opened).
                   <DropCard
                     key={capture.id}
+                    // Unified theme system v1 - "dark" is the token-driven
+                    // path (see DropCard.tsx's own variant doc comment),
+                    // correct for any authenticated screen regardless of
+                    // which theme the user actually has selected. This was
+                    // previously left unset, defaulting to the
+                    // theme-independent "light" - meaning search results
+                    // stayed forced-light even after Ask Sunshine itself
+                    // became theme-aware elsewhere.
+                    variant="dark"
                     title={capture.title ?? capture.sunshineSummary}
                     spaceId={capture.spaceIds?.[0]}
                     sharedSpaces={sharedSpaces}

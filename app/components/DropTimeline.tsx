@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Capture } from "@/app/lib/captures";
 import { buildOccurrences } from "@/app/lib/recurringProjection";
 import { getSpaceTone } from "@/app/lib/spaceTone";
+import { getSpaceColor } from "@/app/lib/spaceColors";
 import { useCaptures } from "@/app/lib/DashboardContext";
 
 function formatOccurrenceDate(iso: string): string {
@@ -140,7 +141,7 @@ export default function DropTimeline({
   }, [scrollToDate, throughDate, occurrences]);
 
   if (occurrences.length === 0) {
-    return <p className="text-sm text-gray-500 text-center mt-6">No dated Drops yet.</p>;
+    return <p className="text-sm text-ink-dim text-center mt-6">No dated Drops yet.</p>;
   }
 
   return (
@@ -149,6 +150,13 @@ export default function DropTimeline({
         const key = `${occurrence.capture.id}-${occurrence.occurrenceDate}`;
         const spaceId = occurrence.capture.spaceIds?.[0];
         const tone = getSpaceTone(spaceId, sharedSpaces);
+        // Unified theme system v1 - small decorative icon badge, same
+        // "always shows its fill tint, in both themes" treatment as
+        // DropCard's own icon chip (a pre-existing behavior, not
+        // something this change altered) - unlike the bigger tile
+        // surfaces in spaces/page.tsx, which do switch to the plain card
+        // token in dark mode per the design spec.
+        const fill = getSpaceColor(spaceId, sharedSpaces).fill;
         const displayName = spaceOverrides[spaceId ?? ""] ?? tone.name;
 
         return (
@@ -162,10 +170,11 @@ export default function DropTimeline({
             <button
               type="button"
               onClick={() => onSelectCapture(occurrence.capture.id)}
-              className="w-full text-left bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-3 hover:ring-amber-300 transition-all flex items-center gap-3"
+              className="w-full text-left bg-dusk rounded-2xl ring-1 ring-ink/10 shadow-sm p-3 hover:ring-amber-300 transition-all flex items-center gap-3"
             >
               <span
-                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm ${tone.color}`}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm"
+                style={{ backgroundColor: fill }}
                 title={displayName}
               >
                 {tone.icon}
@@ -180,7 +189,7 @@ export default function DropTimeline({
                       : " · 🔁"
                     : ""}
                 </p>
-                <p className="text-sm text-gray-900 font-medium truncate">
+                <p className="text-sm text-ink font-medium truncate">
                   {occurrence.capture.title ?? occurrence.capture.sunshineSummary}
                 </p>
               </div>

@@ -60,7 +60,7 @@ export default function CalendarPage() {
           only the timeline below scrolls. */}
       <div
         ref={fixedRef}
-        className="fixed top-14 inset-x-0 z-30 bg-amber-50/95 backdrop-blur-md border-b border-black/5 px-4 sm:px-8 py-2"
+        className="fixed top-14 inset-x-0 z-30 bg-night/90 backdrop-blur-md border-b border-ink/10 px-4 sm:px-8 py-2"
       >
         <div className="w-full max-w-2xl mx-auto">
           <div className="flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -74,7 +74,7 @@ export default function CalendarPage() {
               type="button"
               disabled
               title="Shared calendars are coming soon"
-              className="shrink-0 whitespace-nowrap text-xs font-semibold px-3 py-1.5 rounded-full bg-white text-gray-400 ring-1 ring-black/5 cursor-not-allowed"
+              className="shrink-0 whitespace-nowrap text-xs font-semibold px-3 py-1.5 rounded-full bg-ink/5 text-ink-dim ring-1 ring-ink/10 cursor-not-allowed"
             >
               👥 Shared — Coming Soon
             </button>
@@ -98,7 +98,7 @@ export default function CalendarPage() {
       >
         <div className="w-full max-w-2xl">
           {capturesLoading ? (
-            <p className="text-gray-500 text-center">Loading your calendar…</p>
+            <p className="text-ink-dim text-center">Loading your calendar…</p>
           ) : (
             <>
               <DropTimeline
@@ -108,10 +108,10 @@ export default function CalendarPage() {
               />
 
               <section className="mt-8">
-                <h2 className="text-lg font-semibold text-gray-900 mb-3">📋 Needs your input</h2>
+                <h2 className="text-lg font-semibold text-ink mb-3">📋 Needs your input</h2>
 
                 {unresolvedCaptures.length === 0 ? (
-                  <p className="text-sm text-gray-500">Nothing needs a date right now.</p>
+                  <p className="text-sm text-ink-dim">Nothing needs a date right now.</p>
                 ) : (
                   <ul className="space-y-2">
                     {unresolvedCaptures.map((capture) => (
@@ -119,13 +119,13 @@ export default function CalendarPage() {
                         <button
                           type="button"
                           onClick={() => setSelectedCaptureId(capture.id)}
-                          className="w-full text-left bg-white rounded-2xl ring-1 ring-black/5 shadow-sm p-4 hover:ring-amber-300 transition-all"
+                          className="w-full text-left bg-dusk rounded-2xl ring-1 ring-ink/10 shadow-sm p-4 hover:ring-amber-300 transition-all"
                         >
                           <p className="text-sm font-semibold text-amber-700">
                             ⚠️ Date unclear
                             {capture.temporalRawText ? ` — "${capture.temporalRawText}"` : ""}
                           </p>
-                          <p className="text-sm text-gray-600 mt-1 truncate">
+                          <p className="text-sm text-ink-dim mt-1 truncate">
                             {capture.title ?? capture.text}
                           </p>
                         </button>

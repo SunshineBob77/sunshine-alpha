@@ -4,13 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import DropContent from "./DropContent";
 import ChecklistContent from "./ChecklistContent";
 import { DropAttachmentImage, DropAttachmentFile } from "./DropAttachment";
-import {
-  getSpaceTone,
-  getSpaceAccentColor,
-  sunshineDropTone,
-  sunshineDropAccentColor,
-  type SharedSpaceLookup,
-} from "@/app/lib/spaceTone";
+import { getSpaceTone, sunshineDropTone, type SharedSpaceLookup } from "@/app/lib/spaceTone";
+import { getSpaceColor, sunshineSpaceColor } from "@/app/lib/spaceColors";
 import { formatRelativeTime } from "@/app/lib/relativeTime";
 import { hasUncheckedChecklistItems, type ChecklistItem } from "@/app/lib/captures";
 import { fraunces } from "@/app/lib/fonts";
@@ -139,9 +134,19 @@ export default function DropCard({
   // the caller level - Shared Spaces' "friendly invite" model means any
   // active member can add to a group, not just the Drop's own owner.
   onAddToGroup?: () => void;
-  // "light" (default) is the existing, unchanged appearance - used by the
-  // public share page (app/s/[id]/page.tsx), which doesn't pass this
-  // prop. "dark" is scoped to the Lifeline feed screen's restyle only.
+  // Unified theme system v1 - these names are now slightly historical:
+  // "dark" is the TOKEN-DRIVEN path (bg-dusk/text-ink/etc., which
+  // globals.css makes resolve to the correct light-or-dark color
+  // automatically based on the ambient data-theme attribute) - every
+  // authenticated screen should use this, unconditionally, regardless of
+  // which theme the user actually has selected. "light" (default) is a
+  // fully hardcoded, theme-INDEPENDENT literal appearance, kept
+  // specifically for the public share page (app/s/[id]/page.tsx), which
+  // has no ThemeProvider/authenticated user to read a preference from at
+  // all - it must always render the same way for every visitor. Flagging
+  // the confusing naming rather than doing a wider prop-rename across
+  // DropCard/LifelineDropCard/ShareButton/DeleteDropButton/
+  // DropAttachmentImage/DropAttachmentFile/DropContent in this same pass.
   variant?: "light" | "dark";
   // Photo/Gallery/File capture v1 - at most one of these is ever set on a
   // real Drop (see Capture.imagePath/filePath in app/lib/captures.ts).
@@ -161,9 +166,7 @@ export default function DropCard({
   // not just overridden after the fact - so a corrupted/stale spaceId can
   // never leak through even transiently.
   const tone = isSunshineDrop ? sunshineDropTone : getSpaceTone(spaceId, sharedSpaces);
-  const accentColor = isSunshineDrop
-    ? sunshineDropAccentColor
-    : getSpaceAccentColor(spaceId, sharedSpaces);
+  const spaceColor = isSunshineDrop ? sunshineSpaceColor : getSpaceColor(spaceId, sharedSpaces);
   // Drives both the "· Shared" suffix and whether the eyebrow below can
   // become the invite trigger at all - re-checked here independently of
   // whatever getSpaceTone/getSpaceAccentColor happened to resolve, so a
@@ -246,18 +249,22 @@ export default function DropCard({
     settle();
   }
 
-  // Dark variant: card differentiation is a core product requirement, not
-  // a style preference - every Drop's card boundary must read as
-  // unmistakably separate from the page at a glance. Solid dusk (gray)
-  // background, not translucent, plus a full 2px border in the Drop's
-  // own Space color (getSpaceAccentColor - a genuine per-Space runtime
-  // value, so it's applied via inline style rather than a Tailwind
-  // class; Tailwind's static class scanning can't generate a class for a
-  // color chosen at render time from a ~12-entry lookup). The border no
-  // longer shifts to gold for pinned cards (that would compete with the
-  // border's actual meaning - which Space this is) - pinned emphasis is
-  // now carried entirely by the soft ambient gold glow (shadow) plus the
-  // header pin icon's own highlight.
+  // Dark (token-driven) variant: card differentiation is a core product
+  // requirement, not a style preference - every Drop's card boundary
+  // must read as unmistakably separate from the page at a glance. Solid
+  // dusk (card token) background, not translucent, plus a full 2px
+  // border in the Drop's own Space identity color (getSpaceColor - a
+  // genuine per-Space runtime value, so it's applied via inline style
+  // rather than a Tailwind class; Tailwind's static class scanning can't
+  // generate a class for a color chosen at render time from a lookup).
+  // Light variant now uses the SAME identity hex for its border too
+  // (unified system - one Space, one hex, in both themes), just at a
+  // thicker 5px width - that width difference (not the color) is the
+  // one remaining thing distinguishing the two variants' borders. The
+  // border no longer shifts to gold for pinned cards (that would compete
+  // with the border's actual meaning - which Space this is) - pinned
+  // emphasis is now carried entirely by the soft ambient gold glow
+  // (shadow) plus the header pin icon's own highlight.
   const cardShadowClass = isDark
     ? isPinned
       ? "shadow-[0_0_24px_rgba(240,163,57,0.18)]"
@@ -269,12 +276,12 @@ export default function DropCard({
       ref={rootRef}
       className={`rounded-2xl transition-all duration-500 ease-in-out overflow-hidden ${
         isDark ? "bg-dusk border-2" : "bg-white border-[5px]"
-      } ${isDark ? "" : tone.border} ${cardShadowClass} ${
+      } ${cardShadowClass} ${
         collapsing
           ? "max-h-0 opacity-0 !p-0 !border-0"
           : `max-h-[20000px] opacity-100 ${isHero ? "p-8" : "p-4"}`
       }`}
-      style={isDark ? { borderColor: accentColor } : undefined}
+      style={{ borderColor: spaceColor.identity }}
     >
       <div className="flex items-start justify-between gap-3 mb-1.5">
         <div className="min-w-0 flex-1">
@@ -290,7 +297,7 @@ export default function DropCard({
                 type="button"
                 onClick={onInvite}
                 className="text-[11px] font-bold uppercase tracking-wider mb-1 hover:underline"
-                style={{ color: accentColor }}
+                style={{ color: spaceColor.identity }}
               >
                 {tone.name} · Shared
               </button>
@@ -303,7 +310,7 @@ export default function DropCard({
               // that doesn't wire invites at all) - just not tappable.
               <p
                 className="text-[11px] font-bold uppercase tracking-wider mb-1"
-                style={{ color: accentColor }}
+                style={{ color: spaceColor.identity }}
               >
                 {isRealSharedSpace ? `${tone.name} · Shared` : tone.name}
               </p>
@@ -396,7 +403,8 @@ export default function DropCard({
             title={tone.name}
           >
             <span
-              className={`flex h-full w-full items-center justify-center rounded-full ${tone.color}`}
+              className="flex h-full w-full items-center justify-center rounded-full"
+              style={{ backgroundColor: spaceColor.fill }}
             >
               {tone.icon}
             </span>

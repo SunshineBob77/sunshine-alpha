@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { assignableSpaces, defaultSpaces, type Space } from "@/app/lib/spaces";
 import { orderSpaces } from "@/app/lib/spaceOrdering";
 import { useCaptures } from "@/app/lib/DashboardContext";
+import { useTheme } from "@/app/lib/ThemeContext";
+import { getSpaceColor } from "@/app/lib/spaceColors";
 import { createSharedSpace } from "@/app/lib/sharedSpaces";
 import InlineTextInput from "@/app/components/InlineTextInput";
 import SharedSpacesTile from "@/app/components/SharedSpacesTile";
@@ -15,6 +17,13 @@ import SharedSpacesTile from "@/app/components/SharedSpacesTile";
 function SpaceTile({ space, displayName }: { space: Space; displayName: string }) {
   const { renameSpace } = useCaptures();
   const router = useRouter();
+  const { theme } = useTheme();
+  // Unified theme system v1 - a Space's own light-mode fill tint is a
+  // whole-tile-sized surface (unlike DropCard's small circular icon
+  // badge, which keeps showing its fill tint as a decorative accent in
+  // both themes, pre-dating this change) - per the design spec, dark
+  // mode has no separate fill, it uses the plain card token instead.
+  const tileBackground = theme === "dark" ? "var(--color-dusk)" : getSpaceColor(space.id).fill;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(displayName);
   const [saving, setSaving] = useState(false);
@@ -43,14 +52,17 @@ function SpaceTile({ space, displayName }: { space: Space; displayName: string }
 
   if (editing) {
     return (
-      <div className={`relative ${space.color} rounded-2xl p-3 text-center ring-2 ring-amber-400 shadow-md`}>
+      <div
+        className="relative rounded-2xl p-3 text-center ring-2 ring-amber-400 shadow-md"
+        style={{ backgroundColor: tileBackground }}
+      >
         <div className="text-2xl">{space.icon}</div>
         <input
           type="text"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           autoFocus
-          className="w-full mt-1 text-center text-sm font-semibold text-gray-900 bg-white/70 rounded-lg px-1 py-0.5 focus:outline-none focus:ring-2 focus:ring-amber-400"
+          className="w-full mt-1 text-center text-sm font-semibold text-ink bg-dusk/70 rounded-lg px-1 py-0.5 focus:outline-none focus:ring-2 focus:ring-amber-400"
         />
         <div className="flex items-center justify-center gap-1.5 mt-1.5">
           <button
@@ -69,7 +81,7 @@ function SpaceTile({ space, displayName }: { space: Space; displayName: string }
               setError(null);
             }}
             disabled={saving}
-            className="text-[10px] font-semibold bg-white/70 text-gray-700 px-2 py-1 rounded-full disabled:opacity-60"
+            className="text-[10px] font-semibold bg-dusk/70 text-ink-dim px-2 py-1 rounded-full disabled:opacity-60"
           >
             Cancel
           </button>
@@ -83,7 +95,8 @@ function SpaceTile({ space, displayName }: { space: Space; displayName: string }
     <button
       type="button"
       onClick={() => router.push(`/?space=${space.id}`)}
-      className={`relative ${space.color} rounded-2xl p-3 text-center ring-1 ring-black/5 shadow-sm hover:shadow-md hover:scale-[1.01] transition-all`}
+      className="relative rounded-2xl p-3 text-center ring-1 ring-black/5 shadow-sm hover:shadow-md hover:scale-[1.01] transition-all"
+      style={{ backgroundColor: tileBackground }}
     >
       {space.isSystem ? (
         <span
@@ -114,8 +127,8 @@ function SpaceTile({ space, displayName }: { space: Space; displayName: string }
         </span>
       )}
       <div className="text-2xl">{space.icon}</div>
-      <div className="font-semibold text-gray-900 truncate">{displayName}</div>
-      {space.isShared && <div className="text-xs mt-1 text-gray-600">Shared</div>}
+      <div className="font-semibold text-ink truncate">{displayName}</div>
+      {space.isShared && <div className="text-xs mt-1 text-ink-dim">Shared</div>}
     </button>
   );
 }
@@ -143,13 +156,13 @@ export default function SpacesPage() {
   return (
     <main className="flex flex-col items-center p-8">
       <div className="w-full max-w-2xl">
-        <section className="bg-white rounded-3xl ring-1 ring-black/5 shadow-sm p-6">
+        <section className="bg-dusk rounded-3xl ring-1 ring-ink/10 shadow-sm p-6">
           <div className="flex items-center gap-2 mb-4 flex-wrap">
             <button
               type="button"
               disabled
               title="Creating additional personal Spaces isn't built yet"
-              className="text-sm font-semibold bg-gray-100 text-gray-400 px-4 py-2 rounded-xl cursor-not-allowed"
+              className="text-sm font-semibold bg-ink/5 text-ink-dim px-4 py-2 rounded-xl cursor-not-allowed"
             >
               + Create Space
             </button>
@@ -171,7 +184,7 @@ export default function SpacesPage() {
             )}
           </div>
 
-          <p className="text-sm text-gray-500 mb-4">
+          <p className="text-sm text-ink-dim mb-4">
             Tap a Space to view its Drops on the Lifeline. Pinned-content Spaces sort first, then
             by recent activity.
           </p>

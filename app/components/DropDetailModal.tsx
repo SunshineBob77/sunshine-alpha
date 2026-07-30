@@ -8,6 +8,7 @@ import ChecklistContent from "./ChecklistContent";
 import { DropAttachmentImage, DropAttachmentFile } from "./DropAttachment";
 import { assignableSpaces } from "@/app/lib/spaces";
 import { getSpaceTone } from "@/app/lib/spaceTone";
+import { getSpaceColor } from "@/app/lib/spaceColors";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import { hasUncheckedChecklistItems } from "@/app/lib/captures";
 import { isAutoHidden } from "@/app/lib/autoHide";
@@ -19,7 +20,6 @@ type PickerOption = {
   id: string;
   name: string;
   icon: string;
-  color: string;
   isShared: boolean;
 };
 
@@ -45,7 +45,6 @@ function SpacePicker({ capture }: { capture: Capture }) {
             id: space.id,
             name: space.name,
             icon: space.icon,
-            color: space.color,
             isShared: true,
           }))
         );
@@ -68,7 +67,6 @@ function SpacePicker({ capture }: { capture: Capture }) {
         id: space.id,
         name: spaceOverrides[space.id] ?? space.name,
         icon: space.icon,
-        color: space.color,
         isShared: false,
       }));
     return [...personalOptions, ...sharedSpaces];
@@ -111,26 +109,31 @@ function SpacePicker({ capture }: { capture: Capture }) {
         <button
           type="button"
           onClick={() => setOpen((prev) => !prev)}
-          className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-2.5 py-1 rounded-full transition-all"
+          className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-2.5 py-1 rounded-full transition-all"
         >
           {open ? "Done" : activeOptions.length > 0 ? "Edit Spaces" : "+ Add to Space"}
         </button>
       </div>
 
       {open && (
-        <div className="mt-2 flex flex-wrap gap-2 p-3 bg-gray-50 rounded-2xl">
+        <div className="mt-2 flex flex-wrap gap-2 p-3 bg-ink/5 rounded-2xl">
           {pickerOptions.map((option) => {
             const active = capture.spaceIds?.includes(option.id);
+            // Unified theme system v1 - fill hex via inline style, same
+            // as everywhere else this app renders a Space's color, rather
+            // than the old per-Space Tailwind bg-*-100 class.
+            const fill = getSpaceColor(option.id, sharedSpaces).fill;
             return (
               <button
                 key={option.id}
                 type="button"
                 onClick={() => toggleSpace(option.id)}
                 disabled={pendingId === option.id}
+                style={active ? { backgroundColor: fill } : undefined}
                 className={`text-xs px-2.5 py-1.5 rounded-full ring-1 transition-all disabled:opacity-50 ${
                   active
-                    ? `${option.color} ring-black/10 font-semibold`
-                    : "bg-white text-gray-500 ring-gray-200 hover:ring-gray-300"
+                    ? "ring-black/10 font-semibold"
+                    : "bg-ink/5 text-ink-dim ring-ink/10 hover:ring-ink/20"
                 }`}
               >
                 {active ? "✓ " : ""}
@@ -140,7 +143,7 @@ function SpacePicker({ capture }: { capture: Capture }) {
             );
           })}
           {sharedSpaces.length === 0 && (
-            <p className="text-xs text-gray-400 w-full">
+            <p className="text-xs text-ink-dim w-full">
               You&apos;re not a member of any shared spaces yet.
             </p>
           )}
@@ -257,23 +260,23 @@ function TemporalEditor({ capture }: { capture: Capture }) {
 
   if (open) {
     return (
-      <div className="mb-3 p-3 bg-gray-50 rounded-2xl">
+      <div className="mb-3 p-3 bg-ink/5 rounded-2xl">
         <div className="flex items-center gap-2 flex-wrap">
           <input
             type="date"
             value={dateValue}
             onChange={(event) => setDateValue(event.target.value)}
-            className="text-sm border border-gray-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-400"
+            className="text-sm border border-ink/20 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-400"
           />
           {!allDay && (
             <input
               type="time"
               value={timeValue}
               onChange={(event) => setTimeValue(event.target.value)}
-              className="text-sm border border-gray-300 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-400"
+              className="text-sm border border-ink/20 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-400"
             />
           )}
-          <label className="flex items-center gap-1.5 text-xs text-gray-600">
+          <label className="flex items-center gap-1.5 text-xs text-ink-dim">
             <input
               type="checkbox"
               checked={allDay}
@@ -288,7 +291,7 @@ function TemporalEditor({ capture }: { capture: Capture }) {
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="text-xs font-semibold bg-amber-400 hover:bg-amber-500 text-gray-900 px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
+            className="text-xs font-semibold bg-amber-400 hover:bg-amber-500 text-ink px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
           >
             {saving ? "Saving…" : "Save"}
           </button>
@@ -299,7 +302,7 @@ function TemporalEditor({ capture }: { capture: Capture }) {
               setError(null);
             }}
             disabled={saving}
-            className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
+            className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
           >
             Cancel
           </button>
@@ -322,7 +325,7 @@ function TemporalEditor({ capture }: { capture: Capture }) {
         <button
           type="button"
           onClick={startEditing}
-          className="text-xs font-semibold text-gray-500 hover:text-gray-700"
+          className="text-xs font-semibold text-ink-dim hover:text-ink"
         >
           Edit
         </button>
@@ -330,7 +333,7 @@ function TemporalEditor({ capture }: { capture: Capture }) {
           type="button"
           onClick={handleDismiss}
           disabled={dismissing}
-          className="text-xs font-semibold text-gray-400 hover:text-gray-600 disabled:opacity-60"
+          className="text-xs font-semibold text-ink-dim hover:text-ink disabled:opacity-60"
         >
           {dismissing ? "…" : "Not a calendar event"}
         </button>
@@ -353,7 +356,7 @@ function TemporalEditor({ capture }: { capture: Capture }) {
           type="button"
           onClick={handleDismiss}
           disabled={dismissing}
-          className="text-xs font-semibold text-gray-400 hover:text-gray-600 disabled:opacity-60"
+          className="text-xs font-semibold text-ink-dim hover:text-ink disabled:opacity-60"
         >
           {dismissing ? "…" : "Not a calendar event"}
         </button>
@@ -372,7 +375,7 @@ function TemporalEditor({ capture }: { capture: Capture }) {
       <button
         type="button"
         onClick={startEditing}
-        className="text-xs font-semibold text-gray-400 hover:text-gray-600"
+        className="text-xs font-semibold text-ink-dim hover:text-ink"
       >
         + Add a date
       </button>
@@ -437,7 +440,7 @@ function TemporalEditSuggestion({ capture }: { capture: Capture }) {
       <div className="mb-3 p-3 bg-blue-50 rounded-2xl text-sm">
         {preview.eventStatus === "resolved" && preview.eventAt ? (
           <>
-            <p className="text-gray-800 mb-2">
+            <p className="text-ink mb-2">
               New date from text:{" "}
               <strong>{formatEventDate(preview.eventAt, preview.eventHasTime)}</strong>
             </p>
@@ -446,7 +449,7 @@ function TemporalEditSuggestion({ capture }: { capture: Capture }) {
                 type="button"
                 onClick={handleConfirm}
                 disabled={confirming}
-                className="text-xs font-semibold bg-amber-400 hover:bg-amber-500 text-gray-900 px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
+                className="text-xs font-semibold bg-amber-400 hover:bg-amber-500 text-ink px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
               >
                 {confirming ? "Updating…" : "Update date"}
               </button>
@@ -454,7 +457,7 @@ function TemporalEditSuggestion({ capture }: { capture: Capture }) {
                 type="button"
                 onClick={handleDismiss}
                 disabled={confirming}
-                className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
+                className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
               >
                 Keep current
               </button>
@@ -462,11 +465,11 @@ function TemporalEditSuggestion({ capture }: { capture: Capture }) {
           </>
         ) : (
           <>
-            <p className="text-gray-600 mb-2">Still unclear from the new text.</p>
+            <p className="text-ink-dim mb-2">Still unclear from the new text.</p>
             <button
               type="button"
               onClick={handleDismiss}
-              className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-all"
+              className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-3 py-1.5 rounded-full transition-all"
             >
               Dismiss
             </button>
@@ -490,7 +493,7 @@ function TemporalEditSuggestion({ capture }: { capture: Capture }) {
       <button
         type="button"
         onClick={handleDismiss}
-        className="text-xs text-gray-400 hover:text-gray-600"
+        className="text-xs text-ink-dim hover:text-ink"
       >
         Dismiss
       </button>
@@ -541,6 +544,7 @@ export default function DropDetailModal({
   const boxRef = useRef<HTMLDivElement>(null);
 
   const tone = getSpaceTone(capture.spaceIds?.[0], sharedSpaces);
+  const spaceColor = getSpaceColor(capture.spaceIds?.[0], sharedSpaces);
   const toneName = spaceOverrides[capture.spaceIds?.[0] ?? ""] ?? tone.name;
   const isUrgent = capture.tags?.includes("urgent") ?? false;
   const isCompleted = capture.status === "completed";
@@ -679,12 +683,13 @@ export default function DropDetailModal({
     >
       <div
         ref={boxRef}
-        className={`w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white p-6 rounded-3xl border-[5px] ${tone.border} shadow-lg`}
+        className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-dusk p-6 rounded-3xl border-[5px] shadow-lg"
+        style={{ borderColor: spaceColor.identity }}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-start gap-2 min-w-0 flex-1">
-            <p className="font-bold text-lg text-gray-900 min-w-0">
+            <p className="font-bold text-lg text-ink min-w-0">
               {capture.title ?? capture.sunshineSummary}
             </p>
             <span
@@ -692,7 +697,8 @@ export default function DropDetailModal({
               title={toneName}
             >
               <span
-                className={`flex h-full w-full items-center justify-center rounded-full ${tone.color}`}
+                className="flex h-full w-full items-center justify-center rounded-full"
+                style={{ backgroundColor: spaceColor.fill }}
               >
                 {tone.icon}
               </span>
@@ -710,7 +716,7 @@ export default function DropDetailModal({
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+              className="text-ink-dim hover:text-ink text-xl leading-none"
             >
               ✕
             </button>
@@ -734,14 +740,14 @@ export default function DropDetailModal({
               ref={textareaRef}
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
-              className="w-full border border-gray-300 rounded-xl p-3 text-lg min-h-32 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+              className="w-full border border-ink/20 rounded-xl p-3 text-lg min-h-32 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
             />
             <div className="flex items-center gap-2 mt-2">
               <button
                 type="button"
                 onClick={handleSaveText}
                 disabled={savingText}
-                className="text-xs font-semibold bg-amber-400 hover:bg-amber-500 text-gray-900 px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
+                className="text-xs font-semibold bg-amber-400 hover:bg-amber-500 text-ink px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
               >
                 {savingText ? "Saving…" : "Save"}
               </button>
@@ -753,7 +759,7 @@ export default function DropDetailModal({
                   setTextError(null);
                 }}
                 disabled={savingText}
-                className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
+                className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
               >
                 Cancel
               </button>
@@ -761,7 +767,7 @@ export default function DropDetailModal({
             {textError && <p className="text-xs text-red-600 mt-1">{textError}</p>}
           </div>
         ) : (
-          <div className="text-lg text-gray-900">
+          <div className="text-lg text-ink">
             {capture.checklistItems.length > 0 ? (
               <ChecklistContent
                 items={capture.checklistItems}
@@ -774,20 +780,20 @@ export default function DropDetailModal({
           </div>
         )}
 
-        <p className="text-sm text-gray-500 mt-3">
+        <p className="text-sm text-ink-dim mt-3">
           {new Date(capture.createdAt).toLocaleString()}
         </p>
 
         {capture.aiResearchResult && (
-          <div className="mt-4 rounded-2xl bg-gray-50 p-4">
+          <div className="mt-4 rounded-2xl bg-ink/5 p-4">
             <div className="flex items-center gap-2 mb-2">
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm bg-sky-100">
                 🔎
               </span>
-              <h3 className="font-semibold text-sm text-gray-900">Sunshine found this</h3>
+              <h3 className="font-semibold text-sm text-ink">Sunshine found this</h3>
             </div>
             {Array.isArray(capture.aiResearchResult) ? (
-              <ul className="text-sm text-gray-800 list-disc ml-5 space-y-1">
+              <ul className="text-sm text-ink list-disc ml-5 space-y-1">
                 {capture.aiResearchResult.map((bullet, index) => (
                   <li key={index} className="break-words">
                     {bullet}
@@ -795,7 +801,7 @@ export default function DropDetailModal({
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-gray-800 break-words">{capture.aiResearchResult}</p>
+              <p className="text-sm text-ink break-words">{capture.aiResearchResult}</p>
             )}
           </div>
         )}
@@ -817,20 +823,20 @@ export default function DropDetailModal({
               type="button"
               onClick={handleRetryAnalysis}
               disabled={retryingAnalysis}
-              className="text-xs font-semibold bg-amber-400 hover:bg-amber-500 text-gray-900 px-3 py-1.5 rounded-full transition-all disabled:opacity-60 shrink-0"
+              className="text-xs font-semibold bg-amber-400 hover:bg-amber-500 text-ink px-3 py-1.5 rounded-full transition-all disabled:opacity-60 shrink-0"
             >
               {retryingAnalysis ? "Retrying…" : "Retry"}
             </button>
           </div>
         )}
 
-        <div className="mt-4 pt-3 border-t border-gray-100">
+        <div className="mt-4 pt-3 border-t border-ink/10">
           <div className="flex items-center gap-1.5 flex-wrap">
             {capture.isActionable &&
               isOwnCapture &&
               (confirmingComplete ? (
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs text-gray-600">
+                  <span className="text-xs text-ink-dim">
                     This checklist still has unchecked items. Complete anyway?
                   </span>
                   <button
@@ -845,7 +851,7 @@ export default function DropDetailModal({
                     type="button"
                     onClick={() => setConfirmingComplete(false)}
                     disabled={togglingStatus}
-                    className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
+                    className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
                   >
                     Cancel
                   </button>
@@ -859,7 +865,7 @@ export default function DropDetailModal({
                   className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all disabled:opacity-60 ${
                     isCompleted
                       ? "bg-orange-500 text-white"
-                      : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+                      : "bg-ink/5 hover:bg-ink/10 text-ink-dim"
                   }`}
                 >
                   {isCompleted ? "● Completed" : "○ Completed"}
@@ -876,7 +882,7 @@ export default function DropDetailModal({
                 className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
                   isHiddenNow
                     ? "bg-gray-800 text-white"
-                    : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+                    : "bg-ink/5 hover:bg-ink/10 text-ink-dim"
                 }`}
               >
                 {isHiddenNow ? "🙉 Unhide" : "🙈 Hide"}
@@ -891,7 +897,7 @@ export default function DropDetailModal({
                 className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
                   moreOpen
                     ? "bg-gray-800 text-white"
-                    : "bg-gray-100 hover:bg-gray-200 text-gray-600"
+                    : "bg-ink/5 hover:bg-ink/10 text-ink-dim"
                 }`}
               >
                 ⋯ More
@@ -911,13 +917,13 @@ export default function DropDetailModal({
           </div>
 
           {moreOpen && isOwnCapture && (
-            <div className="mt-2 pt-2 border-t border-gray-100">
+            <div className="mt-2 pt-2 border-t border-ink/10">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <button
                   type="button"
                   onClick={handleEditTap}
                   aria-label="Edit Drop text"
-                  className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1.5 rounded-full transition-all"
+                  className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-2 py-1.5 rounded-full transition-all"
                 >
                   ✏️ Edit
                 </button>
@@ -925,7 +931,7 @@ export default function DropDetailModal({
                 <button
                   type="button"
                   onClick={handleArchiveTap}
-                  className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1.5 rounded-full transition-all"
+                  className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-2 py-1.5 rounded-full transition-all"
                 >
                   🗄️ Archive
                 </button>
@@ -934,7 +940,7 @@ export default function DropDetailModal({
                   onClick={handleUndoTap}
                   disabled={!capture.previousState}
                   aria-label="Undo last change"
-                  className="text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1.5 rounded-full transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-2 py-1.5 rounded-full transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   ↩️ Undo
                 </button>

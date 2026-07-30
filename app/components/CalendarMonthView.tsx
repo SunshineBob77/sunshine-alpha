@@ -82,9 +82,9 @@ export default function CalendarMonthView({
   }
 
   return (
-    <div className="bg-white rounded-3xl ring-1 ring-black/5 shadow-sm p-3 sm:p-4">
+    <div className="bg-dusk rounded-3xl ring-1 ring-ink/10 shadow-sm p-3 sm:p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-semibold text-sm sm:text-base text-gray-900">
+        <h3 className="font-semibold text-sm sm:text-base text-ink">
           {displayMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
         </h3>
 
@@ -92,7 +92,7 @@ export default function CalendarMonthView({
           <button
             type="button"
             onClick={goToToday}
-            className="text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full transition-colors"
+            className="text-xs font-semibold text-ink-dim bg-ink/5 hover:bg-ink/10 px-3 py-1 rounded-full transition-colors"
           >
             Today
           </button>
@@ -100,7 +100,7 @@ export default function CalendarMonthView({
             type="button"
             aria-label="Previous month"
             onClick={() => changeMonth(-1)}
-            className="flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 transition-colors"
+            className="flex h-7 w-7 items-center justify-center rounded-full text-ink-dim hover:bg-ink/10 transition-colors"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M15 18l-6-6 6-6" />
@@ -110,7 +110,7 @@ export default function CalendarMonthView({
             type="button"
             aria-label="Next month"
             onClick={() => changeMonth(1)}
-            className="flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 transition-colors"
+            className="flex h-7 w-7 items-center justify-center rounded-full text-ink-dim hover:bg-ink/10 transition-colors"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M9 18l6-6-6-6" />
@@ -119,7 +119,7 @@ export default function CalendarMonthView({
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-gray-400 mb-1">
+      <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium text-ink-dim mb-1">
         {WEEKDAY_LABELS.map((label, index) => (
           <div key={index}>{label}</div>
         ))}
@@ -147,7 +147,7 @@ export default function CalendarMonthView({
                   ? "bg-amber-400 text-gray-900 shadow-md"
                   : isSelected
                     ? "bg-amber-100 text-gray-900"
-                    : "text-gray-600 hover:bg-amber-50"
+                    : "text-ink-dim hover:bg-amber-50 hover:text-gray-900"
               }`}
             >
               <span className="text-sm font-semibold">{day.getDate()}</span>

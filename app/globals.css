@@ -1,58 +1,62 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  /* Palette for the Lifeline feed screen's dark restyle - exposed as
-     Tailwind utilities (bg-night, text-gold, border-ink/12, etc.) so
-     Lifeline-scoped components style off one shared source instead of
-     repeating hex values inline. Tokens are global (any screen could
-     technically use bg-night), but only Lifeline components currently
-     do - other screens are untouched by this change.
-
-     night/dusk/ink/ink-dim were redefined for the black-and-gray-base
-     pass (same token names/roles, new values - every existing bg-night/
-     bg-dusk/text-ink/text-ink-dim usage across Lifeline components picks
-     these up automatically, no per-file changes needed for those four):
-       night:    page background,          was #1C1A33 (dark purple)
-       dusk:     card background,          was #2E2750 (dark purple)
-       ink:      body text,                was #F6F1E9 (warm cream)
-       ink-dim:  timestamp/muted text,     was #C4BADA (lavender-gray)
-     gold/peach are untouched - still used by the action row/buttons,
-     which this pass doesn't touch (only the card's own background/
-     border/text/eyebrow - border color itself is no longer a uniform
-     gold, see getSpaceAccentColor in spaceTone.ts, applied via inline
-     style since it's a genuine per-Space runtime value, not a static
-     Tailwind class). */
-  --color-night: #000000;
-  --color-dusk: #38383D;
+  /* Unified light/dark theme system v1 - exposed as Tailwind utilities
+     (bg-night, text-ink, border-ink/12, etc.) so every screen styles off
+     one shared token source instead of repeating hex values inline.
+     Previously Lifeline-only (see the old comment this replaced) -
+     Spaces/Calendar/Me/DashboardHeader/BottomNav were hardcoded light
+     literals with no token layer at all. They've now been retrofitted to
+     use these same classes, which is what makes them theme-aware too:
+     Lifeline itself needed ZERO component changes for this - it already
+     used bg-night/bg-dusk/text-ink/text-ink-dim throughout, so once
+     those tokens themselves became theme-conditional (below), Lifeline
+     started responding to the toggle for free. */
+  --color-night: var(--theme-night);
+  --color-dusk: var(--theme-dusk);
+  --color-ink: var(--theme-ink);
+  --color-ink-dim: var(--theme-ink-dim);
+  /* gold/peach are untouched - not part of the theming design spec, same
+     single hex in both themes (action-row buttons, accents), as before. */
   --color-gold: #F0A339;
   --color-peach: #FFD8A6;
-  --color-ink: #C6C6CA;
-  --color-ink-dim: #8A8A90;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Theme token values - swap via a `data-theme` attribute on <html>
+   (set by ThemeProvider, app/lib/ThemeContext.tsx, from the user's
+   persisted profiles.theme_preference) rather than a `.dark`/`.light`
+   class + Tailwind's @custom-variant dark mechanism: this app does full
+   token-level swapping (every bg-night/text-ink/etc. usage resolves
+   differently per theme automatically), not per-utility `dark:`
+   prefixing, so a plain attribute-selector pair is simpler and
+   self-contained - no Tailwind dark-mode-variant wiring needed for
+   something no call site actually uses.
+
+   Dark is both the unstyled default (:root, before ThemeProvider's
+   effect runs or if it never does) and the explicit [data-theme="dark"]
+   value - matches the DB column's own default (profiles.theme_preference
+   defaults to 'dark'), so there's never a flash-to-light before the
+   real preference loads. */
+:root,
+[data-theme="dark"] {
+  --theme-night: #000000; /* page background */
+  --theme-dusk: #38383D; /* card background */
+  --theme-ink: #C6C6CA; /* body text */
+  --theme-ink-dim: #8A8A90; /* timestamp/muted text */
+}
+
+[data-theme="light"] {
+  --theme-night: #FAF8F5;
+  --theme-dusk: #FFFFFF;
+  --theme-ink: #1C1C1E;
+  --theme-ink-dim: #6B6B70;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--color-night);
+  color: var(--color-ink);
   font-family: Arial, Helvetica, sans-serif;
-}
-body {
-  color: #111827;
-  background: #fefce8;
 }

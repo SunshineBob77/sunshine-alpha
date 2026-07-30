@@ -18,7 +18,7 @@ export default function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 inset-x-0 z-40 bg-white/90 backdrop-blur ring-1 ring-black/5 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] flex items-center justify-around px-2 pt-2"
+      className="fixed bottom-0 inset-x-0 z-40 bg-dusk/90 backdrop-blur ring-1 ring-ink/10 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] flex items-center justify-around px-2 pt-2"
       style={{ paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom))" }}
     >
       {leftItems.map((item) => (
@@ -29,7 +29,11 @@ export default function BottomNav() {
         type="button"
         onClick={openCapture}
         aria-label="Drop"
-        className="-mt-8 flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-orange-400 shadow-lg shadow-amber-300/60 text-white text-3xl font-bold ring-4 ring-white transition-transform hover:scale-105"
+        // ring-night (not ring-white) - creates the same "cutout" gap
+        // against the page behind this floating button (it pokes up
+        // above the nav bar via -mt-8) matching the page token instead
+        // of a fixed white ring.
+        className="-mt-8 flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-orange-400 shadow-lg shadow-amber-300/60 text-white text-3xl font-bold ring-4 ring-night transition-transform hover:scale-105"
       >
         +
       </button>
