@@ -13,16 +13,20 @@ import { getSpaceColor } from "@/app/lib/spaceColors";
 export default function SharedSpacesTile({ space }: { space: Space }) {
   const router = useRouter();
   const { theme } = useTheme();
+  const spaceColor = getSpaceColor(space.id);
   // Unified theme system v1 - same whole-tile fill-vs-card-token split as
   // SpaceTile in spaces/page.tsx.
-  const tileBackground = theme === "dark" ? "var(--color-dusk)" : getSpaceColor(space.id).fill;
+  const tileBackground = theme === "dark" ? "var(--color-dusk)" : spaceColor.fill;
 
   return (
     <button
       type="button"
       onClick={() => router.push("/spaces/shared")}
-      className="relative rounded-2xl p-3 text-center ring-1 ring-black/5 shadow-sm hover:shadow-md hover:scale-[1.01] transition-all"
-      style={{ backgroundColor: tileBackground }}
+      className="relative rounded-2xl p-3 text-center ring-1 ring-black/5 shadow-sm hover:shadow-md hover:scale-[1.01] transition-all border-2"
+      // Border-only follow-up - same identity hex in both themes, same
+      // "class for width, inline style for the runtime color" split
+      // DropCard.tsx's own identity-color border already uses.
+      style={{ backgroundColor: tileBackground, borderColor: spaceColor.identity }}
     >
       <span
         className="absolute top-1.5 right-1.5 text-[10px] leading-none"

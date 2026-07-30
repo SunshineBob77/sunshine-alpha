@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fetchMySpaces, createSharedSpace, type MySpace } from "@/app/lib/sharedSpaces";
+import { getSpaceColor } from "@/app/lib/spaceColors";
 import InlineTextInput from "@/app/components/InlineTextInput";
 import InviteSpaceModal from "@/app/components/InviteSpaceModal";
 
@@ -74,7 +75,12 @@ export default function SharedSpacesPage() {
             {spaces.map((space) => (
               <div
                 key={space.id}
-                className="w-full flex items-center gap-3 bg-dusk rounded-2xl ring-1 ring-ink/10 shadow-sm p-4 hover:ring-amber-300 transition-all"
+                className="w-full flex items-center gap-3 bg-dusk rounded-2xl ring-1 ring-ink/10 shadow-sm p-4 hover:ring-amber-300 transition-all border-2"
+                // Border-only follow-up - per-instance identity hex from
+                // getSpaceColor's hash-based generation (spaceColors.ts),
+                // same "class for width, inline style for the
+                // runtime-computed color" split used on the /spaces tiles.
+                style={{ borderColor: getSpaceColor(space.id, spaces).identity }}
               >
                 <button
                   type="button"

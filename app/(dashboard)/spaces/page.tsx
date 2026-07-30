@@ -18,12 +18,22 @@ function SpaceTile({ space, displayName }: { space: Space; displayName: string }
   const { renameSpace } = useCaptures();
   const router = useRouter();
   const { theme } = useTheme();
+  const spaceColor = getSpaceColor(space.id);
   // Unified theme system v1 - a Space's own light-mode fill tint is a
   // whole-tile-sized surface (unlike DropCard's small circular icon
   // badge, which keeps showing its fill tint as a decorative accent in
   // both themes, pre-dating this change) - per the design spec, dark
   // mode has no separate fill, it uses the plain card token instead.
-  const tileBackground = theme === "dark" ? "var(--color-dusk)" : getSpaceColor(space.id).fill;
+  const tileBackground = theme === "dark" ? "var(--color-dusk)" : spaceColor.fill;
+  // Border-only follow-up - same identity hex, in BOTH themes, same as
+  // the Lifeline dark cards' own 2px identity-color border (DropCard.tsx)
+  // - a tile now visually reads as "this Space" the same way a Drop card
+  // already does, without touching the fill/background above at all.
+  // border-2 is a Tailwind class (width, relies on Tailwind preflight's
+  // border-style: solid reset - same "class for width/style, inline
+  // style for the runtime-computed color" split DropCard.tsx already
+  // uses for its own identity-color border), color is the inline style.
+  const borderColorStyle = { borderColor: spaceColor.identity };
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(displayName);
   const [saving, setSaving] = useState(false);
@@ -53,8 +63,8 @@ function SpaceTile({ space, displayName }: { space: Space; displayName: string }
   if (editing) {
     return (
       <div
-        className="relative rounded-2xl p-3 text-center ring-2 ring-amber-400 shadow-md"
-        style={{ backgroundColor: tileBackground }}
+        className="relative rounded-2xl p-3 text-center ring-2 ring-amber-400 shadow-md border-2"
+        style={{ backgroundColor: tileBackground, ...borderColorStyle }}
       >
         <div className="text-2xl">{space.icon}</div>
         <input
@@ -95,8 +105,8 @@ function SpaceTile({ space, displayName }: { space: Space; displayName: string }
     <button
       type="button"
       onClick={() => router.push(`/?space=${space.id}`)}
-      className="relative rounded-2xl p-3 text-center ring-1 ring-black/5 shadow-sm hover:shadow-md hover:scale-[1.01] transition-all"
-      style={{ backgroundColor: tileBackground }}
+      className="relative rounded-2xl p-3 text-center ring-1 ring-black/5 shadow-sm hover:shadow-md hover:scale-[1.01] transition-all border-2"
+      style={{ backgroundColor: tileBackground, ...borderColorStyle }}
     >
       {space.isSystem ? (
         <span
