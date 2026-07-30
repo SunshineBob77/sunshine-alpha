@@ -34,10 +34,12 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 // second it's visible mid-swipe - negligible in practice, clones are
 // never on-screen except during an active swipe gesture.
 //
-// Mobile/touch is the priority per instruction - this still works with a
-// mouse (native scroll-snap responds to trackpad/wheel scrolling either
-// way), but no custom desktop affordance (drag, arrow buttons) is built
-// here; that's a separate, deprioritized pass.
+// Mobile/touch remains the priority - swipe/scroll-snap is untouched -
+// but desktop now also gets explicit left/right arrow buttons (hidden
+// below the sm: breakpoint, same convention as the Lifeline pill
+// toolbar's own desktop arrows), see the JSX below. They call the exact
+// same scrollToDom() the dots already use, so they get the loop-via-
+// clones wraparound for free with no extra bounds-checking.
 //
 // "Advance to the next non-completed card" (when a group member
 // completes) still needs no special-case logic - see the shrink-effect
@@ -171,39 +173,79 @@ export default function DropGroupCarousel({ slides }: { slides: React.ReactNode[
           overflow-y-hidden + measured height crops that down to just the
           active slide's own content, exactly the same visual result,
           with the actual scrolling element's own box never moving. */}
-      <div
-        style={{ height }}
-        className="overflow-y-hidden transition-[height] duration-300 ease-in-out"
-      >
+      {/* Desktop arrow navigation v1 - wraps just the height-animated
+          slide area (not the dot row below) in a relative container so
+          the arrows center vertically over the slides only. Wired to the
+          exact same scrollToDom() the dots already call, just offset
+          from activeDomIndex instead of an absolute index - no new
+          navigation path. No canScrollLeft/Right disabled-state check
+          (unlike the pill toolbar's arrows): this carousel always loops
+          via clone slides (see the file-level comment and canLoop
+          above), so scrollToDom(activeDomIndex ± 1) at either boundary
+          lands on a clone, and the existing scrollend listener below
+          silently snaps that back to the real slide it stands in for -
+          the same self-correction swipe already relies on, since
+          scrollend fires identically for a programmatic smooth-scroll as
+          for a touch gesture. Arrows only ever render when slides.length
+          > 1, same gate as the dots - whenever that's true, canLoop is
+          necessarily also true (canLoop = slides.length > 1), so this
+          wraparound path is always live while the arrows are visible. */}
+      <div className="relative">
         <div
-          ref={scrollRef}
-          onScroll={handleScroll}
-          className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          style={{ height }}
+          className="overflow-y-hidden transition-[height] duration-300 ease-in-out"
         >
-          {displaySlides.map((slide, index) => (
-            <div key={index} className="w-full shrink-0 snap-center">
-              {/* Height is measured off THIS inner div, not the outer
-                  slide div above - the outer one is a flex item under
-                  scrollRef's default align-items: stretch, so its own
-                  scrollHeight is forced to match the tallest sibling for
-                  EVERY slide (confirmed empirically: a short slide's
-                  outer scrollHeight reads identical to a tall slide's -
-                  356 vs 356 - while this inner div, which isn't itself a
-                  flex item, reads its own real content height - 18 vs
-                  324). Measuring the outer div here would silently
-                  reproduce the exact "every card renders at the tallest
-                  member's height" bug this whole ref/height mechanism
-                  exists to fix. */}
-              <div
-                ref={(el) => {
-                  slideRefs.current[index] = el;
-                }}
-              >
-                {slide}
+          <div
+            ref={scrollRef}
+            onScroll={handleScroll}
+            className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {displaySlides.map((slide, index) => (
+              <div key={index} className="w-full shrink-0 snap-center">
+                {/* Height is measured off THIS inner div, not the outer
+                    slide div above - the outer one is a flex item under
+                    scrollRef's default align-items: stretch, so its own
+                    scrollHeight is forced to match the tallest sibling for
+                    EVERY slide (confirmed empirically: a short slide's
+                    outer scrollHeight reads identical to a tall slide's -
+                    356 vs 356 - while this inner div, which isn't itself a
+                    flex item, reads its own real content height - 18 vs
+                    324). Measuring the outer div here would silently
+                    reproduce the exact "every card renders at the tallest
+                    member's height" bug this whole ref/height mechanism
+                    exists to fix. */}
+                <div
+                  ref={(el) => {
+                    slideRefs.current[index] = el;
+                  }}
+                >
+                  {slide}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
+
+        {slides.length > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={() => scrollToDom(activeDomIndex - 1)}
+              aria-label="Previous card"
+              className="hidden sm:flex absolute left-0.5 top-1/2 -translate-y-1/2 z-20 h-7 w-7 items-center justify-center rounded-full bg-dusk text-ink shadow-sm ring-1 ring-ink/10 hover:bg-ink/10 transition-all"
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollToDom(activeDomIndex + 1)}
+              aria-label="Next card"
+              className="hidden sm:flex absolute right-0.5 top-1/2 -translate-y-1/2 z-20 h-7 w-7 items-center justify-center rounded-full bg-dusk text-ink shadow-sm ring-1 ring-ink/10 hover:bg-ink/10 transition-all"
+            >
+              ›
+            </button>
+          </>
+        )}
       </div>
 
       {slides.length > 1 && (
