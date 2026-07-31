@@ -4,6 +4,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useCaptures } from "@/app/lib/DashboardContext";
 import { searchCaptures, tokenizeSearchQuery } from "@/app/lib/searchCaptures";
 import { isAggregationQuery, detectWorkoutQuery } from "@/app/lib/aggregationIntent";
+import {
+  shouldEscalateSearch,
+  buildSearchCandidates,
+  mergeEscalatedResults,
+} from "@/app/lib/searchEscalation";
+import type { Capture } from "@/app/lib/captures";
 import DropCard from "@/app/components/DropCard";
 import DropDetailModal from "@/app/components/DropDetailModal";
 
@@ -12,6 +18,12 @@ import DropDetailModal from "@/app/components/DropDetailModal";
 // This one hits the network, so it waits for a pause in typing the same
 // way any other network-backed search field would.
 const AGGREGATION_DEBOUNCE_MS = 400;
+
+// Ask Sunshine v3's own debounce, kept as a separate constant from
+// AGGREGATION_DEBOUNCE_MS even though the value matches today - the two
+// lanes are deliberately independent (see searchEscalation.ts's header),
+// this just happens to land on the same "wait for a typing pause" value.
+const ESCALATION_DEBOUNCE_MS = 400;
 
 export default function AskSunshinePage() {
   const { captures, capturesLoading, user, sharedSpaces } = useCaptures();
@@ -88,6 +100,68 @@ export default function AskSunshinePage() {
   const effectiveAggregationAnswer = workoutIntent ? aggregationAnswer : null;
   const effectiveAggregationLoading = workoutIntent ? aggregationLoading : false;
 
+  // Ask Sunshine v3 - AI escalation for the plain-search lane itself
+  // (searchCaptures.ts), a sibling to the aggregation lane above, not a
+  // wrapper around it. Fires only when v1's keyword search found zero
+  // results for a query that had real search terms (see
+  // shouldEscalateSearch's own doc comment) - a low-but-nonzero result
+  // count deliberately does NOT escalate.
+  const escalationCandidates = useMemo(() => buildSearchCandidates(captures), [captures]);
+  const shouldEscalate = useMemo(
+    () => shouldEscalateSearch(tokenizeSearchQuery(trimmedQuery), results.length),
+    [trimmedQuery, results.length]
+  );
+
+  const [escalatedResults, setEscalatedResults] = useState<Capture[]>([]);
+  const [escalationLoading, setEscalationLoading] = useState(false);
+
+  useEffect(() => {
+    // No fetch to run - nothing to reset either, since the render below
+    // only ever reads escalatedResults/escalationLoading through the
+    // effectiveEscalation* values, which already ignore both whenever
+    // shouldEscalate is false. Same "stale state can't leak into a
+    // no-longer-eligible render" posture as the aggregation effect above.
+    if (!shouldEscalate) return;
+
+    let cancelled = false;
+    setEscalationLoading(true);
+
+    const timer = setTimeout(() => {
+      fetch("/api/ask-sunshine-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: trimmedQuery, candidates: escalationCandidates }),
+      })
+        .then((response) => response.json())
+        .then((data: { relevantIds?: number[] }) => {
+          if (cancelled) return;
+          setEscalatedResults(mergeEscalatedResults(captures, data.relevantIds ?? []));
+        })
+        .catch((error) => {
+          if (cancelled) return;
+          console.error("ask-sunshine-search escalation failed", error);
+          setEscalatedResults([]);
+        })
+        .finally(() => {
+          if (!cancelled) setEscalationLoading(false);
+        });
+    }, ESCALATION_DEBOUNCE_MS);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [shouldEscalate, trimmedQuery, escalationCandidates, captures]);
+
+  const effectiveEscalatedResults = shouldEscalate ? escalatedResults : [];
+  const effectiveEscalationLoading = shouldEscalate ? escalationLoading : false;
+
+  // v1's keyword results always take precedence when present - this only
+  // ever supplies Drops when v1 genuinely found none. Same Capture
+  // objects, same DropCard rendering below - a search result found this
+  // way is visually indistinguishable from a plain keyword match.
+  const displayResults = results.length > 0 ? results : effectiveEscalatedResults;
+
   return (
     <main className="flex flex-col items-center p-8">
       <div className="w-full max-w-2xl">
@@ -150,15 +224,24 @@ export default function AskSunshinePage() {
             {isAggregation && !effectiveAggregationLoading && (
               <div className="bg-amber-50 ring-1 ring-amber-200 text-amber-900 rounded-2xl px-4 py-3 mb-4 text-sm font-semibold">
                 {effectiveAggregationAnswer ??
-                  `Found ${results.length} matching Drop${results.length === 1 ? "" : "s"}.`}
+                  // Reads displayResults, not results, so this stays
+                  // accurate once escalated matches (if any) have loaded
+                  // in - otherwise an aggregation-shaped query that also
+                  // triggers v3 escalation would say "Found 0" right up
+                  // until the Drops themselves appear below it.
+                  `Found ${displayResults.length} matching Drop${displayResults.length === 1 ? "" : "s"}.`}
               </div>
             )}
 
-            {results.length === 0 ? (
-              <p className="text-gray-500 text-center">No Drops match &ldquo;{trimmedQuery}&rdquo;.</p>
+            {displayResults.length === 0 ? (
+              <p className="text-gray-500 text-center">
+                {effectiveEscalationLoading
+                  ? "Searching…"
+                  : <>No Drops match &ldquo;{trimmedQuery}&rdquo;.</>}
+              </p>
             ) : (
               <div className="space-y-3">
-                {results.map((capture) => (
+                {displayResults.map((capture) => (
                   // Bare DropCard, no action-row props at all - a search
                   // result is a read-focused preview, not another place to
                   // wire up Complete/Hide/Edit/Delete (that's what tapping
