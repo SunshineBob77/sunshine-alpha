@@ -42,7 +42,7 @@ function buildPrompt(query: string, candidates: SearchCandidate[]): string {
 
 Plain keyword search already found zero matches - none of these Drops contain the query's literal words. Below is a JSON list of their Drops (id, title, summary, category, project, tags - not the full note content). Decide which Drops, if any, are genuinely relevant to what the user is actually asking for, based on real meaning and intent rather than literal word overlap.
 
-Be strict, not generous. Only include a Drop if a person reading the query and that Drop side by side would clearly recognize the Drop as answering it - not merely related, adjacent, or in the same general topic area. A shared theme, category, or vague thematic echo is NOT enough on its own.
+Be strict, not generous. Only include a Drop if a person reading the query and that Drop side by side would clearly recognize the Drop as answering it - not merely related, adjacent, or in the same general topic area. A shared theme, category, or vague thematic echo is NOT enough on its own. In particular, two Drops being in the same category (e.g. both "recipes", both "travel") does NOT make one relevant to a query about the other - a recipe for one dish is not relevant to a query about a different, unrelated dish just because both are recipes.
 
 An empty array is a normal, correct, and common answer - it means none of these Drops genuinely match, which is expected most of the time. Returning an empty array is NOT a failure to avoid; guessing at a loosely-related Drop just to return something is the actual mistake. When in doubt, leave a Drop out.
 
