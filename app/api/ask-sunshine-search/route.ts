@@ -28,15 +28,28 @@ import type { SearchCandidate } from "@/app/lib/searchEscalation";
 
 const anthropic = new Anthropic();
 
+// Precision over recall, deliberately: this is a search feature, not a
+// brainstorming or "related notes" feature, so a wrong/loosely-related
+// result actively misleads the user about what they actually have
+// captured, while an empty array just means "keep whatever the plain
+// keyword search already showed" (usually its own "no Drops match"
+// state) - a false positive costs more than a false negative here. Bias
+// the model hard toward that asymmetry rather than leaving it to
+// default toward the more common "be maximally helpful, return
+// something" instinct.
 function buildPrompt(query: string, candidates: SearchCandidate[]): string {
   return `A user searched their personal notes app ("Drops") for: "${query}"
 
 Plain keyword search already found zero matches - none of these Drops contain the query's literal words. Below is a JSON list of their Drops (id, title, summary, category, project, tags - not the full note content). Decide which Drops, if any, are genuinely relevant to what the user is actually asking for, based on real meaning and intent rather than literal word overlap.
 
+Be strict, not generous. Only include a Drop if a person reading the query and that Drop side by side would clearly recognize the Drop as answering it - not merely related, adjacent, or in the same general topic area. A shared theme, category, or vague thematic echo is NOT enough on its own.
+
+An empty array is a normal, correct, and common answer - it means none of these Drops genuinely match, which is expected most of the time. Returning an empty array is NOT a failure to avoid; guessing at a loosely-related Drop just to return something is the actual mistake. When in doubt, leave a Drop out.
+
 Drops:
 ${JSON.stringify(candidates)}
 
-Respond with exactly a JSON array of the relevant Drop ids, ordered most-relevant first, and nothing else before or after it - e.g. [12, 47]. If none are genuinely relevant, respond with [].`;
+Respond with exactly a JSON array of the relevant Drop ids, ordered most-relevant first, and nothing else before or after it - e.g. [12, 47]. If none are genuinely relevant - including if that means all of them - respond with [].`;
 }
 
 function parseRelevantIds(rawText: string, validIds: Set<number>): number[] {
