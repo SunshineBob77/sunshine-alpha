@@ -11,13 +11,17 @@ import { useInviteShare } from "@/app/lib/useInviteShare";
 // (no label) -> invite (labeled) -> me (labeled, now at the far right
 // edge). Capture is still reachable via the floating "+" in BottomNav.
 //
-// sunshine-logo.png is the real icon+wordmark lockup (cropped tight from
-// the original asset, background keyed to transparent - the source file
-// had an opaque near-white canvas with large padding). Unified theme
-// system v1 - this header used to be permanently light (cream) regardless
-// of the Lifeline's own forced-dark styling; now routes through the same
-// bg-night token every other fixed header bar already uses (e.g. the
-// Lifeline pill toolbar), so it tracks the real theme instead.
+// sunshine-icon.png is just the circular sun mark (cropped tight from the
+// original sunshine-logo.png lockup, transparent background) - gold on
+// black, so it reads fine against both theme backgrounds unchanged. The
+// "Sunshine" wordmark itself is live text in text-ink rather than part of
+// the image: sunshine-logo.png's baked-in wordmark was solid black with
+// no dark variant, a leftover from before the 7/30 unified light/dark
+// theme system (see globals.css) - invisible against this header's own
+// bg-night once bg-night itself became theme-conditional and could
+// resolve to #000000. Live text tracks text-ink automatically in both
+// themes, the same token every other label in this header already uses,
+// instead of needing a second baked image asset kept in sync by hand.
 export default function DashboardHeader() {
   const { status: inviteStatus, handleInvite } = useInviteShare();
 
@@ -33,15 +37,16 @@ export default function DashboardHeader() {
   return (
     <header className="fixed top-0 inset-x-0 z-30 h-14 bg-night/90 backdrop-blur-md border-b border-ink/10 px-4 sm:px-8">
       <div className="w-full max-w-2xl mx-auto h-full flex items-center justify-between gap-3">
-        <Link href="/" aria-label="Sunshine home" className="flex items-center shrink-0">
+        <Link href="/" aria-label="Sunshine home" className="flex items-center gap-2 shrink-0">
           <Image
-            src="/sunshine-logo.png"
-            alt="Sunshine"
-            width={1276}
-            height={358}
-            className="h-8 w-auto"
+            src="/sunshine-icon.png"
+            alt=""
+            width={334}
+            height={329}
+            className="h-8 w-8"
             priority
           />
+          <span className="text-xl font-bold tracking-tight text-ink leading-none">Sunshine</span>
         </Link>
 
         <div className="flex items-center gap-1 shrink-0">
