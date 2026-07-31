@@ -4,7 +4,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { useInviteShare } from "@/app/lib/useInviteShare";
 
-// Target: 55-60px total (h-14 = 56px). Left: logo + "Sunshine" wordmark.
+// Target: 55-60px total (h-14 = 56px). Left: logo + "Sunshine" wordmark,
+// itself a tap target routing to /about (app/(dashboard)/about/page.tsx) -
+// same "plain Link to a dedicated route" pattern this header's own
+// Search/Me links already use, not a modal (this app reserves modals for
+// contextual, Drop/Space-scoped actions - InviteSpaceModal, DropDetailModal,
+// CaptureModal - not for a standalone content screen reached from the
+// global sticky header).
 // Right, in order: an empty vacated slot (same width as the icon buttons,
 // keeps the group's total width - and therefore Search/Invite/Me's
 // position - unchanged from when the header "+" lived here) -> search
@@ -37,7 +43,7 @@ export default function DashboardHeader() {
   return (
     <header className="fixed top-0 inset-x-0 z-30 h-14 bg-night/90 backdrop-blur-md border-b border-ink/10 px-4 sm:px-8">
       <div className="w-full max-w-2xl mx-auto h-full flex items-center justify-between gap-3">
-        <Link href="/" aria-label="Sunshine home" className="flex items-center gap-2 shrink-0">
+        <Link href="/about" aria-label="About Sunshine" className="flex items-center gap-2 shrink-0">
           <Image
             src="/sunshine-icon.png"
             alt=""
