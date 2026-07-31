@@ -108,6 +108,17 @@ export function searchCaptures(captures: Capture[], query: string): Capture[] {
       capture.project,
       capture.tags?.join(" "),
       capture.sunshineSummary,
+      // AI-extracted physical address (analyze-drop's ADDRESS task) and
+      // locally regex-detected street addresses (recognizeEntities) - both
+      // real location data that previously never reached search at all, so
+      // a query like "photo shoot locations" couldn't find a Drop whose
+      // only location signal lives in one of these structured fields
+      // rather than the raw text. Both are optional/null on older Drops
+      // (extractedAddress predates entities on some rows, and either can
+      // legitimately be empty), hence the same .filter(Boolean) handling
+      // as every other blob field.
+      capture.extractedAddress,
+      capture.entities?.addresses?.join(" "),
     ]
       .filter(Boolean)
       .join(" ")
