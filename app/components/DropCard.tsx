@@ -318,14 +318,14 @@ export default function DropCard({
           {onTitleTap ? (
             <button type="button" onClick={onTitleTap} className="block w-full text-left">
               <p
-                className={`font-bold ${isDark ? `${fraunces.className} text-white` : "text-gray-900"} ${isHero ? "text-2xl" : "text-lg"}`}
+                className={`font-bold ${isDark ? `${fraunces.className} text-ink` : "text-gray-900"} ${isHero ? "text-2xl" : "text-lg"}`}
               >
                 {title}
               </p>
             </button>
           ) : (
             <p
-              className={`font-bold ${isDark ? `${fraunces.className} text-white` : "text-gray-900"} ${isHero ? "text-2xl" : "text-lg"}`}
+              className={`font-bold ${isDark ? `${fraunces.className} text-ink` : "text-gray-900"} ${isHero ? "text-2xl" : "text-lg"}`}
             >
               {title}
             </p>
@@ -347,7 +347,7 @@ export default function DropCard({
               // low-opacity-until-active treatment.
               className={`flex shrink-0 items-center justify-center rounded-full font-bold leading-none transition-all ${
                 isDark
-                  ? "text-white bg-ink/15 hover:bg-ink/25"
+                  ? "text-ink bg-ink/15 hover:bg-ink/25"
                   : "text-gray-900 bg-black/10 hover:bg-black/15"
               } ${isHero ? "h-9 w-9 text-xl" : "h-6 w-6 text-base"}`}
             >
@@ -389,7 +389,7 @@ export default function DropCard({
               aria-label="Edit"
               title="Edit"
               className={`flex shrink-0 items-center justify-center rounded-full transition-all ${
-                isDark ? "text-white hover:bg-ink/10" : "text-gray-900 hover:bg-black/5"
+                isDark ? "text-ink hover:bg-ink/10" : "text-gray-900 hover:bg-black/5"
               } ${isHero ? "h-9 w-9 text-base" : "h-6 w-6 text-xs"}`}
             >
               ✏️
