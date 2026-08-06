@@ -87,7 +87,7 @@ type DashboardContextValue = {
   setCurrentSpaceId: (id: string | null) => void;
   removeCapture: (id: number) => Promise<void>;
   updateSpaces: (id: number, spaceIds: string[]) => Promise<void>;
-  updateText: (id: number, text: string) => Promise<void>;
+  updateText: (id: number, text: string, title?: string | null) => Promise<void>;
   // Analyze-drop failure tracking v1 - manual retry, always fires
   // regardless of analysisAttempts (an explicit user tap bypasses the
   // automatic-retry cap). No-op if the capture isn't found locally.
@@ -545,14 +545,16 @@ export function DashboardProvider({
     );
   }
 
-  async function updateText(id: number, text: string) {
+  async function updateText(id: number, text: string, title?: string | null) {
     const existing = captures.find((capture) => capture.id === id);
     const oldText = existing?.text ?? "";
     const wasLocked = existing?.temporalLocked ?? false;
 
-    await updateCaptureText(id, text);
+    await updateCaptureText(id, text, title);
     setCaptures((prev) =>
-      prev.map((capture) => (capture.id === id ? { ...capture, text } : capture))
+      prev.map((capture) =>
+        capture.id === id ? { ...capture, text, ...(title !== undefined ? { title } : {}) } : capture
+      )
     );
 
     // A locked Drop's date is never touched automatically - analyzeDrop()

@@ -532,8 +532,10 @@ export default function DropDetailModal({
   } = useCaptures();
   const [editing, setEditing] = useState(startInEditMode);
   const [draft, setDraft] = useState(capture.text);
+  const [draftTitle, setDraftTitle] = useState(capture.title ?? "");
   const [savingText, setSavingText] = useState(false);
   const [textError, setTextError] = useState<string | null>(null);
+  const [titleError, setTitleError] = useState<string | null>(null);
   const [togglingStatus, setTogglingStatus] = useState(false);
   const [confirmingComplete, setConfirmingComplete] = useState(false);
   // Only "More" expands into a panel now - Hide is a direct single-tap
@@ -589,10 +591,15 @@ export default function DropDetailModal({
 
   async function handleSaveText() {
     if (!draft.trim()) return;
+    if (!draftTitle.trim()) {
+      setTitleError("Title can't be empty.");
+      return;
+    }
+    setTitleError(null);
     setSavingText(true);
     setTextError(null);
     try {
-      await updateText(capture.id, draft.trim());
+      await updateText(capture.id, draft.trim(), draftTitle.trim());
       setEditing(false);
     } catch (err) {
       console.error(err);
@@ -661,7 +668,9 @@ export default function DropDetailModal({
   function handleEditTap() {
     setMoreOpen(false);
     setDraft(capture.text);
+    setDraftTitle(capture.title ?? "");
     setTextError(null);
+    setTitleError(null);
     setEditing((prev) => !prev);
   }
 
@@ -689,9 +698,23 @@ export default function DropDetailModal({
       >
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-start gap-2 min-w-0 flex-1">
-            <p className="font-bold text-lg text-ink min-w-0">
-              {capture.title ?? capture.sunshineSummary}
-            </p>
+            {editing ? (
+              <div className="min-w-0 flex-1">
+                <input
+                  type="text"
+                  value={draftTitle}
+                  onChange={(event) => setDraftTitle(event.target.value)}
+                  placeholder={capture.sunshineSummary}
+                  aria-label="Drop title"
+                  className="w-full font-bold text-lg text-ink bg-transparent border border-ink/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+                />
+                {titleError && <p className="text-xs text-red-600 mt-1">{titleError}</p>}
+              </div>
+            ) : (
+              <p className="font-bold text-lg text-ink min-w-0">
+                {capture.title ?? capture.sunshineSummary}
+              </p>
+            )}
             <span
               className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs mt-0.5"
               title={toneName}
@@ -755,8 +778,10 @@ export default function DropDetailModal({
                 type="button"
                 onClick={() => {
                   setDraft(capture.text);
+                  setDraftTitle(capture.title ?? "");
                   setEditing(false);
                   setTextError(null);
+                  setTitleError(null);
                 }}
                 disabled={savingText}
                 className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-3 py-1.5 rounded-full transition-all disabled:opacity-60"

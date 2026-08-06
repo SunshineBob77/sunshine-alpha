@@ -425,8 +425,15 @@ export async function dismissCaptureTemporal(id: number): Promise<void> {
   if (error) throw error;
 }
 
-export async function updateCaptureText(id: number, text: string): Promise<void> {
-  const { error } = await supabase.from("captures").update({ text }).eq("id", id);
+export async function updateCaptureText(
+  id: number,
+  text: string,
+  title?: string | null
+): Promise<void> {
+  const payload: Record<string, unknown> = { text };
+  if (title !== undefined) payload.title = title;
+
+  const { error } = await supabase.from("captures").update(payload).eq("id", id);
   if (error) throw error;
 }
 
