@@ -331,7 +331,13 @@ export function DashboardProvider({
                     aiResearchResult: data.result ?? null,
                     extractedAddress: data.address ?? null,
                     formattedText: data.formatted ?? null,
-                    title: data.title ?? null,
+                    // Never overwrite a manually-set title locally either -
+                    // mirrors route.ts skipping the DB write for the same
+                    // reason (see titleManuallySet/space_manually_set).
+                    // Guards local state independently of whatever the
+                    // response happens to contain, rather than trusting the
+                    // server to have already gated its own `title` field.
+                    title: capture.titleManuallySet ? capture.title : data.title ?? null,
                     isActionable: data.isActionable ?? false,
                     category: data.category ?? capture.category,
                     spaceIds: data.spaceIds ?? capture.spaceIds,
@@ -553,7 +559,9 @@ export function DashboardProvider({
     await updateCaptureText(id, text, title);
     setCaptures((prev) =>
       prev.map((capture) =>
-        capture.id === id ? { ...capture, text, ...(title !== undefined ? { title } : {}) } : capture
+        capture.id === id
+          ? { ...capture, text, ...(title !== undefined ? { title, titleManuallySet: true } : {}) }
+          : capture
       )
     );
 

@@ -510,7 +510,7 @@ export async function POST(request: Request) {
     const { data: captureRow, error: captureLookupError } = await supabaseAdmin
       .from("captures")
       .select(
-        "user_id, created_at, space_ids, space_manually_set, temporal_locked, checklist_items, source"
+        "user_id, created_at, space_ids, space_manually_set, title_manually_set, temporal_locked, checklist_items, source"
       )
       .eq("id", id)
       .single();
@@ -655,6 +655,11 @@ export async function POST(request: Request) {
     // AI classification only applies while a Drop is still on its original
     // auto-assigned Space.
     const nextSpaceIds = captureRow.space_manually_set ? captureRow.space_ids : [spaceId];
+    // Same rule for title - once a user manually edits it (DropDetailModal's
+    // Save handler, see updateCaptureText's title_manually_set), this pass
+    // must never silently regenerate and overwrite it from the note's text,
+    // including on a re-analysis triggered by that very same save.
+    const titleManuallySet = captureRow.title_manually_set ?? false;
 
     const existingChecklistItems = (captureRow.checklist_items ?? []) as ChecklistItem[];
     const checklistItems = extractChecklistItems(formatted, existingChecklistItems);
@@ -663,7 +668,6 @@ export async function POST(request: Request) {
       ai_research_result: research ? JSON.stringify(research) : null,
       extracted_address: address,
       formatted_text: formatted,
-      title,
       is_actionable: isActionable,
       category,
       space_ids: nextSpaceIds,
@@ -678,6 +682,10 @@ export async function POST(request: Request) {
       analysis_status: "complete",
       analysis_attempts: 0,
     };
+
+    if (!titleManuallySet) {
+      updatePayload.title = title;
+    }
 
     let temporalResolution: TemporalResolutionOutput | null = null;
 

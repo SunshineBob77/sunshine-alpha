@@ -74,6 +74,11 @@ export type Capture = {
   extractedAddress: string | null;
   formattedText: string | null;
   title: string | null;
+  // Manually-set title lock v1 - true once a user has edited this Drop's
+  // title via DropDetailModal's Save handler (see updateCaptureText).
+  // Mirrors spaceManuallySet: analyze-drop/route.ts must never overwrite a
+  // manually-set title on a later re-analysis pass.
+  titleManuallySet: boolean;
   // Analyze-drop failure tracking v1 - see docs/analysis-status-schema.sql.
   // 'pending' until the analyze-drop pass finishes (success or failure);
   // distinguishes a Drop that's still processing/never got analyzed from
@@ -157,6 +162,7 @@ export type CaptureRow = {
   extracted_address: string | null;
   formatted_text: string | null;
   title: string | null;
+  title_manually_set: boolean | null;
   analysis_status: "pending" | "complete" | "failed" | null;
   analysis_attempts: number | null;
   status: "active" | "completed" | "deleted";
@@ -209,6 +215,7 @@ export function mapRowToCapture(row: CaptureRow): Capture {
     extractedAddress: row.extracted_address ?? null,
     formattedText: row.formatted_text ?? null,
     title: row.title ?? null,
+    titleManuallySet: row.title_manually_set ?? false,
     // Defaults to "complete" (not "pending") for any row missing this
     // column - e.g. a row read back before the migration backfill runs -
     // so it's never mistaken for a stuck-in-progress analysis and queued
@@ -431,7 +438,13 @@ export async function updateCaptureText(
   title?: string | null
 ): Promise<void> {
   const payload: Record<string, unknown> = { text };
-  if (title !== undefined) payload.title = title;
+  // Manually touching the title permanently protects this Drop from a
+  // later analyze-drop pass overwriting it - same one-way lock as
+  // updateCaptureSpaces's space_manually_set above.
+  if (title !== undefined) {
+    payload.title = title;
+    payload.title_manually_set = true;
+  }
 
   const { error } = await supabase.from("captures").update(payload).eq("id", id);
   if (error) throw error;
