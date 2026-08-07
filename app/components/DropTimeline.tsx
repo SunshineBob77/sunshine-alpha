@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Capture } from "@/app/lib/captures";
-import { buildOccurrences } from "@/app/lib/recurringProjection";
+import { isOccurrenceEligible, occurrencesOnOrAfter } from "@/app/lib/recurringProjection";
 import { getSpaceTone } from "@/app/lib/spaceTone";
 import { getSpaceColor } from "@/app/lib/spaceColors";
 import { useCaptures } from "@/app/lib/DashboardContext";
@@ -74,12 +74,21 @@ export default function DropTimeline({
   // not a bug (the user just jumped near the edge of loaded content).
   const hasScrolledRef = useRef(false);
 
-  // buildOccurrences is year-granular (recurring projections are
-  // inherently yearly) - generate through the window's year, then slice
-  // down to the actual month-level cutoff so what's RENDERED matches the
-  // real window size, not just what's generated.
+  // isOccurrenceEligible + occurrencesOnOrAfter (both shared with the
+  // Reminders card, see recurringProjection.ts) match Lifeline's Reminders
+  // behavior exactly: a completed/user-archived/manually-hidden dated Drop
+  // shouldn't resurface here any more than it would there, and nothing
+  // before today should show either - the same lower bound Lifeline's
+  // Reminders card has always applied, now shared instead of missing here
+  // entirely. buildOccurrences itself is year-granular (recurring
+  // projections are inherently yearly), so this still generates through
+  // the window's year, then slices down to the actual month-level cutoff
+  // so what's RENDERED matches the real window size, not just what's
+  // generated - same upper-bound mechanic as before, untouched.
   const occurrences = useMemo(() => {
-    const all = buildOccurrences(captures, throughDate.getFullYear());
+    const todayKey = new Date().toLocaleDateString("en-CA");
+    const eligible = captures.filter(isOccurrenceEligible);
+    const all = occurrencesOnOrAfter(eligible, todayKey, throughDate.getFullYear());
     const cutoff = throughDate.getTime();
     return all.filter((occurrence) => new Date(occurrence.occurrenceDate).getTime() <= cutoff);
   }, [captures, throughDate]);

@@ -232,3 +232,42 @@ export function buildOccurrences(captures: Capture[], throughYear: number): Time
     (a, b) => new Date(a.occurrenceDate).getTime() - new Date(b.occurrenceDate).getTime()
   );
 }
+
+// Shared eligibility check for a dated Drop to appear in ANY occurrence
+// list - originally the Reminders card's own isEligible(), moved here
+// alongside occurrencesOnOrAfter since both Reminders (buildReminderGroups
+// in reminders.ts) and Calendar's DropTimeline need the exact same
+// exclusions, not two independently-maintained copies. A Drop the user has
+// already completed/archived/hidden from the Lifeline shouldn't resurface
+// in either list. Only dated (resolved) Drops have a real occurrence to
+// project, so unresolved/no-date Drops are never eligible regardless of
+// status.
+export function isOccurrenceEligible(capture: Capture): boolean {
+  if (capture.eventStatus !== "resolved" || !capture.eventAt) return false;
+  if (capture.status === "completed") return false;
+  if (capture.userArchivedAt) return false;
+  if (capture.hiddenUntil && new Date(capture.hiddenUntil) > new Date()) return false;
+  return true;
+}
+
+// Shared lower bound for occurrence lists - both the Reminders card
+// (buildReminderGroups in reminders.ts, which further windows this down to
+// 30 days and splits into thisWeek/comingUp) and Calendar's DropTimeline
+// (which further clips by its own scroll-extending upper bound) need
+// "every occurrence from today onward," never a passed one. Previously
+// each duplicated this dateKey comparison independently; DropTimeline's
+// copy was missing entirely, which is what let a past one-time Drop or a
+// recurring Drop's already-happened occurrence this year (e.g. a birthday)
+// stay visible forever. Centralizing the lower bound here means neither
+// caller can drift out of sync with it again.
+export function occurrencesOnOrAfter(
+  captures: Capture[],
+  todayKey: string,
+  throughYear: number
+): TimelineOccurrence[] {
+  const occurrences = buildOccurrences(captures, throughYear);
+  return occurrences.filter(
+    (occurrence) =>
+      dateKeyInZone(occurrence.occurrenceDate, occurrence.capture.eventTimezone) >= todayKey
+  );
+}
