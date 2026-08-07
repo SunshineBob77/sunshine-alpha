@@ -894,17 +894,22 @@ export default function DropDetailModal({
       {/* Expanded Drop detail view v1 - sticky bottom toolbar, replacing
           the old scroll-with-content action row. Every Drop action lives
           here now: Pin, Edit, Space reassignment (SpacePicker's toggle,
-          relocated from inline body content), "+" add-to-group, Complete,
+          relocated from inline body content), Add to Group, Complete,
           Share, Hide, and a Delete/Archive/Undo overflow behind "More" -
           those three stay tucked away rather than getting their own
-          icons, same density tradeoff DropCard's own "More" panel already
-          made, now with one more icon's worth of density pressure (Pin/
-          Edit/Space/+ all landed here too) tipping it further that way.
-          Pin/Edit/Space/+ are icon-only, matching how the first three
-          looked as header-row buttons on the compact card before this
-          move; Complete/Share/Hide/More keep their existing text+emoji
-          labels unchanged - a full-screen view has the width for both
-          without feeling cramped. */}
+          buttons, same density tradeoff DropCard's own "More" panel
+          already made.
+          Pin/Edit/Space/Add to Group were icon-only at first (matching
+          how the first three looked as header-row buttons on the
+          compact card before this move) - confirmed live that read as
+          unclear without labels ("+" in particular got read as "create a
+          new Drop" rather than "link this Drop into a group"), so all
+          four now carry a text label too, in the same pill style
+          Complete/Share/Hide/More already use. Two rows rather than one:
+          8 labeled pills don't comfortably fit one row at typical phone
+          widths (~390px) the way 4 bare icons + 4 labeled pills did -
+          row 1 is the four relocated actions, row 2 is the four that
+          were always labeled. */}
       <div
         ref={footerRef}
         className="shrink-0 border-t border-ink/10 bg-dusk px-3 sm:px-4 pt-2 pb-3"
@@ -955,20 +960,19 @@ export default function DropDetailModal({
           </div>
         )}
 
+        {/* Row 1 - the four actions relocated from the compact card's
+            header row (Pin/Edit/Space) plus Add to Group. */}
         <div className="flex items-center justify-center gap-1.5 flex-wrap">
           {isOwnCapture && (
             <button
               type="button"
               onClick={handleTogglePin}
               aria-label={capture.pinned ? "Unpin" : "Pin"}
-              title={capture.pinned ? "Unpin" : "Pin"}
-              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base transition-all ${
-                capture.pinned
-                  ? "opacity-100 bg-gold/20"
-                  : "opacity-70 hover:opacity-100 hover:bg-ink/10"
+              className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
+                capture.pinned ? "bg-gold/20 text-ink" : "bg-ink/5 hover:bg-ink/10 text-ink-dim"
               }`}
             >
-              📌
+              📌 {capture.pinned ? "Unpin" : "Pin"}
             </button>
           )}
 
@@ -977,12 +981,11 @@ export default function DropDetailModal({
               type="button"
               onClick={handleEditTap}
               aria-label="Edit"
-              title="Edit"
-              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base transition-all ${
-                editing ? "bg-gold/20" : "text-ink hover:bg-ink/10"
+              className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
+                editing ? "bg-gold/20 text-ink" : "bg-ink/5 hover:bg-ink/10 text-ink-dim"
               }`}
             >
-              ✏️
+              ✏️ Edit
             </button>
           )}
 
@@ -990,13 +993,12 @@ export default function DropDetailModal({
             type="button"
             onClick={handleToggleSpacePicker}
             aria-label="Change Space"
-            title="Change Space"
             aria-expanded={spacePickerOpen}
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base transition-all ${
-              spacePickerOpen ? "bg-gold/20" : "text-ink hover:bg-ink/10"
+            className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
+              spacePickerOpen ? "bg-gold/20 text-ink" : "bg-ink/5 hover:bg-ink/10 text-ink-dim"
             }`}
           >
-            🗂️
+            🗂️ Space
           </button>
 
           {!isSunshineDrop && (
@@ -1004,13 +1006,16 @@ export default function DropDetailModal({
               type="button"
               onClick={handleAddToGroupTap}
               aria-label="Add to this Drop's carousel"
-              title="Add another card to this Drop"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-bold text-xl leading-none text-ink bg-ink/15 hover:bg-ink/25 transition-all"
+              className="text-xs font-semibold px-2 py-1.5 rounded-full transition-all bg-ink/5 hover:bg-ink/10 text-ink-dim"
             >
-              +
+              ➕ Add to Group
             </button>
           )}
+        </div>
 
+        {/* Row 2 - Complete/Share/Hide/More, unchanged in style/behavior
+            from before this view's toolbar existed. */}
+        <div className="flex items-center justify-center gap-1.5 flex-wrap mt-1.5">
           {capture.isActionable && isOwnCapture && !confirmingComplete && (
             <button
               type="button"
