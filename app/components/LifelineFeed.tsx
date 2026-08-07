@@ -29,7 +29,7 @@ export default function LifelineFeed({
   // primary Space the viewer owns.
   onOpenInvite: (spaceId: string) => void;
 }) {
-  const { updateStatus, hideCapture, archiveCapture, undoCaptureState } = useCaptures();
+  const { updateStatus, hideCapture, hideGroup, archiveCapture, undoCaptureState } = useCaptures();
   const [pendingRemovalIds, setPendingRemovalIds] = useState<Set<number>>(new Set());
 
   // Archived is checked first and short-circuits every other branch (tucked
@@ -141,6 +141,20 @@ export default function LifelineFeed({
     await hideCapture(id);
   }
 
+  // Onboarding Drop carousel v1 - the group-level equivalent of
+  // handleToggleHide above, used both as this carousel's manual hide
+  // fallback and as the automatic swipe-completion trigger (see
+  // renderCard/renderGroup below). Holds every member through its own
+  // settle animation, same as any other card leaving the view, so the
+  // whole carousel animates out together rather than shrinking as each
+  // member's hideCapture write lands at a slightly different time.
+  function handleHideGroup(groupId: string) {
+    for (const member of captures) {
+      if (member.groupId === groupId) holdThroughSettle(member.id);
+    }
+    return hideGroup(groupId);
+  }
+
   async function handleArchive(id: number) {
     holdThroughSettle(id);
     await archiveCapture(id);
@@ -152,13 +166,24 @@ export default function LifelineFeed({
   }
 
   function renderCard(capture: Capture) {
+    // Onboarding Drop carousel v1 - this member's own Hide button hides
+    // the WHOLE linked group, not just this one card (unlike an ordinary
+    // Card Carousel v2 group, where each member's Hide is independent).
+    // Otherwise tapping Hide on whichever slide happens to be showing
+    // would just shrink the carousel by one card, leaving the rest
+    // behind - not the "dismiss onboarding" fallback that's intended.
+    const { groupId } = capture;
+    const isOnboarding = capture.systemDropType === "onboarding" && groupId !== null;
+
     return (
       <LifelineDropCard
         key={capture.id}
         capture={capture}
         onSelect={onSelectCapture}
         onToggleStatus={() => handleToggleStatus(capture.id, capture.status)}
-        onToggleHide={() => handleToggleHide(capture.id)}
+        onToggleHide={
+          isOnboarding ? () => handleHideGroup(groupId as string) : () => handleToggleHide(capture.id)
+        }
         onArchive={() => handleArchive(capture.id)}
         onUndo={() => handleUndo(capture.id)}
         onOpenInvite={onOpenInvite}
@@ -167,10 +192,20 @@ export default function LifelineFeed({
   }
 
   function renderGroup({ key, members }: { key: string; members: Capture[] }) {
-    return members.length > 1 ? (
-      <DropGroupCarousel key={key} slides={members.map((member) => renderCard(member))} />
-    ) : (
-      renderCard(members[0])
+    if (members.length <= 1) return renderCard(members[0]);
+
+    // Onboarding Drop carousel v1 - the only group that auto-hides itself
+    // once fully swiped through. Every other group (Card Carousel v2 user
+    // groups, the Daily Brief carousel) gets no onAllSlidesVisited at all,
+    // so DropGroupCarousel's default (never fires) applies unchanged.
+    const isOnboardingGroup = members[0].systemDropType === "onboarding";
+
+    return (
+      <DropGroupCarousel
+        key={key}
+        slides={members.map((member) => renderCard(member))}
+        onAllSlidesVisited={isOnboardingGroup ? () => handleHideGroup(key) : undefined}
+      />
     );
   }
 

@@ -101,6 +101,12 @@ type DashboardContextValue = {
   // member is a real, independent Drop, not a stripped-down text field.
   addToGroup: (captureId: number) => Promise<void>;
   hideCapture: (id: number) => Promise<void>;
+  // Onboarding Drop carousel v1 - hides every member sharing groupId at
+  // once, so a linked carousel (currently only the onboarding group)
+  // disappears from Lifeline as a unit rather than shrinking one card at
+  // a time the way hideCapture would if called per-member. Same
+  // hiddenUntil mechanism as hideCapture, just batched.
+  hideGroup: (groupId: string) => Promise<void>;
   archiveCapture: (id: number) => Promise<void>;
   undoCaptureState: (id: number) => Promise<void>;
   updateTemporal: (
@@ -258,6 +264,32 @@ export function DashboardProvider({
       })
       .catch((error) => {
         console.error("daily-brief generation failed", error);
+      });
+  }, [user.id]);
+
+  // Onboarding Drop carousel v1 - same fire-and-forget-once-per-mount
+  // shape as the Daily Brief effect above. No separate "is this a new
+  // user" detection needed at all: the endpoint's own idempotency check
+  // (does this user already have systemDropType 'onboarding' rows?)
+  // means the very first mount ever creates the 7 linked Drops, and every
+  // mount after that (this session, future sessions, other tabs) is a
+  // no-op that returns {skipped: true}. Simpler merge than Daily Brief's
+  // above - these rows are created exactly once, ever, so there's no
+  // "update an existing row" case to handle, only "prepend if new".
+  useEffect(() => {
+    fetch("/api/onboarding-drops", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: user.id }),
+    })
+      .then((response) => response.json())
+      .then((data: { captures?: CaptureRow[]; skipped?: boolean }) => {
+        if (!data.captures || data.captures.length === 0) return;
+        const onboarding = data.captures.map(mapRowToCapture);
+        setCaptures((prev) => [...onboarding, ...prev]);
+      })
+      .catch((error) => {
+        console.error("onboarding-drops generation failed", error);
       });
   }, [user.id]);
 
@@ -687,6 +719,41 @@ export function DashboardProvider({
     );
   }
 
+  // Onboarding Drop carousel v1 - see hideGroup's own doc comment on the
+  // context type above. Same per-capture snapshot/write hideCapture does
+  // for one Drop, just run across every not-yet-hidden member of the
+  // group and applied to local state in a single pass.
+  async function hideGroup(groupId: string) {
+    const members = captures.filter(
+      (capture) => capture.groupId === groupId && capture.hiddenUntil === null
+    );
+    if (members.length === 0) return;
+
+    const hiddenUntil = new Date().toISOString();
+    const previousStates = new Map<number, PreviousState>(
+      members.map((member) => [
+        member.id,
+        {
+          status: member.status === "completed" ? "completed" : "active",
+          hiddenUntil: member.hiddenUntil,
+          userArchivedAt: member.userArchivedAt,
+        },
+      ])
+    );
+
+    await Promise.all(
+      members.map((member) => updateCaptureHide(member.id, hiddenUntil, previousStates.get(member.id)!))
+    );
+
+    setCaptures((prev) =>
+      prev.map((capture) =>
+        previousStates.has(capture.id)
+          ? { ...capture, hiddenUntil, previousState: previousStates.get(capture.id)! }
+          : capture
+      )
+    );
+  }
+
   async function archiveCapture(id: number) {
     const existing = captures.find((capture) => capture.id === id);
     if (!existing) return;
@@ -864,6 +931,7 @@ export function DashboardProvider({
         toggleReminderOccurrence,
         addToGroup,
         hideCapture,
+        hideGroup,
         archiveCapture,
         undoCaptureState,
         updateTemporal,

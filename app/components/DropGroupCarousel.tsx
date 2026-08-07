@@ -44,10 +44,30 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 
 // "Advance to the next non-completed card" (when a group member
 // completes) still needs no special-case logic - see the shrink-effect
 // below, unchanged in spirit from before looping was added.
-export default function DropGroupCarousel({ slides }: { slides: React.ReactNode[] }) {
+export default function DropGroupCarousel({
+  slides,
+  onAllSlidesVisited,
+}: {
+  slides: React.ReactNode[];
+  // Onboarding Drop carousel v1 - fires exactly once, the first moment
+  // every distinct real (non-clone) slide has been visited at least once
+  // (not merely "reached the last slide" - swiping backward through the
+  // loop clones without ever seeing slides 2-6 must not count). Optional
+  // and unused by every other caller (Card Carousel v2 groups, the Daily
+  // Brief carousel) - only LifelineFeed's onboarding-group special case
+  // passes this.
+  onAllSlidesVisited?: () => void;
+}) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
   const canLoop = slides.length > 1;
+  // Seeded with 0, not empty - the carousel is already positioned on the
+  // first real slide before any scroll event ever fires (see the
+  // mount-time scrollToDom effect below), so slide 0 has genuinely been
+  // seen from the start regardless of whether that positioning call
+  // happens to also emit a native scroll event.
+  const visitedIndicesRef = useRef<Set<number>>(new Set([0]));
+  const allVisitedFiredRef = useRef(false);
 
   // DOM position 0 is the leading clone (of the last real slide) only
   // when looping - without it, DOM position 0 IS the first real slide.
@@ -109,12 +129,26 @@ export default function DropGroupCarousel({ slides }: { slides: React.ReactNode[
 
     setActiveDomIndex(domIndex);
 
+    // On a clone, count it as a visit of whichever real slide that clone
+    // stands in for - a clone renders the identical content, so the user
+    // genuinely saw that slide even if handleScrollEnd silently snaps them
+    // back to the real DOM position a moment later.
+    let effectiveIndex: number;
     if (realIndex < 0) {
-      setActiveIndex(slides.length - 1); // on the leading clone - dots show the last card
+      effectiveIndex = slides.length - 1; // on the leading clone - dots show the last card
     } else if (realIndex > slides.length - 1) {
-      setActiveIndex(0); // on the trailing clone - dots show the first card
+      effectiveIndex = 0; // on the trailing clone - dots show the first card
     } else {
-      setActiveIndex(realIndex);
+      effectiveIndex = realIndex;
+    }
+    setActiveIndex(effectiveIndex);
+
+    if (!allVisitedFiredRef.current) {
+      visitedIndicesRef.current.add(effectiveIndex);
+      if (visitedIndicesRef.current.size === slides.length) {
+        allVisitedFiredRef.current = true;
+        onAllSlidesVisited?.();
+      }
     }
   }
 
