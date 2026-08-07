@@ -23,7 +23,12 @@ export default function LifelineFeed({
 }: {
   captures: Capture[];
   activeFilter: string;
-  onSelectCapture: (id: number, options?: { edit?: boolean }) => void;
+  // Used to also take an `{ edit?: boolean }` second argument (see
+  // page.tsx's old handleSelectCapture) so a card's Edit shortcut could
+  // land straight in the modal's edit mode - dropped along with that
+  // shortcut once Edit became a toolbar button inside the expanded Drop
+  // detail view itself (Expanded Drop detail view v1).
+  onSelectCapture: (id: number) => void;
   // Shared-Space invite trigger v1 - passed straight through to
   // LifelineDropCard, which only actually uses it for a Drop whose
   // primary Space the viewer owns.

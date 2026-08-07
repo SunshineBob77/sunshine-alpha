@@ -27,20 +27,19 @@ export default function Home() {
   // check and React-escaped text).
   const requestedSpace = searchParams.get("space");
   const [selectedCaptureId, setSelectedCaptureId] = useState<number | null>(null);
-  // Set alongside selectedCaptureId by handleSelectCapture below, never on
-  // its own - so DropDetailModal's startInEditMode always reflects how the
-  // currently-open modal (if any) was opened, not a stale value left over
-  // from a previous selection.
-  const [openInEditMode, setOpenInEditMode] = useState(false);
   const selectedCapture = captures.find((capture) => capture.id === selectedCaptureId) ?? null;
   // Shared-Space invite trigger v1 - opened from a Drop card's own
   // eyebrow badge (see LifelineDropCard's onInvite/onOpenInvite), same
   // InviteSpaceModal component spaces/shared/page.tsx uses.
   const [inviteSpaceId, setInviteSpaceId] = useState<string | null>(null);
 
-  function handleSelectCapture(id: number, options?: { edit?: boolean }) {
+  // Used to also take an `{ edit?: boolean }` options object so a card's
+  // Edit shortcut could open DropDetailModal straight into edit mode via
+  // its (now-removed) startInEditMode prop - Edit lives as a toolbar
+  // button inside the expanded Drop detail view itself now (Expanded Drop
+  // detail view v1), so opening the view is always just "open the view".
+  function handleSelectCapture(id: number) {
     setSelectedCaptureId(id);
-    setOpenInEditMode(options?.edit ?? false);
   }
   const [activeFilter, setActiveFilter] = useState(requestedSpace ?? "all");
 
@@ -245,11 +244,7 @@ export default function Home() {
         {selectedCapture && (
           <DropDetailModal
             capture={selectedCapture}
-            startInEditMode={openInEditMode}
-            onClose={() => {
-              setSelectedCaptureId(null);
-              setOpenInEditMode(false);
-            }}
+            onClose={() => setSelectedCaptureId(null)}
           />
         )}
 

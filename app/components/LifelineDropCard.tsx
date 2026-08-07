@@ -32,12 +32,12 @@ export default function LifelineDropCard({
   variant = "dark",
 }: {
   capture: Capture;
-  // Optional `edit` flag rides along to page.tsx, which threads it through
-  // to DropDetailModal's startInEditMode - lets onEdit below land straight
-  // in edit mode instead of the modal's default view mode. Plain onSelect(id)
-  // calls (title tap, moreActions' Edit) are unaffected - undefined options
-  // behaves exactly like the old single-arg signature did.
-  onSelect: (id: number, options?: { edit?: boolean }) => void;
+  // Opens the Drop's expanded detail view (DropDetailModal) - Edit used
+  // to be a separate entry point that skipped straight into edit mode
+  // (an `{ edit: true }` second argument here), but Edit now lives as its
+  // own button inside that view's sticky toolbar instead of being a
+  // second way to open it, so this only ever takes an id now.
+  onSelect: (id: number) => void;
   kind?: "drop" | "suggestion";
   onAccept?: () => void;
   onDismiss?: () => void;
@@ -64,8 +64,7 @@ export default function LifelineDropCard({
   // other caller so far) passes "light" to match its light page theme.
   variant?: "light" | "dark";
 }) {
-  const { updatePinned, updateChecklistItems, addToGroup, retryAnalysis, user, sharedSpaces } =
-    useCaptures();
+  const { updateChecklistItems, retryAnalysis, user, sharedSpaces } = useCaptures();
   const isUrgent = capture.tags?.includes("urgent") ?? false;
   // Drives the handful of action-row buttons below that don't already
   // take a variant prop of their own (ShareButton/DeleteDropButton do) -
@@ -93,19 +92,11 @@ export default function LifelineDropCard({
   // only ever flips the manual marker (see DropCard's onToggleHide).
   const isHiddenNow = capture.hiddenUntil !== null || isAutoHidden(capture);
 
-  function handleTogglePin() {
-    updatePinned(capture.id, !capture.pinned);
-  }
-
   function handleToggleChecklistItem(itemId: string) {
     const next = capture.checklistItems.map((item) =>
       item.id === itemId ? { ...item, checked: !item.checked } : item
     );
     updateChecklistItems(capture.id, next);
-  }
-
-  function handleAddToGroup() {
-    return addToGroup(capture.id);
   }
 
   return (
@@ -126,9 +117,9 @@ export default function LifelineDropCard({
       filePath={capture.filePath}
       fileName={capture.fileName}
       // Analyze-drop failure tracking v1 - only for the viewer's own real
-      // Drops, same gating as every other write action here (Pin, Hide,
-      // Edit). System Drops are always marked 'complete' server-side, so
-      // this never fires for them regardless.
+      // Drops, same gating as every other write action here (Hide, etc).
+      // System Drops are always marked 'complete' server-side, so this
+      // never fires for them regardless.
       analysisFailed={isDrop && isOwnCapture && capture.analysisStatus === "failed"}
       onRetryAnalysis={
         isDrop && isOwnCapture ? () => retryAnalysis(capture.id) : undefined
@@ -176,28 +167,10 @@ export default function LifelineDropCard({
       onToggleStatus={isDrop && isOwnCapture ? onToggleStatus : undefined}
       onTitleTap={() => onSelect(capture.id)}
       isPinned={capture.pinned}
-      onTogglePin={isDrop && isOwnCapture ? handleTogglePin : undefined}
-      // Same gating as the Edit entry in moreActions below (including the
-      // !isSunshineDrop exclusion - system Drops like Morning Brief aren't
-      // user-editable), but landing directly in the modal's edit mode (see
-      // onSelect's `edit` option) instead of its default view mode - no
-      // extra "More -> Edit" tap.
-      onEdit={
-        isDrop && !isSunshineDrop && isOwnCapture
-          ? () => onSelect(capture.id, { edit: true })
-          : undefined
-      }
       checklistItems={capture.checklistItems}
       onToggleChecklistItem={isOwnCapture ? handleToggleChecklistItem : undefined}
       isHidden={isHiddenNow}
       onToggleHide={isDrop && !isSunshineDrop && isOwnCapture ? onToggleHide : undefined}
-      // Deliberately NOT gated by isOwnCapture, unlike every other control
-      // above - Card Carousel is explicitly the "friendly invite" model
-      // (any active member of a Shared Space can add a new card to a
-      // group belonging to a Drop in that space, not just its owner).
-      // Still excluded for suggestion-kind cards and Sunshine Drops, same
-      // as everything else.
-      onAddToGroup={isDrop && !isSunshineDrop ? handleAddToGroup : undefined}
       // Share is deliberately left ungated here - it wasn't in the
       // explicit "gate these" list, and the shares table's own RLS was
       // never audited this session, so gating it would be a guess rather
@@ -225,31 +198,21 @@ export default function LifelineDropCard({
           <ShareButton capture={capture} variant={variant} />
         )
       }
-      // Only Edit/Delete were explicitly called out for gating - Archive
-      // and Undo are bundled into this same panel and get gated along
-      // with it for consistency (RLS already rejects a write to someone
-      // else's capture regardless, so leaving those two ungated would
-      // just reproduce the same "looks interactive, silently fails" gap
-      // for two controls instead of none). Flagging this extension
-      // rather than assuming it's what was meant.
+      // Delete was explicitly called out for gating - Archive and Undo
+      // are bundled into this same panel and get gated along with it for
+      // consistency (RLS already rejects a write to someone else's
+      // capture regardless, so leaving those two ungated would just
+      // reproduce the same "looks interactive, silently fails" gap for
+      // two controls instead of none). Flagging this extension rather
+      // than assuming it's what was meant. Edit used to have its own
+      // entry here too (this "More" panel lives on the compact card
+      // itself, independent of the modal) - removed as a duplicate of
+      // opening the Drop's own detail view, which now has an Edit button
+      // in its sticky toolbar (Expanded Drop detail view v1). Tapping the
+      // title still opens that view exactly as before.
       moreActions={
         isDrop && isOwnCapture ? (
           <>
-            {// Not user-editable, same as the top Edit button above - a
-            // Sunshine Drop's text is system-generated, not something the
-            // owner authored, so it's excluded here even though this
-            // fragment as a whole isn't gated by isSunshineDrop (Delete/
-            // Archive/Undo below still apply to system Drops).
-            !isSunshineDrop && (
-              <button
-                type="button"
-                onClick={() => onSelect(capture.id)}
-                className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-2 py-1.5 rounded-full transition-all"
-              >
-                ✏️ Edit
-              </button>
-            )}
-
             <DeleteDropButton captureId={capture.id} variant={variant} />
 
             <button

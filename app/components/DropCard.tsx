@@ -35,14 +35,11 @@ export default function DropCard({
   onToggleHide,
   size = "default",
   isPinned = false,
-  onTogglePin,
-  onEdit,
   checklistItems,
   onToggleChecklistItem,
   customContent,
   hideTimestamp = false,
   isSunshineDrop = false,
-  onAddToGroup,
   variant = "light",
   imagePath = null,
   filePath = null,
@@ -63,10 +60,12 @@ export default function DropCard({
   // this Drop's primary Space (see LifelineDropCard) - DropCard itself
   // additionally re-checks isRealSharedSpace below before ever rendering
   // the eyebrow as a button, but ownership itself is the caller's call to
-  // make, not this component's (same pattern as onEdit/onTogglePin
-  // elsewhere in this file). Opens the same Invite modal already used
+  // make, not this component's. Opens the same Invite modal already used
   // from the Shared Spaces list page, scoped to this Drop's Space,
   // directly from the collapsed card - no expand, no navigating away.
+  // Deliberately NOT relocated into DropDetailModal's toolbar (Expanded
+  // Drop detail view v1) - it's a Space-level action, not a Drop-level
+  // one, so it stays exactly where it already was.
   onInvite?: () => void;
   content: string;
   createdAt: string;
@@ -74,15 +73,18 @@ export default function DropCard({
   clipped?: boolean;
   onTitleTap?: () => void;
   // Always-visible row content beyond the Completed toggle, distinct from
-  // moreActions below (Share stays in the primary row per Action Row v2;
-  // Edit/Delete/Undo move into the collapsible More panel). Also doubles
-  // as the suggestion-kind card's Accept/Dismiss buttons, which don't fit
-  // the Complete/Share/Hide/More shape at all and need to stay directly
+  // moreActions below (Share stays in the primary row; Delete/Archive/Undo
+  // move into the collapsible More panel). Also doubles as the
+  // suggestion-kind card's Accept/Dismiss buttons, which don't fit the
+  // Complete/Share/Hide/More shape at all and need to stay directly
   // visible rather than tucked behind a trigger.
   extraPrimaryActions?: React.ReactNode;
   // Generically extensible - whatever's passed here renders inside the
-  // collapsible "More" panel as-is (currently Edit/Delete/Undo; future
-  // items like Duplicate/Move-to-Space just get added by the caller).
+  // collapsible "More" panel as-is (currently Delete/Archive/Undo; future
+  // items just get added by the caller). Edit used to live here too, but
+  // moved to DropDetailModal's own toolbar (Expanded Drop detail view v1)
+  // alongside the header-row Edit shortcut it duplicated - see this file's
+  // header-icon-row comment below for the fuller rationale.
   moreActions?: React.ReactNode;
   isActionable?: boolean;
   status?: "active" | "completed" | "deleted";
@@ -98,13 +100,13 @@ export default function DropCard({
   // responsibility, same as the isSunshineDrop rendering guard).
   onToggleHide?: () => void;
   size?: "default" | "hero";
+  // Expanded Drop detail view v1 - Pin's own toggle button (and Edit's,
+  // and "+"/add-to-group's) used to live in this card's header row.
+  // They've moved into DropDetailModal's sticky toolbar instead (tap the
+  // card to reach them) - isPinned stays here only for the display-only
+  // ambient glow below (cardShadowClass), not for a control of its own
+  // anymore.
   isPinned?: boolean;
-  onTogglePin?: () => void;
-  // Header-row Edit shortcut, grouped with "+" and Pin - renders the same
-  // way onTogglePin does. Independent of the Edit entry inside moreActions
-  // (callers may wire both to the same handler during the comparison
-  // period; this component doesn't dedupe or prefer one over the other).
-  onEdit?: () => void;
   checklistItems?: ChecklistItem[];
   onToggleChecklistItem?: (itemId: string) => void;
   // Escape hatch for structured content that isn't a flat checklist (the
@@ -123,17 +125,6 @@ export default function DropCard({
   // Drop it shouldn't have) can never surface as a wrong-colored card.
   // See spaceTone.ts's sunshineDropTone/sunshineDropAccentColor.
   isSunshineDrop?: boolean;
-  // Card Carousel v2 - present whenever the caller wants the "+" trigger
-  // available. Tapping it doesn't manage anything locally in this
-  // component at all: it opens the ordinary global capture flow (owned
-  // by DashboardContext), pre-wired to land the new capture in this
-  // Drop's group. Rendering of the carousel itself (grouped Drops
-  // swiping between each other) happens one level up, in LifelineFeed -
-  // each member is a full independent DropCard, not content inside a
-  // fixed one. Deliberately independent of isOwnCapture-style gating at
-  // the caller level - Shared Spaces' "friendly invite" model means any
-  // active member can add to a group, not just the Drop's own owner.
-  onAddToGroup?: () => void;
   // Unified theme system v1 - these names are now slightly historical:
   // "dark" is the TOKEN-DRIVEN path (bg-dusk/text-ink/etc., which
   // globals.css makes resolve to the correct light-or-dark color
@@ -263,8 +254,11 @@ export default function DropCard({
   // one remaining thing distinguishing the two variants' borders. The
   // border no longer shifts to gold for pinned cards (that would compete
   // with the border's actual meaning - which Space this is) - pinned
-  // emphasis is now carried entirely by the soft ambient gold glow
-  // (shadow) plus the header pin icon's own highlight.
+  // emphasis is now carried entirely by this soft ambient gold glow
+  // (shadow). Used to also be echoed by the header pin icon's own
+  // highlight, but that icon moved into DropDetailModal's toolbar
+  // (Expanded Drop detail view v1) - this glow is the only pinned
+  // indicator left on the compact card itself.
   const cardShadowClass = isDark
     ? isPinned
       ? "shadow-[0_0_24px_rgba(240,163,57,0.18)]"
@@ -332,70 +326,12 @@ export default function DropCard({
           )}
         </div>
 
+        {/* Expanded Drop detail view v1 - this header row used to also
+            carry "+" (add-to-group), Pin, and Edit icon buttons here.
+            All three moved into DropDetailModal's sticky bottom toolbar -
+            tapping the title below opens that view. Only the Space badge
+            (display, not an action) is left in this corner now. */}
         <div className="flex items-center gap-1.5 shrink-0">
-          {onAddToGroup && (
-            <button
-              type="button"
-              onClick={onAddToGroup}
-              aria-label="Add to this Drop's carousel"
-              title="Add another card to this Drop"
-              // Plain "+" glyph, not an emoji character - an emoji's color
-              // is baked into the glyph itself and can't be recolored via
-              // CSS. Always a solid, explicitly-colored circle (no
-              // low-opacity idle state), matching the always-visible
-              // weight of the Space badge next to it rather than Pin's
-              // low-opacity-until-active treatment.
-              className={`flex shrink-0 items-center justify-center rounded-full font-bold leading-none transition-all ${
-                isDark
-                  ? "text-ink bg-ink/15 hover:bg-ink/25"
-                  : "text-gray-900 bg-black/10 hover:bg-black/15"
-              } ${isHero ? "h-9 w-9 text-xl" : "h-6 w-6 text-base"}`}
-            >
-              +
-            </button>
-          )}
-
-          {onTogglePin && (
-            <button
-              type="button"
-              onClick={onTogglePin}
-              aria-label={isPinned ? "Unpin" : "Pin"}
-              title={isPinned ? "Unpin" : "Pin"}
-              className={`flex shrink-0 items-center justify-center rounded-full transition-all ${
-                isDark ? "hover:bg-ink/10" : "hover:bg-black/5"
-              } ${
-                isPinned
-                  ? isDark
-                    ? "opacity-100 bg-gold/20"
-                    : "opacity-100 bg-amber-100"
-                  : // Idle/unpinned state: the emoji glyph's own color can't be
-                    // recolored via CSS, so contrast against the dusk card
-                    // background has to come from opacity alone - 35% (fine
-                    // against the light card) reads as nearly invisible on
-                    // dusk, so the dark variant gets a higher idle floor.
-                    isDark
-                    ? "opacity-70 hover:opacity-100"
-                    : "opacity-35 hover:opacity-70"
-              } ${isHero ? "h-9 w-9 text-base" : "h-6 w-6 text-xs"}`}
-            >
-              📌
-            </button>
-          )}
-
-          {onEdit && (
-            <button
-              type="button"
-              onClick={onEdit}
-              aria-label="Edit"
-              title="Edit"
-              className={`flex shrink-0 items-center justify-center rounded-full transition-all ${
-                isDark ? "text-ink hover:bg-ink/10" : "text-gray-900 hover:bg-black/5"
-              } ${isHero ? "h-9 w-9 text-base" : "h-6 w-6 text-xs"}`}
-            >
-              ✏️
-            </button>
-          )}
-
           <span
             className={`relative flex shrink-0 items-center justify-center rounded-full ${
               isHero ? "h-9 w-9 text-base" : "h-6 w-6 text-xs"

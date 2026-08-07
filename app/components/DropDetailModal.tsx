@@ -23,17 +23,21 @@ type PickerOption = {
   isShared: boolean;
 };
 
-function SpacePicker({ capture }: { capture: Capture }) {
+// Expanded Drop detail view v1 - `open` used to be this component's own
+// local state, toggled by a "Edit Spaces"/"+ Add to Space" text button it
+// rendered inline, right here in the scrollable body. That trigger moved
+// into DropDetailModal's sticky toolbar (a plain 🗂️ icon, alongside every
+// other action), so `open` is now owned by the parent and just passed
+// down - this component renders only the revealed grid itself, nothing
+// when closed.
+function SpacePicker({ capture, open }: { capture: Capture; open: boolean }) {
   const { updateSpaces, spaceOverrides } = useCaptures();
-  const [open, setOpen] = useState(false);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sharedSpaces, setSharedSpaces] = useState<PickerOption[]>([]);
 
-  // Loaded once per modal open, not gated behind `open` - the active-tags
-  // row above the toggle button needs real shared-space names too (to
-  // show "ADG" instead of a generic "Shared" tag), not just the expanded
-  // picker list.
+  // Loaded on mount, not gated behind `open` - so the grid never shows a
+  // loading flash the first time the toolbar's Space icon is tapped.
   useEffect(() => {
     let cancelled = false;
 
@@ -72,8 +76,6 @@ function SpacePicker({ capture }: { capture: Capture }) {
     return [...personalOptions, ...sharedSpaces];
   }, [spaceOverrides, sharedSpaces]);
 
-  const activeOptions = pickerOptions.filter((option) => capture.spaceIds?.includes(option.id));
-
   async function toggleSpace(spaceId: string) {
     const current = capture.spaceIds ?? [];
     const next = current.includes(spaceId)
@@ -93,64 +95,41 @@ function SpacePicker({ capture }: { capture: Capture }) {
     }
   }
 
+  if (!open) return null;
+
   return (
-    <div className="mb-3">
-      <div className="flex flex-wrap items-center gap-2">
-        {/* The always-visible "ADG · Shared" pill row that used to render
-            here (one per activeOptions entry) is gone - the collapsed
-            DropCard's own eyebrow badge now shows the primary Space's
-            name/Shared status directly (see DropCard.tsx), so repeating
-            it here was pure duplication for the common single-Space case.
-            A Drop assigned to more than one Space (rare) no longer gets
-            an at-a-glance list of all of them here - "Edit Spaces" below
-            still shows the full picker with checkmarks for that case,
-            just one tap further than before. Confirmed acceptable
-            tradeoff rather than a silent regression. */}
-        <button
-          type="button"
-          onClick={() => setOpen((prev) => !prev)}
-          className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-2.5 py-1 rounded-full transition-all"
-        >
-          {open ? "Done" : activeOptions.length > 0 ? "Edit Spaces" : "+ Add to Space"}
-        </button>
-      </div>
-
-      {open && (
-        <div className="mt-2 flex flex-wrap gap-2 p-3 bg-ink/5 rounded-2xl">
-          {pickerOptions.map((option) => {
-            const active = capture.spaceIds?.includes(option.id);
-            // Unified theme system v1 - fill hex via inline style, same
-            // as everywhere else this app renders a Space's color, rather
-            // than the old per-Space Tailwind bg-*-100 class.
-            const fill = getSpaceColor(option.id, sharedSpaces).fill;
-            return (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => toggleSpace(option.id)}
-                disabled={pendingId === option.id}
-                style={active ? { backgroundColor: fill } : undefined}
-                className={`text-xs px-2.5 py-1.5 rounded-full ring-1 transition-all disabled:opacity-50 ${
-                  active
-                    ? "ring-black/10 font-semibold"
-                    : "bg-ink/5 text-ink-dim ring-ink/10 hover:ring-ink/20"
-                }`}
-              >
-                {active ? "✓ " : ""}
-                {option.icon} {option.name}
-                {option.isShared ? " · Shared" : ""}
-              </button>
-            );
-          })}
-          {sharedSpaces.length === 0 && (
-            <p className="text-xs text-ink-dim w-full">
-              You&apos;re not a member of any shared spaces yet.
-            </p>
-          )}
-        </div>
+    <div className="mb-3 flex flex-wrap gap-2 p-3 bg-ink/5 rounded-2xl">
+      {pickerOptions.map((option) => {
+        const active = capture.spaceIds?.includes(option.id);
+        // Unified theme system v1 - fill hex via inline style, same
+        // as everywhere else this app renders a Space's color, rather
+        // than the old per-Space Tailwind bg-*-100 class.
+        const fill = getSpaceColor(option.id, sharedSpaces).fill;
+        return (
+          <button
+            key={option.id}
+            type="button"
+            onClick={() => toggleSpace(option.id)}
+            disabled={pendingId === option.id}
+            style={active ? { backgroundColor: fill } : undefined}
+            className={`text-xs px-2.5 py-1.5 rounded-full ring-1 transition-all disabled:opacity-50 ${
+              active
+                ? "ring-black/10 font-semibold"
+                : "bg-ink/5 text-ink-dim ring-ink/10 hover:ring-ink/20"
+            }`}
+          >
+            {active ? "✓ " : ""}
+            {option.icon} {option.name}
+            {option.isShared ? " · Shared" : ""}
+          </button>
+        );
+      })}
+      {sharedSpaces.length === 0 && (
+        <p className="text-xs text-ink-dim w-full">
+          You&apos;re not a member of any shared spaces yet.
+        </p>
       )}
-
-      {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
+      {error && <p className="text-xs text-red-600 w-full">{error}</p>}
     </div>
   );
 }
@@ -505,17 +484,9 @@ function TemporalEditSuggestion({ capture }: { capture: Capture }) {
 export default function DropDetailModal({
   capture,
   onClose,
-  startInEditMode = false,
 }: {
   capture: Capture;
   onClose: () => void;
-  // Lets a caller (e.g. the header Edit button's onEdit) skip straight past
-  // the view state into the textarea, instead of landing on the modal in
-  // its default view mode and requiring an extra "More -> Edit" tap. Read
-  // only once, as the initial value of `editing` below - this component
-  // remounts fresh each time it opens (see the `selectedCapture &&` guard
-  // in page.tsx), so there's no stale-prop case to guard against.
-  startInEditMode?: boolean;
 }) {
   const {
     user,
@@ -526,11 +497,13 @@ export default function DropDetailModal({
     hideCapture,
     archiveCapture,
     undoCaptureState,
+    updatePinned,
+    addToGroup,
     temporalSuggestions,
     spaceOverrides,
     sharedSpaces,
   } = useCaptures();
-  const [editing, setEditing] = useState(startInEditMode);
+  const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(capture.text);
   const [draftTitle, setDraftTitle] = useState(capture.title ?? "");
   const [savingText, setSavingText] = useState(false);
@@ -538,12 +511,21 @@ export default function DropDetailModal({
   const [titleError, setTitleError] = useState<string | null>(null);
   const [togglingStatus, setTogglingStatus] = useState(false);
   const [confirmingComplete, setConfirmingComplete] = useState(false);
-  // Only "More" expands into a panel now - Hide is a direct single-tap
-  // toggle, same simplification as DropCard.tsx.
+  // Expanded Drop detail view v1 - the Space-reassignment grid's own open
+  // state, lifted up from SpacePicker so the toolbar's 🗂️ button can
+  // drive it (see SpacePicker's own doc comment).
+  const [spacePickerOpen, setSpacePickerOpen] = useState(false);
+  // Only "More" (Delete/Archive/Undo) expands into a panel now - Hide is
+  // a direct single-tap toggle, same simplification as DropCard.tsx.
   const [moreOpen, setMoreOpen] = useState(false);
   const [retryingAnalysis, setRetryingAnalysis] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const boxRef = useRef<HTMLDivElement>(null);
+  // Expanded Drop detail view v1 - scoped to the sticky footer specifically
+  // now, not "the modal's own box" (there's no longer an outside-the-modal
+  // backdrop to distinguish from - this view fills the whole screen).
+  // Tapping anywhere in the header or scrollable body still collapses the
+  // More panel, same as tapping outside the old centered card did.
+  const footerRef = useRef<HTMLDivElement>(null);
 
   const tone = getSpaceTone(capture.spaceIds?.[0], sharedSpaces);
   const spaceColor = getSpaceColor(capture.spaceIds?.[0], sharedSpaces);
@@ -573,14 +555,16 @@ export default function DropDetailModal({
     el.setSelectionRange(el.value.length, el.value.length);
   }, [editing]);
 
-  // Tapping elsewhere in the modal (but not outside it - the backdrop's
-  // own onClick already closes the whole modal) collapses whichever
-  // panel is open. Scoped to the modal's own inner box via boxRef.
+  // Tapping anywhere outside the sticky footer (the header, or the
+  // scrollable body) collapses the More panel if it's open - same intent
+  // as the old "tap elsewhere in the modal" behavior, rescoped to the
+  // footer specifically now that there's no backdrop-vs-modal boundary
+  // left to use instead (this view fills the whole screen).
   useEffect(() => {
     if (!moreOpen) return;
 
     function handleOutsideClick(event: MouseEvent) {
-      if (boxRef.current && !boxRef.current.contains(event.target as Node)) {
+      if (footerRef.current && !footerRef.current.contains(event.target as Node)) {
         setMoreOpen(false);
       }
     }
@@ -674,6 +658,28 @@ export default function DropDetailModal({
     setEditing((prev) => !prev);
   }
 
+  // Expanded Drop detail view v1 - same "stay open, reflect live state"
+  // convention as every other in-toolbar action (no settle animation to
+  // coordinate with; this view isn't part of any list-rendering concern).
+  function handleTogglePin() {
+    updatePinned(capture.id, !capture.pinned);
+  }
+
+  function handleToggleSpacePicker() {
+    setMoreOpen(false);
+    setSpacePickerOpen((prev) => !prev);
+  }
+
+  // addToGroup opens the global capture-composer modal (DashboardContext's
+  // CaptureModal, pre-wired to land the new capture in this Drop's group) -
+  // a second full-screen overlay, so this view closes first rather than
+  // stacking two of them. Matches DropCard's own "+"/onAddToGroup - same
+  // action, just reached from inside the expanded view now too.
+  function handleAddToGroupTap() {
+    onClose();
+    addToGroup(capture.id);
+  }
+
   // Analyze-drop failure tracking v1 - fire-and-forget, same as every
   // other analyze-drop trigger (saveCapture, updateText). The brief local
   // "Retrying…" disabled state just guards against a double-tap; the
@@ -686,67 +692,81 @@ export default function DropDetailModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
-    >
-      <div
-        ref={boxRef}
-        className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-dusk p-6 rounded-3xl border-[5px] shadow-lg"
-        style={{ borderColor: spaceColor.identity }}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <div className="flex items-start gap-2 min-w-0 flex-1">
-            {editing ? (
-              <div className="min-w-0 flex-1">
-                <input
-                  type="text"
-                  value={draftTitle}
-                  onChange={(event) => setDraftTitle(event.target.value)}
-                  placeholder={capture.sunshineSummary}
-                  aria-label="Drop title"
-                  className="w-full font-bold text-lg text-ink bg-transparent border border-ink/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
-                />
-                {titleError && <p className="text-xs text-red-600 mt-1">{titleError}</p>}
-              </div>
-            ) : (
-              <p className="font-bold text-lg text-ink min-w-0">
-                {capture.title ?? capture.sunshineSummary}
-              </p>
-            )}
+    <div className="fixed inset-0 z-50 flex flex-col bg-night">
+      {/* Fixed header - title/edit-title input, Space icon badge, Close.
+          Expanded Drop detail view v1 - no longer a centered card over a
+          backdrop (see the toolbar comment below for the fuller
+          rationale), so the old 2px per-Space colored border has no card
+          edge to sit on anymore. Replaced by a thin accent bar right
+          below this header (see just below) - same identity hex, much
+          less visual weight than a full border. */}
+      <div className="shrink-0 flex items-start justify-between gap-3 px-4 sm:px-6 pt-6 pb-4">
+        <div className="flex items-start gap-2 min-w-0 flex-1">
+          {editing ? (
+            <div className="min-w-0 flex-1">
+              <input
+                type="text"
+                value={draftTitle}
+                onChange={(event) => setDraftTitle(event.target.value)}
+                placeholder={capture.sunshineSummary}
+                aria-label="Drop title"
+                className="w-full font-bold text-lg text-ink bg-transparent border border-ink/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent"
+              />
+              {titleError && <p className="text-xs text-red-600 mt-1">{titleError}</p>}
+            </div>
+          ) : (
+            <p className="font-bold text-lg text-ink min-w-0">
+              {capture.title ?? capture.sunshineSummary}
+            </p>
+          )}
+          <span
+            className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs mt-0.5"
+            title={toneName}
+          >
             <span
-              className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs mt-0.5"
-              title={toneName}
+              className="flex h-full w-full items-center justify-center rounded-full"
+              style={{ backgroundColor: spaceColor.fill }}
             >
-              <span
-                className="flex h-full w-full items-center justify-center rounded-full"
-                style={{ backgroundColor: spaceColor.fill }}
-              >
-                {tone.icon}
-              </span>
-              {isUrgent && (
-                <span
-                  className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-500 ring-1 ring-white"
-                  title="Urgent"
-                />
-              )}
+              {tone.icon}
             </span>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close"
-              className="text-ink-dim hover:text-ink text-xl leading-none"
-            >
-              ✕
-            </button>
-          </div>
+            {isUrgent && (
+              <span
+                className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-500 ring-1 ring-white"
+                title="Urgent"
+              />
+            )}
+          </span>
         </div>
 
-        <SpacePicker capture={capture} />
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="text-ink-dim hover:text-ink text-xl leading-none"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+
+      {/* Space color identity cue v1 - a thin accent bar, reusing the
+          exact same spaceColor.identity hex DropCard's own border
+          already uses per Space (Family gold #F0A339, Health red
+          #E24B4A, Work blue #378ADD, Harvard green #639922, Personal
+          pink #D4537E, Sunshine/system #FFC940) - one shared lookup
+          (getSpaceColor/spaceColors.ts) rather than a second color map.
+          Theme-independent by design, same as DropCard's own border
+          already is (one hex per Space, unchanged across light/dark),
+          so this reads correctly in both themes with no extra handling.
+          Glance-able, not the old border's full weight. */}
+      <div className="h-1 w-full shrink-0" style={{ backgroundColor: spaceColor.identity }} />
+
+      {/* Scrollable body - everything that isn't a persistent action now
+          lives here, between the fixed header and the sticky footer
+          toolbar below. */}
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+        <SpacePicker capture={capture} open={spacePickerOpen} />
         <TemporalEditor capture={capture} />
         {capture.temporalLocked && temporalSuggestions[capture.id] && (
           <TemporalEditSuggestion capture={capture} />
@@ -835,7 +855,7 @@ export default function DropDetailModal({
             failed/never completed" from "the model looked and legitimately
             found nothing" (the aiResearchResult block above, which stays
             silent in that case). Only the owner can retry - matches every
-            other write action in this modal. */}
+            other write action in this view. */}
         {capture.analysisStatus === "failed" && isOwnCapture && (
           <div className="mt-4 rounded-2xl bg-amber-50 p-4 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
@@ -855,122 +875,182 @@ export default function DropDetailModal({
           </div>
         )}
 
-        <div className="mt-4 pt-3 border-t border-ink/10">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {capture.isActionable &&
-              isOwnCapture &&
-              (confirmingComplete ? (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs text-ink-dim">
-                    This checklist still has unchecked items. Complete anyway?
-                  </span>
-                  <button
-                    type="button"
-                    onClick={commitToggleStatus}
-                    disabled={togglingStatus}
-                    className="text-xs font-semibold bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
-                  >
-                    Complete anyway
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmingComplete(false)}
-                    disabled={togglingStatus}
-                    className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleToggleStatus}
-                  disabled={togglingStatus}
-                  aria-label={isCompleted ? "Mark as active" : "Mark as completed"}
-                  className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all disabled:opacity-60 ${
-                    isCompleted
-                      ? "bg-orange-500 text-white"
-                      : "bg-ink/5 hover:bg-ink/10 text-ink-dim"
-                  }`}
-                >
-                  {isCompleted ? "● Completed" : "○ Completed"}
-                </button>
-              ))}
+        {/* Moved out of the action toolbar below - this is a link to
+            external content related to the Drop's own text (same family
+            as the "Sunshine found this" block above it), not a Drop
+            action/mutation the way everything in the toolbar is. */}
+        {capture.extractedAddress && (
+          <a
+            href={`https://maps.google.com/?q=${encodeURIComponent(capture.extractedAddress)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 inline-flex text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-full transition-all"
+          >
+            📍 Open in Maps
+          </a>
+        )}
+      </div>
 
-            <ShareButton capture={capture} />
-
-            {!isSunshineDrop && isOwnCapture && (
-              <button
-                type="button"
-                onClick={handleToggleHideTap}
-                aria-label={isHiddenNow ? "Unhide" : "Hide"}
-                className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
-                  isHiddenNow
-                    ? "bg-gray-800 text-white"
-                    : "bg-ink/5 hover:bg-ink/10 text-ink-dim"
-                }`}
-              >
-                {isHiddenNow ? "🙉 Unhide" : "🙈 Hide"}
-              </button>
-            )}
-
-            {isOwnCapture && (
-              <button
-                type="button"
-                onClick={() => setMoreOpen((prev) => !prev)}
-                aria-expanded={moreOpen}
-                className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
-                  moreOpen
-                    ? "bg-gray-800 text-white"
-                    : "bg-ink/5 hover:bg-ink/10 text-ink-dim"
-                }`}
-              >
-                ⋯ More
-              </button>
-            )}
-
-            {capture.extractedAddress && (
-              <a
-                href={`https://maps.google.com/?q=${encodeURIComponent(capture.extractedAddress)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-full transition-all"
-              >
-                📍 Open in Maps
-              </a>
-            )}
+      {/* Expanded Drop detail view v1 - sticky bottom toolbar, replacing
+          the old scroll-with-content action row. Every Drop action lives
+          here now: Pin, Edit, Space reassignment (SpacePicker's toggle,
+          relocated from inline body content), "+" add-to-group, Complete,
+          Share, Hide, and a Delete/Archive/Undo overflow behind "More" -
+          those three stay tucked away rather than getting their own
+          icons, same density tradeoff DropCard's own "More" panel already
+          made, now with one more icon's worth of density pressure (Pin/
+          Edit/Space/+ all landed here too) tipping it further that way.
+          Pin/Edit/Space/+ are icon-only, matching how the first three
+          looked as header-row buttons on the compact card before this
+          move; Complete/Share/Hide/More keep their existing text+emoji
+          labels unchanged - a full-screen view has the width for both
+          without feeling cramped. */}
+      <div
+        ref={footerRef}
+        className="shrink-0 border-t border-ink/10 bg-dusk px-3 sm:px-4 pt-2 pb-3"
+      >
+        {confirmingComplete && (
+          <div className="flex items-center justify-center gap-2 flex-wrap mb-2 pb-2 border-b border-ink/10 text-center">
+            <span className="text-xs text-ink-dim">
+              This checklist still has unchecked items. Complete anyway?
+            </span>
+            <button
+              type="button"
+              onClick={commitToggleStatus}
+              disabled={togglingStatus}
+              className="text-xs font-semibold bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
+            >
+              Complete anyway
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmingComplete(false)}
+              disabled={togglingStatus}
+              className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
+            >
+              Cancel
+            </button>
           </div>
+        )}
 
-          {moreOpen && isOwnCapture && (
-            <div className="mt-2 pt-2 border-t border-ink/10">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <button
-                  type="button"
-                  onClick={handleEditTap}
-                  aria-label="Edit Drop text"
-                  className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-2 py-1.5 rounded-full transition-all"
-                >
-                  ✏️ Edit
-                </button>
-                <DeleteDropButton captureId={capture.id} onDeleted={onClose} />
-                <button
-                  type="button"
-                  onClick={handleArchiveTap}
-                  className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-2 py-1.5 rounded-full transition-all"
-                >
-                  🗄️ Archive
-                </button>
-                <button
-                  type="button"
-                  onClick={handleUndoTap}
-                  disabled={!capture.previousState}
-                  aria-label="Undo last change"
-                  className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-2 py-1.5 rounded-full transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  ↩️ Undo
-                </button>
-              </div>
-            </div>
+        {moreOpen && isOwnCapture && (
+          <div className="flex items-center justify-center gap-1.5 flex-wrap mb-2 pb-2 border-b border-ink/10">
+            <DeleteDropButton captureId={capture.id} onDeleted={onClose} />
+            <button
+              type="button"
+              onClick={handleArchiveTap}
+              className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-2 py-1.5 rounded-full transition-all"
+            >
+              🗄️ Archive
+            </button>
+            <button
+              type="button"
+              onClick={handleUndoTap}
+              disabled={!capture.previousState}
+              aria-label="Undo last change"
+              className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-2 py-1.5 rounded-full transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              ↩️ Undo
+            </button>
+          </div>
+        )}
+
+        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+          {isOwnCapture && (
+            <button
+              type="button"
+              onClick={handleTogglePin}
+              aria-label={capture.pinned ? "Unpin" : "Pin"}
+              title={capture.pinned ? "Unpin" : "Pin"}
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base transition-all ${
+                capture.pinned
+                  ? "opacity-100 bg-gold/20"
+                  : "opacity-70 hover:opacity-100 hover:bg-ink/10"
+              }`}
+            >
+              📌
+            </button>
+          )}
+
+          {!isSunshineDrop && isOwnCapture && (
+            <button
+              type="button"
+              onClick={handleEditTap}
+              aria-label="Edit"
+              title="Edit"
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base transition-all ${
+                editing ? "bg-gold/20" : "text-ink hover:bg-ink/10"
+              }`}
+            >
+              ✏️
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={handleToggleSpacePicker}
+            aria-label="Change Space"
+            title="Change Space"
+            aria-expanded={spacePickerOpen}
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base transition-all ${
+              spacePickerOpen ? "bg-gold/20" : "text-ink hover:bg-ink/10"
+            }`}
+          >
+            🗂️
+          </button>
+
+          {!isSunshineDrop && (
+            <button
+              type="button"
+              onClick={handleAddToGroupTap}
+              aria-label="Add to this Drop's carousel"
+              title="Add another card to this Drop"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-bold text-xl leading-none text-ink bg-ink/15 hover:bg-ink/25 transition-all"
+            >
+              +
+            </button>
+          )}
+
+          {capture.isActionable && isOwnCapture && !confirmingComplete && (
+            <button
+              type="button"
+              onClick={handleToggleStatus}
+              disabled={togglingStatus}
+              aria-label={isCompleted ? "Mark as active" : "Mark as completed"}
+              className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all disabled:opacity-60 ${
+                isCompleted ? "bg-orange-500 text-white" : "bg-ink/5 hover:bg-ink/10 text-ink-dim"
+              }`}
+            >
+              {isCompleted ? "● Completed" : "○ Completed"}
+            </button>
+          )}
+
+          <ShareButton capture={capture} />
+
+          {!isSunshineDrop && isOwnCapture && (
+            <button
+              type="button"
+              onClick={handleToggleHideTap}
+              aria-label={isHiddenNow ? "Unhide" : "Hide"}
+              className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
+                isHiddenNow ? "bg-gray-800 text-white" : "bg-ink/5 hover:bg-ink/10 text-ink-dim"
+              }`}
+            >
+              {isHiddenNow ? "🙉 Unhide" : "🙈 Hide"}
+            </button>
+          )}
+
+          {isOwnCapture && (
+            <button
+              type="button"
+              onClick={() => setMoreOpen((prev) => !prev)}
+              aria-expanded={moreOpen}
+              className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
+                moreOpen ? "bg-gray-800 text-white" : "bg-ink/5 hover:bg-ink/10 text-ink-dim"
+              }`}
+            >
+              ⋯ More
+            </button>
           )}
         </div>
       </div>
