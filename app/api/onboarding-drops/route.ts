@@ -13,9 +13,11 @@ export const ONBOARDING_SYSTEM_DROP_TYPE = "onboarding";
 // Real title/content pairs, in the order they should read left-to-right in
 // the carousel - a single multi-row INSERT assigns each row's
 // auto-incrementing id in this same order, which is what
-// groupCapturesByGroupId (dropGroups.ts) sorts by as a tiebreaker (all 7
-// rows share the exact same created_at, since Postgres's now() is stable
-// within one statement).
+// groupCapturesByGroupId (dropGroups.ts) sorts by as a tiebreaker (rows in
+// the same insert share the exact same created_at, since Postgres's now()
+// is stable within one statement). ONLY EVER APPEND here - the top-up
+// logic below assumes an existing user's already-created rows exactly
+// match this array's own prefix, by position, not by content.
 const ONBOARDING_SLIDES: { title: string; text: string }[] = [
   {
     title: "Drop it in. Ask for it later.",
@@ -45,6 +47,18 @@ const ONBOARDING_SLIDES: { title: string; text: string }[] = [
     title: "Just talk",
     text: "Ramble into Sunshine like you're talking to a friend, and it turns what you said into bullets or a checklist automatically - no formatting to think about.",
   },
+  {
+    title: "Combine Drops",
+    text: "See the + on a card? Tap it to link related Drops into a carousel - like grouping photos from one event, or steps in one project.",
+  },
+  {
+    title: "Fix anything",
+    text: "Sunshine won't always get it exactly right - no one does. Tap a Drop to edit its text or title, and if it lands in the wrong Space, just switch it. Nothing's locked in.",
+  },
+  {
+    title: "Know your buttons",
+    text: "Pin keeps something at the top. Hide tucks it out of Lifeline (it's still in its Space). Complete checks it off. Delete removes it for good.",
+  },
 ];
 
 export async function POST(request: Request) {
@@ -56,35 +70,42 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Create-once-ever idempotency check - no per-day/per-session concept
-    // the way Daily Brief has, so a plain "does this user already have
-    // any onboarding-tagged row" check is enough. Small race window on two
-    // simultaneous first-ever requests (e.g. two tabs opened at once on
-    // first login) both passing this check before either inserts - unlike
-    // daily-brief/route.ts, there's no natural per-row distinguishing key
+    // Top-up idempotency check, not a plain "any row exists -> skip" -
+    // this needs to stay correct as ONBOARDING_SLIDES grows over time
+    // (see slides 8-10, added after some real accounts already had the
+    // original 7). If this user has fewer onboarding rows than
+    // ONBOARDING_SLIDES currently has entries, insert exactly the missing
+    // tail slides (by array position, not by matching title/content -
+    // robust even if the user has since manually retitled one of their
+    // own copies) into their EXISTING group_id, so they join the same
+    // carousel rather than getting a second one. No per-day/per-session
+    // concept the way Daily Brief has - this is create-once-then-top-up-
+    // forever, so a plain select-then-insert is enough; unlike
+    // daily-brief/route.ts there's no natural per-row distinguishing key
     // to build a compound unique constraint + upsert(ignoreDuplicates)
-    // around here (all 7 rows intentionally share the same
-    // system_drop_type), so this accepts that narrow window rather than
-    // forcing content fields like title into a schema-level uniqueness
-    // constraint. Worst case is a duplicate 7-row group, not data loss.
+    // around (multiple rows intentionally share the same
+    // system_drop_type), so a narrow race window on simultaneous
+    // requests is accepted rather than forcing content fields like title
+    // into a schema-level uniqueness constraint.
     const { data: existingRows, error: existingError } = await supabaseAdmin
       .from("captures")
-      .select("id")
+      .select("id, group_id")
       .eq("user_id", userId)
       .eq("system_drop_type", ONBOARDING_SYSTEM_DROP_TYPE)
-      .limit(1);
+      .order("id", { ascending: true });
 
     if (existingError) throw existingError;
 
-    if ((existingRows ?? []).length > 0) {
+    const existingCount = (existingRows ?? []).length;
+
+    if (existingCount >= ONBOARDING_SLIDES.length) {
       return NextResponse.json({ skipped: true });
     }
 
-    // One fresh group_id shared by all 7 rows - LifelineFeed.tsx's
-    // groupCapturesByGroupId picks these up and renders them as one
-    // DropGroupCarousel, the same mechanism Card Carousel v2 (user "+"
-    // groups) and the Daily Brief carousel already use.
-    const groupId = randomUUID();
+    // Reuse the existing carousel's group_id when topping up an
+    // already-started group; only a genuinely new user gets a fresh one.
+    const groupId = existingCount > 0 ? (existingRows![0].group_id as string) : randomUUID();
+    const missingSlides = ONBOARDING_SLIDES.slice(existingCount);
 
     const baseRow = {
       user_id: userId,
@@ -114,7 +135,7 @@ export async function POST(request: Request) {
       analysis_attempts: 0,
     };
 
-    const rows = ONBOARDING_SLIDES.map((slide) => ({
+    const rows = missingSlides.map((slide) => ({
       ...baseRow,
       text: slide.text,
       formatted_text: slide.text,
