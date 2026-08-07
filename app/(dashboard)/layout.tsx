@@ -54,7 +54,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <ThemeProvider user={user}>
       <DashboardProvider user={user}>
         <DashboardHeader />
-        <div className="relative z-0 min-h-dvh bg-night pt-14 pb-28">{children}</div>
+        {/* No longer `relative z-0` - that combination (a positioned
+            element with an explicit, non-auto z-index) creates its own
+            stacking context, which trapped every descendant - including
+            DropDetailModal's fixed z-50 full-screen root, no matter how
+            deeply nested - into being compared against DashboardHeader
+            (z-30) and BottomNav (z-40) as a single unit ranked at this
+            div's own z-index (0), not whatever z-index a descendant sets.
+            That's what let both nav bars visually/interactively win over
+            the expanded Drop detail view wherever they overlapped it
+            (its own header and footer), even though the modal's z-50
+            should have been higher - confirmed live by reproducing and
+            fixing this exact symptom before landing this change. */}
+        <div className="min-h-dvh bg-night pt-14 pb-28">{children}</div>
         <BottomNav />
       </DashboardProvider>
     </ThemeProvider>
