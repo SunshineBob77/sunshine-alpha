@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from "react";
 
 // Instagram-style horizontal swipe with dot indicators, built on native
 // CSS scroll-snap rather than a carousel library (none exists in this
@@ -201,7 +201,16 @@ export default function DropGroupCarousel({ slides }: { slides: React.ReactNode[
             className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             {displaySlides.map((slide, index) => (
-              <div key={index} className="w-full shrink-0 snap-center">
+              <div
+                key={
+                  canLoop && index === 0
+                    ? `clone-start-${(slide as ReactElement).key ?? "slide"}`
+                    : canLoop && index === displaySlides.length - 1
+                      ? `clone-end-${(slide as ReactElement).key ?? "slide"}`
+                      : (slide as ReactElement).key ?? index
+                }
+                className="w-full shrink-0 snap-center"
+              >
                 {/* Height is measured off THIS inner div, not the outer
                     slide div above - the outer one is a flex item under
                     scrollRef's default align-items: stretch, so its own
@@ -250,9 +259,9 @@ export default function DropGroupCarousel({ slides }: { slides: React.ReactNode[
 
       {slides.length > 1 && (
         <div className="flex items-center justify-center gap-1.5 mt-2">
-          {slides.map((_, index) => (
+          {slides.map((slide, index) => (
             <button
-              key={index}
+              key={(slide as ReactElement).key ?? index}
               type="button"
               onClick={() => scrollToDom(index + domOffset)}
               aria-label={`Go to card ${index + 1} of ${slides.length}`}
