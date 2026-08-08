@@ -64,7 +64,7 @@ export default function LifelineDropCard({
   // other caller so far) passes "light" to match its light page theme.
   variant?: "light" | "dark";
 }) {
-  const { updateChecklistItems, retryAnalysis, user, sharedSpaces } = useCaptures();
+  const { updateChecklistItems, retryAnalysis, addToGroup, user, sharedSpaces } = useCaptures();
   const isUrgent = capture.tags?.includes("urgent") ?? false;
   // Drives the handful of action-row buttons below that don't already
   // take a variant prop of their own (ShareButton/DeleteDropButton do) -
@@ -97,6 +97,13 @@ export default function LifelineDropCard({
       item.id === itemId ? { ...item, checked: !item.checked } : item
     );
     updateChecklistItems(capture.id, next);
+  }
+
+  // Expanded Drop detail view v1 - the one action re-added to the
+  // compact card's header row after the rest (Pin/Edit) moved into
+  // DropDetailModal's toolbar - see DropCard's own onAddToGroup comment.
+  function handleAddToGroup() {
+    return addToGroup(capture.id);
   }
 
   return (
@@ -171,6 +178,11 @@ export default function LifelineDropCard({
       onToggleChecklistItem={isOwnCapture ? handleToggleChecklistItem : undefined}
       isHidden={isHiddenNow}
       onToggleHide={isDrop && !isSunshineDrop && isOwnCapture ? onToggleHide : undefined}
+      // Deliberately NOT gated by isOwnCapture, unlike every other control
+      // above - Card Carousel is explicitly the "friendly invite" model
+      // (any active member of a Shared Space can add a new card to a
+      // group belonging to a Drop in that space, not just its owner).
+      onAddToGroup={isDrop && !isSunshineDrop ? handleAddToGroup : undefined}
       // Share is deliberately left ungated here - it wasn't in the
       // explicit "gate these" list, and the shares table's own RLS was
       // never audited this session, so gating it would be a guess rather

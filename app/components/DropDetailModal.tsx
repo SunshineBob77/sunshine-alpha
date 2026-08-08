@@ -515,17 +515,8 @@ export default function DropDetailModal({
   // state, lifted up from SpacePicker so the toolbar's 🗂️ button can
   // drive it (see SpacePicker's own doc comment).
   const [spacePickerOpen, setSpacePickerOpen] = useState(false);
-  // Only "More" (Delete/Archive/Undo) expands into a panel now - Hide is
-  // a direct single-tap toggle, same simplification as DropCard.tsx.
-  const [moreOpen, setMoreOpen] = useState(false);
   const [retryingAnalysis, setRetryingAnalysis] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  // Expanded Drop detail view v1 - scoped to the sticky footer specifically
-  // now, not "the modal's own box" (there's no longer an outside-the-modal
-  // backdrop to distinguish from - this view fills the whole screen).
-  // Tapping anywhere in the header or scrollable body still collapses the
-  // More panel, same as tapping outside the old centered card did.
-  const footerRef = useRef<HTMLDivElement>(null);
 
   const tone = getSpaceTone(capture.spaceIds?.[0], sharedSpaces);
   const spaceColor = getSpaceColor(capture.spaceIds?.[0], sharedSpaces);
@@ -554,24 +545,6 @@ export default function DropDetailModal({
     el.focus();
     el.setSelectionRange(el.value.length, el.value.length);
   }, [editing]);
-
-  // Tapping anywhere outside the sticky footer (the header, or the
-  // scrollable body) collapses the More panel if it's open - same intent
-  // as the old "tap elsewhere in the modal" behavior, rescoped to the
-  // footer specifically now that there's no backdrop-vs-modal boundary
-  // left to use instead (this view fills the whole screen).
-  useEffect(() => {
-    if (!moreOpen) return;
-
-    function handleOutsideClick(event: MouseEvent) {
-      if (footerRef.current && !footerRef.current.contains(event.target as Node)) {
-        setMoreOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, [moreOpen]);
 
   async function handleSaveText() {
     if (!draft.trim()) return;
@@ -640,17 +613,14 @@ export default function DropDetailModal({
   }
 
   async function handleArchiveTap() {
-    setMoreOpen(false);
     await archiveCapture(capture.id);
   }
 
   async function handleUndoTap() {
-    setMoreOpen(false);
     await undoCaptureState(capture.id);
   }
 
   function handleEditTap() {
-    setMoreOpen(false);
     setDraft(capture.text);
     setDraftTitle(capture.title ?? "");
     setTextError(null);
@@ -666,7 +636,6 @@ export default function DropDetailModal({
   }
 
   function handleToggleSpacePicker() {
-    setMoreOpen(false);
     setSpacePickerOpen((prev) => !prev);
   }
 
@@ -743,7 +712,7 @@ export default function DropDetailModal({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="text-ink-dim hover:text-ink text-xl leading-none"
+            className="flex items-center justify-center h-11 w-11 -m-1 text-ink-dim hover:text-ink text-3xl leading-none"
           >
             ✕
           </button>
@@ -894,36 +863,38 @@ export default function DropDetailModal({
       {/* Expanded Drop detail view v1 - sticky bottom toolbar, replacing
           the old scroll-with-content action row. Every Drop action lives
           here now: Pin, Edit, Space reassignment (SpacePicker's toggle,
-          relocated from inline body content), Add to Group, Complete,
-          Share, Hide, and a Delete/Archive/Undo overflow behind "More" -
-          those three stay tucked away rather than getting their own
-          buttons, same density tradeoff DropCard's own "More" panel
-          already made.
-          Pin/Edit/Space/Add to Group were icon-only at first (matching
+          relocated from inline body content), Add to Carousel, Complete,
+          Share, Hide, Delete, Archive, and Undo - no "More" overflow
+          anymore (Delete/Archive/Undo used to hide behind it; promoted
+          out to the primary rows since they're common enough to not be
+          worth an extra tap, which also left "More" with nothing left to
+          hide).
+          Pin/Edit/Space/Add to Carousel were icon-only at first (matching
           how the first three looked as header-row buttons on the
           compact card before this move) - confirmed live that read as
           unclear without labels ("+" in particular got read as "create a
           new Drop" rather than "link this Drop into a group"), so all
-          four now carry a text label too, in the same pill style
-          Complete/Share/Hide/More already use. Two rows rather than one:
-          8 labeled pills don't comfortably fit one row at typical phone
-          widths (~390px) the way 4 bare icons + 4 labeled pills did -
-          row 1 is the four relocated actions, row 2 is the four that
-          were always labeled. */}
-      <div
-        ref={footerRef}
-        className="shrink-0 border-t border-ink/10 bg-dusk px-3 sm:px-4 pt-2 pb-3"
-      >
+          four now carry a text label, and every button here (including
+          the ones that were already labeled) grew ~1.5x - confirmed live
+          that at typical phone widths (~390px) two flex-wrap groups (the
+          four relocated actions, then everything else) is still the
+          right split, but each group now wraps to more than one visual
+          line on its own at that width rather than staying single-line -
+          flex-wrap handles that adaptively rather than a rigid row count,
+          which matters here since several labels change length live
+          (Pin/Unpin, Hide/Unhide, Completed state) and a hardcoded n-per-
+          row split would drift out of sync with those. */}
+      <div className="shrink-0 border-t border-ink/10 bg-dusk px-3 sm:px-4 pt-2.5 pb-3.5">
         {confirmingComplete && (
-          <div className="flex items-center justify-center gap-2 flex-wrap mb-2 pb-2 border-b border-ink/10 text-center">
-            <span className="text-xs text-ink-dim">
+          <div className="flex items-center justify-center gap-2 flex-wrap mb-2.5 pb-2.5 border-b border-ink/10 text-center">
+            <span className="text-sm text-ink-dim">
               This checklist still has unchecked items. Complete anyway?
             </span>
             <button
               type="button"
               onClick={commitToggleStatus}
               disabled={togglingStatus}
-              className="text-xs font-semibold bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
+              className="text-lg font-semibold bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-full transition-all disabled:opacity-60"
             >
               Complete anyway
             </button>
@@ -931,44 +902,24 @@ export default function DropDetailModal({
               type="button"
               onClick={() => setConfirmingComplete(false)}
               disabled={togglingStatus}
-              className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-3 py-1.5 rounded-full transition-all disabled:opacity-60"
+              className="text-lg font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-4 py-2 rounded-full transition-all disabled:opacity-60"
             >
               Cancel
             </button>
           </div>
         )}
 
-        {moreOpen && isOwnCapture && (
-          <div className="flex items-center justify-center gap-1.5 flex-wrap mb-2 pb-2 border-b border-ink/10">
-            <DeleteDropButton captureId={capture.id} onDeleted={onClose} />
-            <button
-              type="button"
-              onClick={handleArchiveTap}
-              className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-2 py-1.5 rounded-full transition-all"
-            >
-              🗄️ Archive
-            </button>
-            <button
-              type="button"
-              onClick={handleUndoTap}
-              disabled={!capture.previousState}
-              aria-label="Undo last change"
-              className="text-xs font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-2 py-1.5 rounded-full transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              ↩️ Undo
-            </button>
-          </div>
-        )}
-
         {/* Row 1 - the four actions relocated from the compact card's
-            header row (Pin/Edit/Space) plus Add to Group. */}
-        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+            header row. Edit and Space stay adjacent (Pin, Edit, Space,
+            Add to Carousel) per the same ordering request that renamed
+            Add to Carousel below. */}
+        <div className="flex items-center justify-center gap-2 flex-wrap">
           {isOwnCapture && (
             <button
               type="button"
               onClick={handleTogglePin}
               aria-label={capture.pinned ? "Unpin" : "Pin"}
-              className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
+              className={`text-lg font-semibold px-4 py-2 rounded-full transition-all ${
                 capture.pinned ? "bg-gold/20 text-ink" : "bg-ink/5 hover:bg-ink/10 text-ink-dim"
               }`}
             >
@@ -981,7 +932,7 @@ export default function DropDetailModal({
               type="button"
               onClick={handleEditTap}
               aria-label="Edit"
-              className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
+              className={`text-lg font-semibold px-4 py-2 rounded-full transition-all ${
                 editing ? "bg-gold/20 text-ink" : "bg-ink/5 hover:bg-ink/10 text-ink-dim"
               }`}
             >
@@ -994,7 +945,7 @@ export default function DropDetailModal({
             onClick={handleToggleSpacePicker}
             aria-label="Change Space"
             aria-expanded={spacePickerOpen}
-            className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
+            className={`text-lg font-semibold px-4 py-2 rounded-full transition-all ${
               spacePickerOpen ? "bg-gold/20 text-ink" : "bg-ink/5 hover:bg-ink/10 text-ink-dim"
             }`}
           >
@@ -1005,24 +956,33 @@ export default function DropDetailModal({
             <button
               type="button"
               onClick={handleAddToGroupTap}
-              aria-label="Add to this Drop's carousel"
-              className="text-xs font-semibold px-2 py-1.5 rounded-full transition-all bg-ink/5 hover:bg-ink/10 text-ink-dim"
+              aria-label="Add to this Drop's Carousel"
+              // Plain "+" character, not the ➕ emoji glyph - same reason
+              // DropCard's own "+" button already avoids emoji here: an
+              // emoji's color is baked into the glyph itself and can't be
+              // recolored via CSS, which is exactly what made ➕
+              // unreadable against a dark background. Plain text inherits
+              // text-ink-dim/text-ink like every other label here.
+              className="text-lg font-semibold px-4 py-2 rounded-full transition-all bg-ink/5 hover:bg-ink/10 text-ink-dim"
             >
-              ➕ Add to Group
+              + Add to Carousel
             </button>
           )}
         </div>
 
-        {/* Row 2 - Complete/Share/Hide/More, unchanged in style/behavior
-            from before this view's toolbar existed. */}
-        <div className="flex items-center justify-center gap-1.5 flex-wrap mt-1.5">
+        {/* Row 2 - Complete/Share/Hide, plus Delete/Archive/Undo, which
+            used to be tucked behind a "More" toggle - promoted directly
+            into this row since they're common enough actions to not be
+            worth an extra tap to reveal. "More" itself is gone now that
+            it has nothing left to hide. */}
+        <div className="flex items-center justify-center gap-2 flex-wrap mt-2">
           {capture.isActionable && isOwnCapture && !confirmingComplete && (
             <button
               type="button"
               onClick={handleToggleStatus}
               disabled={togglingStatus}
               aria-label={isCompleted ? "Mark as active" : "Mark as completed"}
-              className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all disabled:opacity-60 ${
+              className={`text-lg font-semibold px-4 py-2 rounded-full transition-all disabled:opacity-60 ${
                 isCompleted ? "bg-orange-500 text-white" : "bg-ink/5 hover:bg-ink/10 text-ink-dim"
               }`}
             >
@@ -1030,14 +990,14 @@ export default function DropDetailModal({
             </button>
           )}
 
-          <ShareButton capture={capture} />
+          <ShareButton capture={capture} size="lg" />
 
           {!isSunshineDrop && isOwnCapture && (
             <button
               type="button"
               onClick={handleToggleHideTap}
               aria-label={isHiddenNow ? "Unhide" : "Hide"}
-              className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
+              className={`text-lg font-semibold px-4 py-2 rounded-full transition-all ${
                 isHiddenNow ? "bg-gray-800 text-white" : "bg-ink/5 hover:bg-ink/10 text-ink-dim"
               }`}
             >
@@ -1046,16 +1006,25 @@ export default function DropDetailModal({
           )}
 
           {isOwnCapture && (
-            <button
-              type="button"
-              onClick={() => setMoreOpen((prev) => !prev)}
-              aria-expanded={moreOpen}
-              className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
-                moreOpen ? "bg-gray-800 text-white" : "bg-ink/5 hover:bg-ink/10 text-ink-dim"
-              }`}
-            >
-              ⋯ More
-            </button>
+            <>
+              <DeleteDropButton captureId={capture.id} onDeleted={onClose} size="lg" />
+              <button
+                type="button"
+                onClick={handleArchiveTap}
+                className="text-lg font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-4 py-2 rounded-full transition-all"
+              >
+                🗄️ Archive
+              </button>
+              <button
+                type="button"
+                onClick={handleUndoTap}
+                disabled={!capture.previousState}
+                aria-label="Undo last change"
+                className="text-lg font-semibold bg-ink/5 hover:bg-ink/10 text-ink-dim px-4 py-2 rounded-full transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                ↩️ Undo
+              </button>
+            </>
           )}
         </div>
       </div>

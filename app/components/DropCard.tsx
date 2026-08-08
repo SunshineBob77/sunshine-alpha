@@ -40,6 +40,7 @@ export default function DropCard({
   customContent,
   hideTimestamp = false,
   isSunshineDrop = false,
+  onAddToGroup,
   variant = "light",
   imagePath = null,
   filePath = null,
@@ -125,6 +126,17 @@ export default function DropCard({
   // Drop it shouldn't have) can never surface as a wrong-colored card.
   // See spaceTone.ts's sunshineDropTone/sunshineDropAccentColor.
   isSunshineDrop?: boolean;
+  // Expanded Drop detail view v1 - re-added as a small quick-action icon
+  // next to the Space badge, reachable without opening the full detail
+  // view first. Pin/Edit stay modal-only (not re-added here) - this is
+  // the one exception, since it's common enough to want directly from
+  // the feed. Same "+" glyph/gating LifelineDropCard's onAddToGroup
+  // already used before Pin/Edit/"+" all moved into the modal together -
+  // deliberately independent of isOwnCapture (Shared Spaces' "friendly
+  // invite" model means any active member can add to a group, not just
+  // the Drop's own owner), and plain text, not the ➕ emoji - an emoji's
+  // color is baked into the glyph itself and can't be recolored via CSS.
+  onAddToGroup?: () => void;
   // Unified theme system v1 - these names are now slightly historical:
   // "dark" is the TOKEN-DRIVEN path (bg-dusk/text-ink/etc., which
   // globals.css makes resolve to the correct light-or-dark color
@@ -327,11 +339,33 @@ export default function DropCard({
         </div>
 
         {/* Expanded Drop detail view v1 - this header row used to also
-            carry "+" (add-to-group), Pin, and Edit icon buttons here.
-            All three moved into DropDetailModal's sticky bottom toolbar -
-            tapping the title below opens that view. Only the Space badge
-            (display, not an action) is left in this corner now. */}
+            carry Pin and Edit icon buttons here; both moved into
+            DropDetailModal's sticky bottom toolbar (tapping the title
+            below opens that view) and stay modal-only. "+" (add to
+            Carousel) came back as the one exception - see onAddToGroup's
+            own doc comment above for why. */}
         <div className="flex items-center gap-1.5 shrink-0">
+          {onAddToGroup && (
+            <button
+              type="button"
+              onClick={onAddToGroup}
+              aria-label="Add to this Drop's Carousel"
+              title="Add to Carousel"
+              // Plain "+" glyph, not an emoji character - an emoji's color
+              // is baked into the glyph itself and can't be recolored via
+              // CSS. Always a solid, explicitly-colored circle (no
+              // low-opacity idle state), matching the always-visible
+              // weight of the Space badge next to it.
+              className={`flex shrink-0 items-center justify-center rounded-full font-bold leading-none transition-all ${
+                isDark
+                  ? "text-ink bg-ink/15 hover:bg-ink/25"
+                  : "text-gray-900 bg-black/10 hover:bg-black/15"
+              } ${isHero ? "h-9 w-9 text-xl" : "h-6 w-6 text-base"}`}
+            >
+              +
+            </button>
+          )}
+
           <span
             className={`relative flex shrink-0 items-center justify-center rounded-full ${
               isHero ? "h-9 w-9 text-base" : "h-6 w-6 text-xs"

@@ -10,16 +10,23 @@ export default function DeleteDropButton({
   captureId,
   onDeleted,
   variant = "light",
+  size = "sm",
 }: {
   captureId: number;
   onDeleted?: () => void;
   variant?: "light" | "dark";
+  // Expanded Drop detail view v1 - "lg" (~1.5x) is scoped to
+  // DropDetailModal's own toolbar, which sized every other button up at
+  // the same time. LifelineDropCard's "More" panel on the compact card
+  // doesn't pass this, so it keeps its original size unchanged.
+  size?: "sm" | "lg";
 }) {
   const { removeCapture } = useCaptures();
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isDark = variant === "dark";
+  const isLarge = size === "lg";
 
   async function handleDelete() {
     setDeleting(true);
@@ -38,7 +45,7 @@ export default function DeleteDropButton({
   if (confirming) {
     return (
       <div className="inline-flex flex-col items-start gap-1.5">
-        <p className={`text-xs ${isDark ? "text-ink-dim" : "text-gray-600"}`}>
+        <p className={`${isLarge ? "text-sm" : "text-xs"} ${isDark ? "text-ink-dim" : "text-gray-600"}`}>
           Delete this Drop? This can&apos;t be undone.
         </p>
         <div className="flex items-center gap-2">
@@ -46,7 +53,7 @@ export default function DeleteDropButton({
             type="button"
             onClick={handleDelete}
             disabled={deleting}
-            className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all disabled:opacity-60 ${
+            className={`${isLarge ? "text-lg px-4 py-2" : "text-xs px-3 py-1.5"} font-semibold rounded-full transition-all disabled:opacity-60 ${
               isDark
                 ? "bg-red-500/90 hover:bg-red-500 text-white"
                 : "bg-red-600 hover:bg-red-700 text-white"
@@ -58,7 +65,7 @@ export default function DeleteDropButton({
             type="button"
             onClick={() => setConfirming(false)}
             disabled={deleting}
-            className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all disabled:opacity-60 ${
+            className={`${isLarge ? "text-lg px-4 py-2" : "text-xs px-3 py-1.5"} font-semibold rounded-full transition-all disabled:opacity-60 ${
               isDark
                 ? "bg-ink/5 hover:bg-ink/10 text-ink-dim"
                 : "bg-gray-100 hover:bg-gray-200 text-gray-700"
@@ -68,7 +75,9 @@ export default function DeleteDropButton({
           </button>
         </div>
         {error && (
-          <p className={`text-xs ${isDark ? "text-red-400" : "text-red-600"}`}>{error}</p>
+          <p className={`${isLarge ? "text-sm" : "text-xs"} ${isDark ? "text-red-400" : "text-red-600"}`}>
+            {error}
+          </p>
         )}
       </div>
     );
@@ -79,13 +88,13 @@ export default function DeleteDropButton({
       type="button"
       onClick={() => setConfirming(true)}
       aria-label="Delete Drop"
-      className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all ${
+      className={`${isLarge ? "text-lg px-4 py-2" : "text-xs px-2 py-1.5"} font-semibold rounded-full transition-all ${
         isDark
           ? "bg-ink/5 hover:bg-ink/10 text-ink-dim"
           : "bg-gray-100 hover:bg-gray-200 text-gray-600"
       }`}
     >
-      🗑️
+      {isLarge ? "🗑️ Delete" : "🗑️"}
     </button>
   );
 }

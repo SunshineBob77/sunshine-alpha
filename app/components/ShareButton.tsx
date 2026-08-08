@@ -9,19 +9,26 @@ import type { Capture } from "@/app/lib/captures";
 export default function ShareButton({
   capture,
   variant = "light",
+  size = "sm",
 }: {
   capture: Capture;
   variant?: "light" | "dark";
+  // Expanded Drop detail view v1 - "lg" (~1.5x) is scoped to
+  // DropDetailModal's own toolbar, which sized every other button up at
+  // the same time. LifelineDropCard's own usage doesn't pass this, so
+  // the compact card's Share button keeps its original size unchanged.
+  size?: "sm" | "lg";
 }) {
   const { status, manualLink, handleShare } = useShareCapture(capture);
   const isDark = variant === "dark";
+  const isLarge = size === "lg";
 
   return (
     <div className="inline-flex flex-col items-start gap-1">
       <button
         onClick={handleShare}
         disabled={status === "sharing"}
-        className={`text-xs font-semibold px-2 py-1.5 rounded-full transition-all disabled:opacity-60 ${
+        className={`${isLarge ? "text-lg px-4 py-2" : "text-xs px-2 py-1.5"} font-semibold rounded-full transition-all disabled:opacity-60 ${
           isDark
             ? "bg-gold/15 hover:bg-gold/25 text-peach"
             : "bg-amber-100 hover:bg-amber-200 text-amber-800"
@@ -38,7 +45,7 @@ export default function ShareButton({
           readOnly
           value={manualLink}
           onFocus={(event) => event.target.select()}
-          className={`text-xs rounded-lg px-2 py-1 w-56 border ${
+          className={`${isLarge ? "text-sm" : "text-xs"} rounded-lg px-2 py-1 w-56 border ${
             isDark
               ? "text-ink-dim bg-ink/5 border-ink/12"
               : "text-gray-500 bg-gray-50 border-gray-200"
